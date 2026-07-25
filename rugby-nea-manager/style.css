@@ -149,7 +149,15 @@ tr.myTeamRow td.teamCol { font-weight: 700; }
 #scoreboard .clock { font-size: 22px; font-weight: 800; color: var(--accent); }
 #scoreboard .scoreNum { font-size: 26px; }
 
-canvas#pitch { width: 100%; height: 340px; border-radius: 10px; display: block; border: 1px solid var(--border); }
+canvas#pitch {
+  width: 100%;
+  aspect-ratio: 7 / 4;
+  height: auto;
+  max-height: 620px;
+  border-radius: 10px;
+  display: block;
+  border: 1px solid var(--border);
+}
 
 #matchControls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .ctrlBtn {

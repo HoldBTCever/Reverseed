@@ -24,6 +24,34 @@ function bestBy(players, skillKey, posId) {
   return source.reduce((best, p) => (p.skills[skillKey] > best.skills[skillKey] ? p : best), source[0]);
 }
 
+function bestByGroup(players, skillKey, group) {
+  const pool = players.filter(p => p.group === group);
+  const source = pool.length ? pool : players;
+  return source.reduce((best, p) => (p.skills[skillKey] > best.skills[skillKey] ? p : best), source[0]);
+}
+
+// Qualidade de mão do time concentrada em quem mais toca a bola (9 e 10),
+// em vez de uma média diluída entre os 15 jogadores.
+function handlingRating(scrumHalf, flyHalf) {
+  return scrumHalf.skills.pass * 0.5 + scrumHalf.skills.reception * 0.15
+    + flyHalf.skills.pass * 0.25 + flyHalf.skills.reception * 0.10;
+}
+
+function handlingErrorChance(handling) {
+  return Math.max(0.01, Math.min(0.09, 0.04 - (handling - 65) * 0.0015));
+}
+
+// O jogador de pior passe entre 9 e 10 é o mais provável de errar a bola.
+function pickHandlingCulprit(scrumHalf, flyHalf) {
+  const wSH = Math.pow(100 - scrumHalf.skills.pass, 2) + 1;
+  const wFH = Math.pow(100 - flyHalf.skills.pass, 2) + 1;
+  return Math.random() * (wSH + wFH) < wSH ? scrumHalf : flyHalf;
+}
+
+function breakChance(pace) {
+  return Math.max(0.005, Math.min(0.09, 0.035 + (pace - 70) * 0.0018));
+}
+
 function teamStrength(team, players, tacticKey) {
   const tactic = TACTICS[tacticKey] || TACTICS.equilibrado;
   const forwardsAtk = teamOverall(players, 'forward');
@@ -48,10 +76,20 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
   const jumperA = bestBy(playersA, 'jump', 'SL');
   const jumperB = bestBy(playersB, 'jump', 'SL');
 
-  const handlingA = (teamSkillAvg(playersA, 'pass') + teamSkillAvg(playersA, 'reception')) / 2;
-  const handlingB = (teamSkillAvg(playersB, 'pass') + teamSkillAvg(playersB, 'reception')) / 2;
+  const scrumHalfA = playersA.find(p => p.posId === 'MS');
+  const scrumHalfB = playersB.find(p => p.posId === 'MS');
+  const flyHalfA = playersA.find(p => p.posId === 'AP');
+  const flyHalfB = playersB.find(p => p.posId === 'AP');
+
+  const handlingA = handlingRating(scrumHalfA, flyHalfA);
+  const handlingB = handlingRating(scrumHalfB, flyHalfB);
+  const handlingErrorA = handlingErrorChance(handlingA);
+  const handlingErrorB = handlingErrorChance(handlingB);
+
   const paceA = teamSkillAvg(playersA, 'speed', 'back');
   const paceB = teamSkillAvg(playersB, 'speed', 'back');
+  const fastestBackA = bestByGroup(playersA, 'speed', 'back');
+  const fastestBackB = bestByGroup(playersB, 'speed', 'back');
 
   let pos = 50; // 0 = try-line de A (perigo p/ A), 100 = try-line de B (perigo p/ B)
   let scoreA = 0;
@@ -93,26 +131,26 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
     let eventHandled = false;
 
-    // Quiebre de línea, más probable con líneas rápidas y de buenas manos
-    const breakChanceA = 0.035 + Math.max(0, paceA - 70) * 0.0012;
-    const breakChanceB = 0.035 + Math.max(0, paceB - 70) * 0.0012;
+    // Quiebre de línea, más probable con líneas rápidas (y menos con líneas lentas)
+    const breakChanceA = breakChance(paceA);
+    const breakChanceB = breakChance(paceB);
     if (Math.random() < breakChanceA) {
       push += rand(15, 26);
-      addLog(minute, `${teamA.name} rompe la línea con velocidad y avanza fuerte.`);
+      addLog(minute, `¡${fastestBackA.name} rompe la línea con velocidad y avanza para ${teamA.name}!`);
     } else if (Math.random() < breakChanceB) {
       push -= rand(15, 26);
-      addLog(minute, `${teamB.name} rompe la línea con velocidad y avanza fuerte.`);
+      addLog(minute, `¡${fastestBackB.name} rompe la línea con velocidad y avanza para ${teamB.name}!`);
     }
 
-    // Error de manos (pass/recepción bajos generan más pérdidas de pelota)
-    const handlingErrorA = Math.max(0, 0.05 - (handlingA - 65) * 0.0012);
-    const handlingErrorB = Math.max(0, 0.05 - (handlingB - 65) * 0.0012);
+    // Error de manos: concentrado en el 9 y el 10, que son quienes más tocan la pelota.
     if (!eventHandled && push > 0 && Math.random() < handlingErrorA) {
-      addLog(minute, `Knock-on de ${teamA.name}. Pierde la pelota en el avance.`);
+      const culprit = pickHandlingCulprit(scrumHalfA, flyHalfA);
+      addLog(minute, `Knock-on de ${teamA.name}: a ${culprit.name} se le escapa la pelota en el pase.`);
       push = -rand(4, 10);
       eventHandled = true;
     } else if (!eventHandled && push < 0 && Math.random() < handlingErrorB) {
-      addLog(minute, `Knock-on de ${teamB.name}. Pierde la pelota en el avance.`);
+      const culprit = pickHandlingCulprit(scrumHalfB, flyHalfB);
+      addLog(minute, `Knock-on de ${teamB.name}: a ${culprit.name} se le escapa la pelota en el pase.`);
       push = rand(4, 10);
       eventHandled = true;
     }
