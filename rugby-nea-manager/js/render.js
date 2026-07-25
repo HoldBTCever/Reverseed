@@ -9,16 +9,21 @@ export class MatchRenderer {
     this.dots = this.makeDots();
     this.currentPos = 50;
     this.jitterSeed = 0;
+    this.lastX = null;
+    this.attackingTeam = 'A';
   }
 
+  // 5 forwards (disputam a bola no ponto de contato) + 3 backs (linha de ataque/defesa) por time.
   makeDots() {
     const dots = [];
-    for (let i = 0; i < 8; i++) {
-      dots.push({team: 'A', dx: (Math.random() - 0.5) * 60, dy: (Math.random() - 0.5) * 140});
-    }
-    for (let i = 0; i < 8; i++) {
-      dots.push({team: 'B', dx: (Math.random() - 0.5) * 60, dy: (Math.random() - 0.5) * 140});
-    }
+    ['A', 'B'].forEach(team => {
+      for (let i = 0; i < 5; i++) {
+        dots.push({team, role: 'forward', slot: i, phase: Math.random() * Math.PI * 2});
+      }
+      for (let i = 0; i < 3; i++) {
+        dots.push({team, role: 'back', slot: i, phase: Math.random() * Math.PI * 2});
+      }
+    });
     return dots;
   }
 
@@ -86,12 +91,12 @@ export class MatchRenderer {
 
     const lineAt = pct => fieldX0 + fieldW * pct;
 
-    // linhas de 22m, 10m e meio de campo
+    // campo de jogo tem 100m (try-line a try-line); 22m = 22%, 10m da metade = 40%/60%.
     const marks = [
       {pct: 0.22, dash: true, w: 1.5},
-      {pct: 0.32, dash: true, w: 1, faint: true}, // 10m da linha dos 22
+      {pct: 0.40, dash: true, w: 1, faint: true}, // linha dos 10m (offside de saída), lado A
       {pct: 0.5, dash: false, w: 2.5},
-      {pct: 0.68, dash: true, w: 1, faint: true},
+      {pct: 0.60, dash: true, w: 1, faint: true}, // linha dos 10m, lado B
       {pct: 0.78, dash: true, w: 1.5},
     ];
     marks.forEach(m => {
@@ -105,18 +110,18 @@ export class MatchRenderer {
     });
     ctx.setLineDash([]);
 
-    // marcas de 5m e 15m ao longo das laterais (tick marks)
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    // linhas de 5m e 15m, paralelas às laterais (largura real de 70m: 5m ≈ 7,1%, 15m ≈ 21,4%).
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
     ctx.lineWidth = 1;
-    for (let p = 0.06; p < 1; p += 0.08) {
-      const x = lineAt(p);
-      [y0, y1].forEach(y => {
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y + (y === y0 ? 8 : -8));
-        ctx.stroke();
-      });
-    }
+    ctx.setLineDash([4, 6]);
+    [0.071, 0.214, 0.786, 0.929].forEach(pctY => {
+      const y = y0 + fieldH * pctY;
+      ctx.beginPath();
+      ctx.moveTo(fieldX0, y);
+      ctx.lineTo(fieldX1, y);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
 
     // círculo central
     ctx.beginPath();
@@ -186,15 +191,48 @@ export class MatchRenderer {
 
     this.jitterSeed += 0.12;
 
-    this.dots.forEach((dot, i) => {
-      const isA = dot.team === 'A';
-      const bias = isA ? -50 : 50;
-      const followX = x + bias * 0.28 + Math.sin(this.jitterSeed + i) * 10 + dot.dx * 0.35;
-      const followY = centerY + dot.dy * 0.9 + Math.cos(this.jitterSeed * 1.3 + i) * 6;
-      const clampedX = Math.max(fieldGeom.marginX + 8, Math.min(fieldGeom.marginX + fieldGeom.fieldW - 8, followX));
-      const clampedY = Math.max(fieldGeom.marginY + 8, Math.min(fieldGeom.marginY + fieldGeom.fieldH - 8, followY));
+    // Time atacante = quem está empurrando o jogo para a frente (posição crescendo = A ataca).
+    if (this.lastX !== null) {
+      const delta = x - this.lastX;
+      if (Math.abs(delta) > 0.05) {
+        this.attackingTeam = delta > 0 ? 'A' : 'B';
+      }
+    }
+    this.lastX = x;
+    const dirSign = this.attackingTeam === 'A' ? 1 : -1; // sentido do ataque no eixo x
+
+    const yTop = fieldGeom.marginY + 10;
+    const yBot = fieldGeom.marginY + fieldGeom.fieldH - 10;
+    const ySpan = yBot - yTop;
+    const clampX = v => Math.max(fieldGeom.marginX + 8, Math.min(fieldGeom.marginX + fieldGeom.fieldW - 8, v));
+    const clampY = v => Math.max(yTop, Math.min(yBot, v));
+
+    this.dots.forEach(dot => {
+      const isAttacking = dot.team === this.attackingTeam;
+      const bob = Math.sin(this.jitterSeed + dot.phase) * 3;
+      let px;
+      let py;
+
+      if (dot.role === 'forward') {
+        // Forwards das duas equipes disputam junto ao ponto de contato (ruck/maul).
+        const side = isAttacking ? -1 : 1; // ataque chega por trás da bola, defesa a encontra pela frente
+        px = x + side * dirSign * (6 + dot.slot * 3) + bob;
+        py = centerY + (dot.slot - 2) * 9 + Math.cos(this.jitterSeed * 1.2 + dot.phase) * 4;
+      } else if (isAttacking) {
+        // Backs do ataque: linha diagonal de apoio, atrás da bola e abertos em largura.
+        const depth = 22 + dot.slot * 16;
+        px = x - dirSign * depth + bob;
+        py = centerY + (dot.slot - 1) * ySpan * 0.24;
+      } else {
+        // Backs da defesa: linha reta cobrindo toda a largura, entre a bola e o próprio ingoal.
+        px = x + dirSign * 42 + bob;
+        py = yTop + (dot.slot + 0.5) * (ySpan / 3);
+      }
+
+      const clampedX = clampX(px);
+      const clampedY = clampY(py);
       ctx.beginPath();
-      ctx.fillStyle = isA ? this.teamA.color : this.teamB.color;
+      ctx.fillStyle = dot.team === 'A' ? this.teamA.color : this.teamB.color;
       ctx.arc(clampedX, clampedY, 6, 0, Math.PI * 2);
       ctx.fill();
       ctx.lineWidth = 1;
