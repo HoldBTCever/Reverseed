@@ -1,5 +1,32 @@
 // Renderização da quadra 2D (campo de rugby completo) e animação da partida ao vivo.
 
+// As 15 posições da numeração tradicional do rugby, com onde cada uma se
+// posiciona em relação à bola (profundidade) e à largura do campo (y).
+// "tight" = forwards de contato direto (pilares, hooker, segunda linha);
+// ficam sempre junto à disputa, dos dois lados. As demais posições recuam
+// (ataque) ou avançam (defesa) em relação à bola, cada uma com sua
+// profundidade e abertura típicas.
+const ROLE_TEMPLATE = [
+  {num: 1, kind: 'tight', y: -0.10},
+  {num: 2, kind: 'tight', y: 0.00},
+  {num: 3, kind: 'tight', y: 0.10},
+  {num: 4, kind: 'tight', y: -0.06},
+  {num: 5, kind: 'tight', y: 0.06},
+  {num: 6, kind: 'loose', y: -0.22},
+  {num: 7, kind: 'loose', y: 0.22},
+  {num: 8, kind: 'loose', y: 0.00},
+  {num: 9, kind: 'halfback', y: 0.05, attackDepth: 16, defenseDepth: 12},
+  {num: 10, kind: 'back', y: 0.16, attackDepth: 36, defenseDepth: 38},
+  {num: 11, kind: 'back', y: -0.90, attackDepth: 55, defenseDepth: 46},
+  {num: 12, kind: 'back', y: 0.30, attackDepth: 46, defenseDepth: 44},
+  {num: 13, kind: 'back', y: 0.45, attackDepth: 48, defenseDepth: 44},
+  {num: 14, kind: 'back', y: 0.90, attackDepth: 55, defenseDepth: 46},
+  {num: 15, kind: 'back', y: -0.02, attackDepth: 72, defenseDepth: 82},
+];
+
+const TIGHT_DEPTH = {attack: 8, defense: 8};
+const LOOSE_DEPTH = {attack: 13, defense: 11};
+
 export class MatchRenderer {
   constructor(canvas, teamA, teamB) {
     this.canvas = canvas;
@@ -13,16 +40,13 @@ export class MatchRenderer {
     this.attackingTeam = 'A';
   }
 
-  // 5 forwards (disputam a bola no ponto de contato) + 3 backs (linha de ataque/defesa) por time.
+  // Os 15 jogadores de cada equipe, com numeração e posto reais.
   makeDots() {
     const dots = [];
     ['A', 'B'].forEach(team => {
-      for (let i = 0; i < 5; i++) {
-        dots.push({team, role: 'forward', slot: i, phase: Math.random() * Math.PI * 2});
-      }
-      for (let i = 0; i < 3; i++) {
-        dots.push({team, role: 'back', slot: i, phase: Math.random() * Math.PI * 2});
-      }
+      ROLE_TEMPLATE.forEach(role => {
+        dots.push({team, ...role, phase: Math.random() * Math.PI * 2});
+      });
     });
     return dots;
   }
@@ -203,41 +227,45 @@ export class MatchRenderer {
 
     const yTop = fieldGeom.marginY + 10;
     const yBot = fieldGeom.marginY + fieldGeom.fieldH - 10;
-    const ySpan = yBot - yTop;
-    const clampX = v => Math.max(fieldGeom.marginX + 8, Math.min(fieldGeom.marginX + fieldGeom.fieldW - 8, v));
+    const yHalfSpan = (yBot - yTop) / 2;
+    const clampX = v => Math.max(fieldGeom.marginX + 10, Math.min(fieldGeom.marginX + fieldGeom.fieldW - 10, v));
     const clampY = v => Math.max(yTop, Math.min(yBot, v));
+
+    ctx.font = 'bold 8px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
 
     this.dots.forEach(dot => {
       const isAttacking = dot.team === this.attackingTeam;
       const bob = Math.sin(this.jitterSeed + dot.phase) * 3;
       let px;
-      let py;
 
-      if (dot.role === 'forward') {
-        // Forwards das duas equipes disputam junto ao ponto de contato (ruck/maul).
+      if (dot.kind === 'tight' || dot.kind === 'loose') {
+        // Forwards das duas equipes disputam junto ao ponto de contato (ruck/maul/scrum/line-out).
+        const depth = dot.kind === 'tight' ? TIGHT_DEPTH : LOOSE_DEPTH;
         const side = isAttacking ? -1 : 1; // ataque chega por trás da bola, defesa a encontra pela frente
-        px = x + side * dirSign * (6 + dot.slot * 3) + bob;
-        py = centerY + (dot.slot - 2) * 9 + Math.cos(this.jitterSeed * 1.2 + dot.phase) * 4;
+        const d = isAttacking ? depth.attack : depth.defense;
+        px = x + side * dirSign * d + bob;
       } else if (isAttacking) {
-        // Backs do ataque: linha diagonal de apoio, atrás da bola e abertos em largura.
-        const depth = 22 + dot.slot * 16;
-        px = x - dirSign * depth + bob;
-        py = centerY + (dot.slot - 1) * ySpan * 0.24;
+        // Backs do ataque: recuam em relação à bola, cada um na sua profundidade típica de linha.
+        px = x - dirSign * dot.attackDepth + bob;
       } else {
-        // Backs da defesa: linha reta cobrindo toda a largura, entre a bola e o próprio ingoal.
-        px = x + dirSign * 42 + bob;
-        py = yTop + (dot.slot + 0.5) * (ySpan / 3);
+        // Backs da defesa: avançam em relação à bola, formando a linha defensiva.
+        px = x + dirSign * dot.defenseDepth + bob;
       }
 
+      const py = centerY + dot.y * yHalfSpan + Math.cos(this.jitterSeed * 1.2 + dot.phase) * 3;
       const clampedX = clampX(px);
       const clampedY = clampY(py);
       ctx.beginPath();
       ctx.fillStyle = dot.team === 'A' ? this.teamA.color : this.teamB.color;
-      ctx.arc(clampedX, clampedY, 6, 0, Math.PI * 2);
+      ctx.arc(clampedX, clampedY, 8, 0, Math.PI * 2);
       ctx.fill();
       ctx.lineWidth = 1;
       ctx.strokeStyle = 'rgba(0,0,0,0.4)';
       ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(String(dot.num), clampedX, clampedY + 0.5);
     });
 
     // bola
