@@ -1,14 +1,29 @@
 # Rugby NEA Manager
 
-Jogo de manager de rugby do Campeonato do Nordeste Argentino (NEA), no estilo
-Football Manager: escolha um clube, acompanhe a tabela e o fixture (turno e
-returno) e assista às partidas rolando ao vivo em uma quadra 2D animada, com
-placar, cronômetro e narração em tempo real.
+Jogo de manager de rugby no estilo Football Manager: escolha um clube de uma
+das ligas disponíveis, acompanhe a tabela e o fixture (turno e returno) e
+assista às partidas rolando ao vivo em uma quadra 2D animada, com placar,
+cronômetro e narração em tempo real.
 
-## Times
+## Ligas e times
 
-Taraguy, Aranduroga, Regatas, Curda, San José, Sixty, Capri, Curne, Aguará e
-San Patricio.
+- **Campeonato do Nordeste Argentino (NEA):** Taraguy, Aranduroga, Regatas,
+  Curda, San José, Sixty, Capri, Curne, Aguará e San Patricio.
+- **Campeonato Paraguaio:** San José, Curda, Santa Clara, Luque, Asunción,
+  Área 1, Cristo Rey e Fernando de la Mora.
+
+Ao escolher um time, o campeonato é disputado somente entre os clubes da
+mesma liga/país.
+
+## Skills dos jogadores
+
+Além do overall, cada jogador tem 8 atributos específicos de rugby, com pesos
+por posição (ex.: hooker tem lançamento lateral alto, segunda linha tem salto
+alto, apertura tem chute alto): Passe, Recepção, Lançamento lateral, Salto,
+Tackle, Chute, Velocidade e Força. Esses atributos influenciam diretamente o
+motor da partida — disputas de line-out (lançamento x salto), erros de mão
+(passe/recepção), quebras de linha (velocidade) e chutes a gol/conversões
+(chute).
 
 ## Como jogar
 
@@ -44,7 +59,7 @@ rugby-nea-manager/
 ├── index.html
 ├── style.css
 └── js/
-    ├── data.js       # Times NEA e geração de elencos
+    ├── data.js       # Ligas, times e geração de elencos com skills
     ├── engine.js      # Motor de simulação da partida (minuto a minuto)
     ├── fixtures.js     # Fixture turno/returno e tabela de classificação
     ├── render.js      # Renderização da quadra 2D animada (canvas)

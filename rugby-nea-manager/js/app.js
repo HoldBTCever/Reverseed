@@ -1,11 +1,14 @@
-import {TEAMS, generateSquad, teamOverall} from './data.js';
+import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS} from './data.js';
 import {simulateMatch, TACTICS} from './engine.js';
 import {MatchRenderer} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings} from './fixtures.js';
 
-const SAVE_KEY = 'rugbyNeaSave_v1';
+const SAVE_KEY = 'rugbyNeaSave_v2';
 
 const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
+function crestCode(team) {
+  return team.id.slice(-3);
+}
 const squadCache = {};
 function squadOf(teamId) {
   if (!squadCache[teamId]) squadCache[teamId] = generateSquad(teamById[teamId]);
@@ -31,7 +34,8 @@ function saveState() {
 }
 
 function newGame(myTeamId) {
-  const ids = TEAMS.map(t => t.id);
+  const league = leagueOfTeam(myTeamId);
+  const ids = league.teams.map(t => t.id);
   state = {
     myTeamId,
     fixture: generateFixture(ids),
@@ -105,21 +109,30 @@ function render() {
 
 function renderTeamSelect() {
   content.innerHTML = `
-    <h1>🏉 Escolha seu time — Campeonato do Nordeste Argentino</h1>
-    <p class="muted">Selecione o clube que você vai comandar como manager. As partidas são simuladas e exibidas ao vivo na quadra.</p>
-    <div class="teamGrid" id="teamGrid"></div>
+    <h1>🏉 Escolha seu time</h1>
+    <p class="muted">Selecione o clube que você vai comandar como manager. Você disputa o campeonato do seu país, junto com os outros clubes da mesma liga, e acompanha as partidas ao vivo na quadra.</p>
+    <div id="leagueSections"></div>
   `;
-  const grid = document.getElementById('teamGrid');
-  TEAMS.forEach(team => {
-    const card = document.createElement('div');
-    card.className = 'teamCard';
-    card.innerHTML = `
-      <div class="teamCrest" style="background:${team.color}">${team.id}</div>
-      <div class="teamName">${team.name}</div>
-      <div class="teamStats">Ataque ${team.attack} · Defesa ${team.defense} · Físico ${team.stamina}</div>
-    `;
-    card.addEventListener('click', () => newGame(team.id));
-    grid.appendChild(card);
+  const sections = document.getElementById('leagueSections');
+  LEAGUES.forEach(league => {
+    const section = document.createElement('div');
+    section.className = 'card';
+    section.innerHTML = `<h2>${league.name} <span class="muted">— ${league.country}</span></h2>`;
+    const grid = document.createElement('div');
+    grid.className = 'teamGrid';
+    league.teams.forEach(team => {
+      const card = document.createElement('div');
+      card.className = 'teamCard';
+      card.innerHTML = `
+        <div class="teamCrest" style="background:${team.color}">${crestCode(team)}</div>
+        <div class="teamName">${team.name}</div>
+        <div class="teamStats">Ataque ${team.attack} · Defesa ${team.defense} · Físico ${team.stamina}</div>
+      `;
+      card.addEventListener('click', () => newGame(team.id));
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+    sections.appendChild(section);
   });
 }
 
@@ -217,6 +230,16 @@ function renderFixture() {
   });
 }
 
+const SKILL_KEYS = Object.keys(SKILL_LABELS);
+const SKILL_SHORT = {
+  pass: 'PAS', reception: 'REC', lineoutThrow: 'LAT', jump: 'SAL',
+  tackle: 'TAC', kicking: 'CHU', speed: 'VEL', strength: 'FOR',
+};
+
+function skillCell(value) {
+  return `<td title="${value}"><span class="ratingBar"><span style="width:${value}%"></span></span>${value}</td>`;
+}
+
 function renderSquad() {
   const players = squadOf(state.myTeamId);
   const forwards = players.filter(p => p.group === 'forward');
@@ -226,20 +249,28 @@ function renderSquad() {
       <td>${p.number}</td>
       <td class="teamCol">${p.name}</td>
       <td class="posCol">${p.position}</td>
-      <td><span class="ratingBar"><span style="width:${p.rating}%"></span></span>${p.rating}</td>
+      <td><b>${p.rating}</b></td>
+      ${SKILL_KEYS.map(k => skillCell(p.skills[k])).join('')}
+    </tr>
+  `;
+  const headHtml = `
+    <tr>
+      <th>#</th><th class="teamCol">Jogador</th><th>Posição</th><th>Overall</th>
+      ${SKILL_KEYS.map(k => `<th title="${SKILL_LABELS[k]}">${SKILL_SHORT[k]}</th>`).join('')}
     </tr>
   `;
   content.innerHTML = `
     <h1>Elenco — ${teamById[state.myTeamId].name}</h1>
+    <p class="muted">PAS Passe · REC Recepção · LAT Lançamento lateral · SAL Salto · TAC Tackle · CHU Chute · VEL Velocidade · FOR Força</p>
     <div class="card">
       <h3>Forwards <span class="muted">(overall ${teamOverall(players, 'forward')})</span></h3>
-      <table class="squadTable"><thead><tr><th>#</th><th class="teamCol">Jogador</th><th>Posição</th><th>Rating</th></tr></thead>
-      <tbody>${forwards.map(rowHtml).join('')}</tbody></table>
+      <div class="tableScroll"><table class="squadTable"><thead>${headHtml}</thead>
+      <tbody>${forwards.map(rowHtml).join('')}</tbody></table></div>
     </div>
     <div class="card">
       <h3>Backs <span class="muted">(overall ${teamOverall(players, 'back')})</span></h3>
-      <table class="squadTable"><thead><tr><th>#</th><th class="teamCol">Jogador</th><th>Posição</th><th>Rating</th></tr></thead>
-      <tbody>${backs.map(rowHtml).join('')}</tbody></table>
+      <div class="tableScroll"><table class="squadTable"><thead>${headHtml}</thead>
+      <tbody>${backs.map(rowHtml).join('')}</tbody></table></div>
     </div>
   `;
 }
@@ -308,12 +339,12 @@ function renderLive() {
   content.innerHTML = `
     <div id="matchWrap">
       <div id="scoreboard">
-        <div class="side"><span class="crestSmall" style="background:${homeTeam.color}">${homeTeam.id}</span>${homeTeam.name}</div>
+        <div class="side"><span class="crestSmall" style="background:${homeTeam.color}">${crestCode(homeTeam)}</span>${homeTeam.name}</div>
         <div class="center">
           <div class="clock" id="clockEl">0'</div>
           <div class="scoreNum"><span id="scoreHomeEl">0</span> - <span id="scoreAwayEl">0</span></div>
         </div>
-        <div class="side">${awayTeam.name}<span class="crestSmall" style="background:${awayTeam.color}">${awayTeam.id}</span></div>
+        <div class="side">${awayTeam.name}<span class="crestSmall" style="background:${awayTeam.color}">${crestCode(awayTeam)}</span></div>
       </div>
       <canvas id="pitch"></canvas>
       <div id="matchControls">

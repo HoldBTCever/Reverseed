@@ -1,4 +1,4 @@
-// Renderização da quadra 2D e animação da partida ao vivo.
+// Renderização da quadra 2D (campo de rugby completo) e animação da partida ao vivo.
 
 export class MatchRenderer {
   constructor(canvas, teamA, teamB) {
@@ -34,46 +34,143 @@ export class MatchRenderer {
 
   drawPitch() {
     const {ctx, width, height} = this;
-    ctx.fillStyle = '#1c6b2e';
-    ctx.fillRect(0, 0, width, height);
 
-    // faixas de grama
-    const stripes = 12;
-    ctx.fillStyle = 'rgba(255,255,255,0.035)';
-    for (let i = 0; i < stripes; i += 2) {
-      ctx.fillRect((width / stripes) * i, 0, width / stripes, height);
+    // In-goal (área de try) ocupa ~9% de cada lado; campo de jogo fica no meio.
+    const inGoalW = width * 0.09;
+    const marginY = 22;
+    const fieldX0 = inGoalW;
+    const fieldX1 = width - inGoalW;
+    const fieldW = fieldX1 - fieldX0;
+    const fieldH = height - marginY * 2;
+    const y0 = marginY;
+    const y1 = height - marginY;
+
+    // grama de fundo, com listras de corte alternadas em toda a extensão (in-goal incluído)
+    const stripes = 16;
+    const totalW = width;
+    for (let i = 0; i < stripes; i++) {
+      ctx.fillStyle = i % 2 === 0 ? '#1c6b2e' : '#1a6329';
+      ctx.fillRect((totalW / stripes) * i, 0, totalW / stripes + 1, height);
     }
 
-    const marginX = 30;
-    const marginY = 24;
-    const fieldW = width - marginX * 2;
-    const fieldH = height - marginY * 2;
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(marginX, marginY, fieldW, fieldH);
-
-    const lineAt = pct => marginX + fieldW * pct;
-    ctx.setLineDash([6, 6]);
-    [0.05, 0.22, 0.5, 0.78, 0.95].forEach((pct, idx) => {
+    // in-goal com leve textura diferenciada (tracejado diagonal)
+    [[0, inGoalW], [fieldX1, width]].forEach(([x0, x1]) => {
+      ctx.save();
       ctx.beginPath();
-      ctx.lineWidth = pct === 0.5 ? 2.5 : 1.5;
-      ctx.strokeStyle = (pct === 0.05 || pct === 0.95) ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.6)';
-      ctx.setLineDash(pct === 0.05 || pct === 0.95 || pct === 0.5 ? [] : [6, 6]);
-      ctx.moveTo(lineAt(pct), marginY);
-      ctx.lineTo(lineAt(pct), marginY + fieldH);
+      ctx.rect(x0, y0, x1 - x0, fieldH);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 3;
+      for (let d = -fieldH; d < (x1 - x0) + fieldH; d += 14) {
+        ctx.beginPath();
+        ctx.moveTo(x0 + d, y0);
+        ctx.lineTo(x0 + d - fieldH, y0 + fieldH);
+        ctx.stroke();
+      }
+      ctx.restore();
+    });
+
+    // contorno do campo de jogo (touchlines + linhas de fundo/try) e do dead-ball
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(0, y0, width, fieldH); // dead-ball lines (bordas externas)
+
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(fieldX0, y0); ctx.lineTo(fieldX0, y1); // try line A
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(fieldX1, y0); ctx.lineTo(fieldX1, y1); // try line B
+    ctx.stroke();
+
+    const lineAt = pct => fieldX0 + fieldW * pct;
+
+    // linhas de 22m, 10m e meio de campo
+    const marks = [
+      {pct: 0.22, dash: true, w: 1.5},
+      {pct: 0.32, dash: true, w: 1, faint: true}, // 10m da linha dos 22
+      {pct: 0.5, dash: false, w: 2.5},
+      {pct: 0.68, dash: true, w: 1, faint: true},
+      {pct: 0.78, dash: true, w: 1.5},
+    ];
+    marks.forEach(m => {
+      ctx.beginPath();
+      ctx.setLineDash(m.dash ? [7, 7] : []);
+      ctx.lineWidth = m.w;
+      ctx.strokeStyle = m.faint ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.85)';
+      ctx.moveTo(lineAt(m.pct), y0);
+      ctx.lineTo(lineAt(m.pct), y1);
       ctx.stroke();
     });
     ctx.setLineDash([]);
 
+    // marcas de 5m e 15m ao longo das laterais (tick marks)
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 1;
+    for (let p = 0.06; p < 1; p += 0.08) {
+      const x = lineAt(p);
+      [y0, y1].forEach(y => {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y + (y === y0 ? 8 : -8));
+        ctx.stroke();
+      });
+    }
+
+    // círculo central
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.arc(lineAt(0.5), (y0 + y1) / 2, Math.min(fieldH * 0.16, 28), 0, Math.PI * 2);
+    ctx.stroke();
+
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.font = '11px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('22', lineAt(0.22), marginY - 8);
-    ctx.fillText('22', lineAt(0.78), marginY - 8);
-    ctx.fillText('50', lineAt(0.5), marginY - 8);
+    ctx.fillText('22', lineAt(0.22), y0 - 7);
+    ctx.fillText('22', lineAt(0.78), y0 - 7);
+    ctx.fillText('50', lineAt(0.5), y0 - 7);
 
-    this.fieldGeom = {marginX, marginY, fieldW, fieldH, lineAt};
+    // bandeirinhas de escanteio (nos 4 cantos do campo de jogo)
+    const flagPositions = [
+      [fieldX0, y0], [fieldX0, y1], [fieldX1, y0], [fieldX1, y1],
+    ];
+    flagPositions.forEach(([x, y]) => {
+      ctx.fillStyle = '#e53935';
+      ctx.beginPath();
+      const dir = y === y0 ? -1 : 1;
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + 6, y + dir * 3);
+      ctx.lineTo(x, y + dir * 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y + dir * 14);
+      ctx.stroke();
+    });
+
+    // traves (H) centralizadas em cada linha de try, dentro do in-goal
+    const goalY = (y0 + y1) / 2;
+    const postGap = Math.min(fieldH * 0.22, 30);
+    [{x: fieldX0, dir: -1}, {x: fieldX1, dir: 1}].forEach(({x, dir}) => {
+      const postX = x + dir * inGoalW * 0.55;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(postX, goalY - postGap);
+      ctx.lineTo(postX, goalY + postGap);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(postX - 5, goalY - postGap * 0.35);
+      ctx.lineTo(postX + 5, goalY - postGap * 0.35);
+      ctx.stroke();
+    });
+
+    this.fieldGeom = {marginX: fieldX0, marginY: y0, fieldW, fieldH, lineAt, centerY: goalY};
   }
 
   posToX(pos) {
@@ -84,7 +181,7 @@ export class MatchRenderer {
   draw(pos, scoreA, scoreB, minute) {
     this.drawPitch();
     const {ctx, fieldGeom} = this;
-    const centerY = fieldGeom.marginY + fieldGeom.fieldH / 2;
+    const centerY = fieldGeom.centerY;
     const x = this.posToX(pos);
 
     this.jitterSeed += 0.12;

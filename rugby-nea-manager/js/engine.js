@@ -1,6 +1,6 @@
 // Motor de simulação de partida de rugby (15 a side, 80 minutos).
 
-import {teamOverall} from './data.js';
+import {teamOverall, teamSkillAvg} from './data.js';
 
 const TACTICS = {
   agresivo: {attackMod: 1.12, defenseMod: 0.90, label: 'Agresivo'},
@@ -18,6 +18,12 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function bestBy(players, skillKey, posId) {
+  const pool = posId ? players.filter(p => p.posId === posId) : players;
+  const source = pool.length ? pool : players;
+  return source.reduce((best, p) => (p.skills[skillKey] > best.skills[skillKey] ? p : best), source[0]);
+}
+
 function teamStrength(team, players, tacticKey) {
   const tactic = TACTICS[tacticKey] || TACTICS.equilibrado;
   const forwardsAtk = teamOverall(players, 'forward');
@@ -31,17 +37,21 @@ function teamStrength(team, players, tacticKey) {
   };
 }
 
-function bestKicker(players) {
-  const candidates = players.filter(p => p.posId === 'AP' || p.posId === 'FB');
-  const pool = candidates.length ? candidates : players;
-  return pool.reduce((best, p) => (p.rating > best.rating ? p : best), pool[0]);
-}
-
 export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB) {
   const sA = teamStrength(teamA, playersA, tacticA);
   const sB = teamStrength(teamB, playersB, tacticB);
-  const kickerA = bestKicker(playersA);
-  const kickerB = bestKicker(playersB);
+
+  const kickerA = bestBy(playersA, 'kicking', 'AP');
+  const kickerB = bestBy(playersB, 'kicking', 'AP');
+  const hookerA = bestBy(playersA, 'lineoutThrow', 'HK');
+  const hookerB = bestBy(playersB, 'lineoutThrow', 'HK');
+  const jumperA = bestBy(playersA, 'jump', 'SL');
+  const jumperB = bestBy(playersB, 'jump', 'SL');
+
+  const handlingA = (teamSkillAvg(playersA, 'pass') + teamSkillAvg(playersA, 'reception')) / 2;
+  const handlingB = (teamSkillAvg(playersB, 'pass') + teamSkillAvg(playersB, 'reception')) / 2;
+  const paceA = teamSkillAvg(playersA, 'speed', 'back');
+  const paceB = teamSkillAvg(playersB, 'speed', 'back');
 
   let pos = 50; // 0 = try-line de A (perigo p/ A), 100 = try-line de B (perigo p/ B)
   let scoreA = 0;
@@ -81,24 +91,62 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     let push = ((effAttackA - effDefenseB) - (effAttackB - effDefenseA)) * 0.14;
     push += rand(-9, 9);
 
-    if (Math.random() < 0.06) {
-      push += pick([-1, 1]) * rand(15, 26); // quiebre / turnover brusco
-      addLog(minute, push > 0 ? `${teamA.name} rompe la línea y avanza fuerte.` : `${teamB.name} recupera y avanza fuerte.`);
+    let eventHandled = false;
+
+    // Quiebre de línea, más probable con líneas rápidas y de buenas manos
+    const breakChanceA = 0.035 + Math.max(0, paceA - 70) * 0.0012;
+    const breakChanceB = 0.035 + Math.max(0, paceB - 70) * 0.0012;
+    if (Math.random() < breakChanceA) {
+      push += rand(15, 26);
+      addLog(minute, `${teamA.name} rompe la línea con velocidad y avanza fuerte.`);
+    } else if (Math.random() < breakChanceB) {
+      push -= rand(15, 26);
+      addLog(minute, `${teamB.name} rompe la línea con velocidad y avanza fuerte.`);
+    }
+
+    // Error de manos (pass/recepción bajos generan más pérdidas de pelota)
+    const handlingErrorA = Math.max(0, 0.05 - (handlingA - 65) * 0.0012);
+    const handlingErrorB = Math.max(0, 0.05 - (handlingB - 65) * 0.0012);
+    if (!eventHandled && push > 0 && Math.random() < handlingErrorA) {
+      addLog(minute, `Knock-on de ${teamA.name}. Pierde la pelota en el avance.`);
+      push = -rand(4, 10);
+      eventHandled = true;
+    } else if (!eventHandled && push < 0 && Math.random() < handlingErrorB) {
+      addLog(minute, `Knock-on de ${teamB.name}. Pierde la pelota en el avance.`);
+      push = rand(4, 10);
+      eventHandled = true;
+    }
+
+    // Line-out disputado (lanzamiento vs salto)
+    if (!eventHandled && Math.random() < 0.05) {
+      const throwingA = Math.random() < 0.5;
+      const thrower = throwingA ? hookerA : hookerB;
+      const rivalJumper = throwingA ? jumperB : jumperA;
+      const throwTeam = throwingA ? teamA : teamB;
+      const rivalTeam = throwingA ? teamB : teamA;
+      const success = rand(0, 100) < (thrower.skills.lineoutThrow * 0.75 - rivalJumper.skills.jump * 0.25 + 55);
+      if (success) {
+        addLog(minute, `Line-out limpio para ${throwTeam.name}: lanzamiento preciso de ${thrower.name}.`);
+        push += throwingA ? rand(5, 12) : -rand(5, 12);
+      } else {
+        addLog(minute, `${rivalTeam.name} roba el line-out con el salto de ${rivalJumper.name}.`);
+        push += throwingA ? -rand(5, 12) : rand(5, 12);
+      }
+      eventHandled = true;
     }
 
     pos = Math.max(0, Math.min(100, pos + push));
-
-    let eventHandled = false;
+    eventHandled = false;
 
     // Tarjeta amarilla (poco frecuente)
     if (!eventHandled && Math.random() < 0.012) {
       const toA = Math.random() < 0.5;
-      const team = toA ? teamA : teamB;
+      const teamCard = toA ? teamA : teamB;
       const players = toA ? playersA : playersB;
       const player = pick(players.filter(p => p.group === 'forward'));
       if (toA) cardPenaltyA = 5; else cardPenaltyB = 5;
-      cards.push({minute, team: team.name, player: player.name});
-      addLog(minute, `Tarjeta amarilla para ${player.name} (${team.name}). 10 minutos afuera.`);
+      cards.push({minute, team: teamCard.name, player: player.name});
+      addLog(minute, `Tarjeta amarilla para ${player.name} (${teamCard.name}). 10 minutos afuera.`);
       eventHandled = true;
     }
 
@@ -108,7 +156,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       scoreA += 5;
       scorersA.push({minute, player: scorer.name});
       addLog(minute, `¡TRY de ${teamA.name}! Anota ${scorer.name}.`);
-      if (Math.random() < (kickerA.rating / 100) * 0.9) {
+      if (Math.random() * 100 < kickerA.skills.kicking * 0.9) {
         scoreA += 2;
         addLog(minute, `${kickerA.name} convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
       } else {
@@ -121,7 +169,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       scoreB += 5;
       scorersB.push({minute, player: scorer.name});
       addLog(minute, `¡TRY de ${teamB.name}! Anota ${scorer.name}.`);
-      if (Math.random() < (kickerB.rating / 100) * 0.9) {
+      if (Math.random() * 100 < kickerB.skills.kicking * 0.9) {
         scoreB += 2;
         addLog(minute, `${kickerB.name} convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
       } else {
@@ -133,7 +181,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
     // Penal
     if (!eventHandled && pos >= 72 && pos < 94 && Math.random() < 0.08) {
-      if (Math.random() < (kickerA.rating / 100) * 0.85) {
+      if (Math.random() * 100 < kickerA.skills.kicking * 0.85) {
         scoreA += 3;
         addLog(minute, `Penal para ${teamA.name}. ${kickerA.name} patea y convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
       } else {
@@ -142,7 +190,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       pos = 50;
       eventHandled = true;
     } else if (!eventHandled && pos <= 28 && pos > 6 && Math.random() < 0.08) {
-      if (Math.random() < (kickerB.rating / 100) * 0.85) {
+      if (Math.random() * 100 < kickerB.skills.kicking * 0.85) {
         scoreB += 3;
         addLog(minute, `Penal para ${teamB.name}. ${kickerB.name} patea y convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
       } else {

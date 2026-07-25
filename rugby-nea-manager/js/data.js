@@ -1,4 +1,4 @@
-// Dados base: times do Campeonato do Nordeste Argentino (NEA) e geração de elencos.
+// Dados base: ligas, times e geração de elencos com skills detalhadas.
 
 export const POSITIONS = [
   {id: 'PI', label: 'Pilar', group: 'forward'},
@@ -18,18 +18,83 @@ export const POSITIONS = [
   {id: 'FB', label: 'Fullback', group: 'back'},
 ];
 
-export const TEAMS = [
-  {id: 'TAR', name: 'Taraguy', color: '#2E7D32', attack: 72, defense: 70, stamina: 75},
-  {id: 'ARA', name: 'Aranduroga', color: '#C62828', attack: 78, defense: 74, stamina: 80},
-  {id: 'REG', name: 'Regatas', color: '#1565C0', attack: 84, defense: 82, stamina: 85},
-  {id: 'CUR', name: 'Curda', color: '#F9A825', attack: 66, defense: 68, stamina: 70},
-  {id: 'SNJ', name: 'San José', color: '#6A1B9A', attack: 70, defense: 72, stamina: 74},
-  {id: 'SIX', name: 'Sixty', color: '#37474F', attack: 68, defense: 65, stamina: 72},
-  {id: 'CAP', name: 'Capri', color: '#EF6C00', attack: 74, defense: 71, stamina: 76},
-  {id: 'CNE', name: 'Curne', color: '#00838F', attack: 65, defense: 69, stamina: 71},
-  {id: 'AGU', name: 'Aguará', color: '#558B2F', attack: 69, defense: 66, stamina: 73},
-  {id: 'SNP', name: 'San Patricio', color: '#AD1457', attack: 71, defense: 73, stamina: 77},
+// Peso de cada skill por posição (0 = irrelevante, 1 = definidor da posição).
+// Skills: pass (passe), reception (recepção), lineoutThrow (lançamento lateral),
+// jump (salto), tackle (tackle), kicking (chute), speed (velocidade), strength (força).
+export const SKILL_PROFILES = {
+  PI: {pass: 0.5, reception: 0.4, lineoutThrow: 0.3, jump: 0.4, tackle: 1.0, kicking: 0.2, speed: 0.4, strength: 1.2},
+  HK: {pass: 0.7, reception: 0.6, lineoutThrow: 1.3, jump: 0.5, tackle: 1.0, kicking: 0.2, speed: 0.4, strength: 1.0},
+  SL: {pass: 0.5, reception: 0.6, lineoutThrow: 0.4, jump: 1.3, tackle: 1.1, kicking: 0.2, speed: 0.4, strength: 1.15},
+  AL: {pass: 0.7, reception: 0.7, lineoutThrow: 0.4, jump: 0.6, tackle: 1.2, kicking: 0.3, speed: 0.7, strength: 1.0},
+  N8: {pass: 0.7, reception: 0.7, lineoutThrow: 0.5, jump: 0.7, tackle: 1.1, kicking: 0.3, speed: 0.7, strength: 1.15},
+  MS: {pass: 1.3, reception: 0.8, lineoutThrow: 0.2, jump: 0.2, tackle: 0.6, kicking: 0.8, speed: 0.7, strength: 0.4},
+  AP: {pass: 1.15, reception: 0.9, lineoutThrow: 0.2, jump: 0.2, tackle: 0.6, kicking: 1.3, speed: 0.7, strength: 0.4},
+  CE: {pass: 1.0, reception: 0.8, lineoutThrow: 0.2, jump: 0.3, tackle: 1.1, kicking: 0.6, speed: 1.0, strength: 0.7},
+  WG: {pass: 0.7, reception: 0.9, lineoutThrow: 0.2, jump: 0.4, tackle: 0.7, kicking: 0.4, speed: 1.3, strength: 0.5},
+  FB: {pass: 0.8, reception: 1.2, lineoutThrow: 0.2, jump: 0.5, tackle: 0.8, kicking: 1.0, speed: 1.0, strength: 0.5},
+};
+
+export const SKILL_LABELS = {
+  pass: 'Passe',
+  reception: 'Recepção',
+  lineoutThrow: 'Lateral',
+  jump: 'Salto',
+  tackle: 'Tackle',
+  kicking: 'Chute',
+  speed: 'Velocidade',
+  strength: 'Força',
+};
+
+function team(id, name, color, attack, defense, stamina) {
+  return {id, name, color, attack, defense, stamina};
+}
+
+export const LEAGUES = [
+  {
+    id: 'nea',
+    name: 'Campeonato do Nordeste Argentino (NEA)',
+    country: 'Argentina',
+    teams: [
+      team('ARG-TAR', 'Taraguy', '#2E7D32', 72, 70, 75),
+      team('ARG-ARA', 'Aranduroga', '#C62828', 78, 74, 80),
+      team('ARG-REG', 'Regatas', '#1565C0', 84, 82, 85),
+      team('ARG-CUR', 'Curda', '#F9A825', 66, 68, 70),
+      team('ARG-SNJ', 'San José', '#6A1B9A', 70, 72, 74),
+      team('ARG-SIX', 'Sixty', '#37474F', 68, 65, 72),
+      team('ARG-CAP', 'Capri', '#EF6C00', 74, 71, 76),
+      team('ARG-CNE', 'Curne', '#00838F', 65, 69, 71),
+      team('ARG-AGU', 'Aguará', '#558B2F', 69, 66, 73),
+      team('ARG-SNP', 'San Patricio', '#AD1457', 71, 73, 77),
+    ],
+  },
+  {
+    id: 'paraguayo',
+    name: 'Campeonato Paraguaio',
+    country: 'Paraguai',
+    teams: [
+      team('PAR-SNJ', 'San José', '#D32F2F', 73, 71, 75),
+      team('PAR-CUR', 'Curda', '#FBC02D', 67, 69, 71),
+      team('PAR-STC', 'Santa Clara', '#1976D2', 76, 75, 78),
+      team('PAR-LUQ', 'Luque', '#7B1FA2', 71, 70, 74),
+      team('PAR-ASU', 'Asunción', '#00695C', 80, 78, 82),
+      team('PAR-AR1', 'Área 1', '#455A64', 69, 67, 72),
+      team('PAR-CRI', 'Cristo Rey', '#8D6E63', 68, 72, 73),
+      team('PAR-FDM', 'Fernando de la Mora', '#C2185B', 72, 69, 76),
+    ],
+  },
 ];
+
+export const TEAMS = LEAGUES.flatMap(l => l.teams);
+
+const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
+
+export function getTeam(id) {
+  return teamById[id];
+}
+
+export function leagueOfTeam(teamId) {
+  return LEAGUES.find(l => l.teams.some(t => t.id === teamId));
+}
 
 const FIRST_NAMES = [
   'Facundo', 'Santiago', 'Mateo', 'Joaquín', 'Bautista', 'Lautaro', 'Tomás', 'Nicolás',
@@ -63,9 +128,31 @@ function seedFromString(str) {
   return h;
 }
 
+const SKILL_KEYS = Object.keys(SKILL_LABELS);
+
+function genSkill(rng, base, weight) {
+  // weight ~0.2 (irrelevante) a ~1.3 (definidor da posição)
+  const scaled = base * (0.55 + weight * 0.45);
+  const variance = Math.floor(rng() * 18) - 9;
+  return Math.max(35, Math.min(99, Math.round(scaled + variance)));
+}
+
+function computeOverall(skills, profile) {
+  let sum = 0;
+  let weightSum = 0;
+  SKILL_KEYS.forEach(k => {
+    const w = profile[k];
+    sum += skills[k] * w;
+    weightSum += w;
+  });
+  return Math.round(sum / weightSum);
+}
+
 export function generateSquad(team) {
   const rng = mulberry32(seedFromString(team.id));
   const usedNames = new Set();
+  const base = (team.attack + team.defense + team.stamina) / 3;
+
   const players = POSITIONS.map((pos, idx) => {
     let name;
     do {
@@ -74,16 +161,22 @@ export function generateSquad(team) {
       name = `${fn} ${ln}`;
     } while (usedNames.has(name));
     usedNames.add(name);
-    const base = (team.attack + team.defense) / 2;
-    const variance = Math.floor(rng() * 26) - 13;
-    const rating = Math.max(45, Math.min(95, Math.round(base + variance)));
+
+    const profile = SKILL_PROFILES[pos.id];
+    const skills = {};
+    SKILL_KEYS.forEach(k => {
+      skills[k] = genSkill(rng, base, profile[k]);
+    });
+    const overall = computeOverall(skills, profile);
+
     return {
       id: `${team.id}-${idx}`,
       name,
       position: pos.label,
       posId: pos.id,
       group: pos.group,
-      rating,
+      skills,
+      rating: overall,
       number: idx + 1,
     };
   });
@@ -94,4 +187,10 @@ export function teamOverall(players, group) {
   const filtered = group ? players.filter(p => p.group === group) : players;
   const sum = filtered.reduce((acc, p) => acc + p.rating, 0);
   return Math.round(sum / filtered.length);
+}
+
+export function teamSkillAvg(players, skillKey, group) {
+  const filtered = group ? players.filter(p => p.group === group) : players;
+  const sum = filtered.reduce((acc, p) => acc + p.skills[skillKey], 0);
+  return sum / filtered.length;
 }
