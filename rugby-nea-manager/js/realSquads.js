@@ -116,6 +116,7 @@ const CURDA_ROSTER = [
   mkPlayer('Fernando Alvarado', 'MS', 80, {}, {nickname: 'Ferchu', age: 'jovem', potential: 'altíssimo', injuryWeeks: 26, injuryLabel: '6 meses'}),
   mkPlayer('Jean Paul Clemont', 'AL', 70, {}, {nickname: 'JP', injuryWeeks: 43, injuryLabel: '10 meses'}),
   mkPlayer('Joaquín Alzueta', 'AL', 68, {}, {nickname: 'Joaco', age: 'jovem', note: 'joga também de centro'}),
+  mkPlayer('Vic Torres', 'AL', 61, {}, {age: 'jovem', note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído'}),
 ];
 
 const REAL_SQUADS = {
