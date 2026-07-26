@@ -3,26 +3,26 @@ import {simulateMatch, TACTICS} from './engine.js';
 import {MatchRenderer} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
-import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff} from './realSquads.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getDualPartner} from './realSquads.js';
 
-const SAVE_KEY = 'rugbyNeaSave_v3';
+const SAVE_KEY = 'rugbyNeaSave_v4';
 
 const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 function crestCode(team) {
   return team.id.slice(-3);
 }
 const squadCache = {};
-function squadOf(teamId) {
-  if (!squadCache[teamId]) {
-    const realRoster = getRealRoster(teamId);
-    squadCache[teamId] = realRoster ? pickStartingXV(realRoster) : generateSquad(teamById[teamId]);
-  }
+function squadOf(teamId, fatiguedIds) {
+  const realRoster = getRealRoster(teamId);
+  if (realRoster) return pickStartingXV(realRoster, fatiguedIds);
+  if (!squadCache[teamId]) squadCache[teamId] = generateSquad(teamById[teamId]);
   return squadCache[teamId];
 }
 
 let state = null;
 let matchAnim = null; // controle da partida ao vivo em andamento
 let pendingMatchResult = null; // resultado já simulado/exibido da partida do usuário nesta rodada
+let pendingMyXVIds = null; // ids da escalação usada na partida em andamento (p/ rodízio por desgaste)
 
 function loadState() {
   try {
@@ -38,8 +38,8 @@ function saveState() {
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
 }
 
-function newGame(myTeamId) {
-  const league = leagueOfTeam(myTeamId);
+function buildCompetition(teamId) {
+  const league = leagueOfTeam(teamId);
   const ids = league.teams.map(t => t.id);
   const fixture = generateFixture(ids);
   const standings = initialStandings(ids);
@@ -59,12 +59,28 @@ function newGame(myTeamId) {
     currentRoundIndex = 7;
   }
 
+  return {teamId, league: league.id, fixture, standings, currentRoundIndex};
+}
+
+function newGame(myTeamId) {
+  const competitions = {};
+  const primary = buildCompetition(myTeamId);
+  competitions[primary.league] = primary;
+
+  // Clubes que disputam duas ligas ao mesmo tempo (ex.: Curda) entram com as
+  // duas competições já rodando, calendários independentes.
+  const partnerId = getDualPartner(myTeamId);
+  if (partnerId) {
+    const secondary = buildCompetition(partnerId);
+    competitions[secondary.league] = secondary;
+  }
+
   state = {
     myTeamId,
-    fixture,
-    standings,
-    currentRoundIndex,
+    competitions,
+    activeCompetition: primary.league,
     tactic: 'equilibrado',
+    recentXV: {},
   };
   saveState();
   render();
@@ -93,14 +109,43 @@ mainNav.addEventListener('click', e => {
   render();
 });
 
-function currentRound() {
-  return state.fixture[state.currentRoundIndex] || null;
+function comp(key) {
+  return state.competitions[key || state.activeCompetition];
 }
 
-function myMatchThisRound() {
-  const round = currentRound();
+function competitionLabel(key) {
+  const league = LEAGUES.find(l => l.id === key);
+  return league ? league.name : key;
+}
+
+function currentRound(key) {
+  const c = comp(key);
+  return c.fixture[c.currentRoundIndex] || null;
+}
+
+function myMatchThisRound(key) {
+  const c = comp(key);
+  const round = currentRound(key);
   if (!round) return null;
-  return round.matches.find(m => m.home === state.myTeamId || m.away === state.myTeamId) || null;
+  return round.matches.find(m => m.home === c.teamId || m.away === c.teamId) || null;
+}
+
+function otherCompetitionKey(key) {
+  return Object.keys(state.competitions).find(k => k !== key) || null;
+}
+
+// Jogadores que acabaram de jogar a partida mais recente do clube na OUTRA
+// competição — sofrem penalidade leve na escalação, incentivando rodízio.
+function fatiguedIdsFor(key) {
+  const otherKey = otherCompetitionKey(key);
+  if (!otherKey) return new Set();
+  return new Set(state.recentXV[otherKey] || []);
+}
+
+function allRecentXVIds() {
+  const ids = [];
+  Object.values(state.recentXV || {}).forEach(arr => { if (arr) ids.push(...arr); });
+  return new Set(ids);
 }
 
 function render() {
@@ -133,7 +178,7 @@ function render() {
 function renderTeamSelect() {
   content.innerHTML = `
     <h1>🏉 Escolha seu time</h1>
-    <p class="muted">Selecione o clube que você vai comandar como manager. Você disputa o campeonato do seu país, junto com os outros clubes da mesma liga, e acompanha as partidas ao vivo na quadra.</p>
+    <p class="muted">Selecione o clube que você vai comandar como manager. Você disputa o campeonato do seu país, junto com os outros clubes da mesma liga, e acompanha as partidas ao vivo na quadra. Alguns clubes disputam duas ligas ao mesmo tempo.</p>
     <div id="leagueSections"></div>
   `;
   const sections = document.getElementById('leagueSections');
@@ -146,10 +191,12 @@ function renderTeamSelect() {
     league.teams.forEach(team => {
       const card = document.createElement('div');
       card.className = 'teamCard';
+      const dual = getDualPartner(team.id);
       card.innerHTML = `
         <div class="teamCrest" style="background:${team.color}">${crestCode(team)}</div>
         <div class="teamName">${team.name}</div>
         <div class="teamStats">Ataque ${team.attack} · Defesa ${team.defense} · Físico ${team.stamina}</div>
+        ${dual ? '<div class="teamStats muted">Disputa duas ligas</div>' : ''}
       `;
       card.addEventListener('click', () => newGame(team.id));
       grid.appendChild(card);
@@ -159,47 +206,7 @@ function renderTeamSelect() {
   });
 }
 
-function standingsRows() {
-  return sortedStandings(state.standings);
-}
-
-function renderDashboard() {
-  const myTeam = teamById[state.myTeamId];
-  const rows = standingsRows();
-  const myPos = rows.findIndex(r => r.teamId === state.myTeamId) + 1;
-  const round = currentRound();
-  const match = myMatchThisRound();
-  const seasonOver = !round;
-
-  let matchHtml = '';
-  if (seasonOver) {
-    matchHtml = `<p class="muted">Temporada encerrada! Confira a tabela final.</p>`;
-  } else if (match) {
-    const oppId = match.home === state.myTeamId ? match.away : match.home;
-    const opp = teamById[oppId];
-    const isHome = match.home === state.myTeamId;
-    matchHtml = `
-      <p><b>Rodada ${round.round}</b> — ${isHome ? 'em casa' : 'fora'} contra <b>${opp.name}</b></p>
-      <button class="playBtn" id="goMatchday">Preparar partida</button>
-    `;
-  }
-
-  content.innerHTML = `
-    <h1>Painel — ${myTeam.name}</h1>
-    <div class="card">
-      <h3>Posição na tabela: ${myPos}º lugar</h3>
-      ${matchHtml}
-    </div>
-    <div class="card">
-      <h3>Top 5</h3>
-      ${renderTableHtml(rows.slice(0, 5))}
-    </div>
-  `;
-  const goBtn = document.getElementById('goMatchday');
-  if (goBtn) goBtn.addEventListener('click', () => { currentView = 'matchday'; render(); });
-}
-
-function renderTableHtml(rows) {
+function renderTableHtml(rows, mineId) {
   return `
     <table>
       <thead><tr>
@@ -208,7 +215,7 @@ function renderTableHtml(rows) {
       <tbody>
         ${rows.map(r => {
           const t = teamById[r.teamId];
-          const mine = r.teamId === state.myTeamId;
+          const mine = r.teamId === mineId;
           return `<tr class="${mine ? 'myTeamRow' : ''}">
             <td class="teamCol">${t.name}</td>
             <td>${r.pj}</td><td>${r.pg}</td><td>${r.pe}</td><td>${r.pp}</td>
@@ -220,36 +227,95 @@ function renderTableHtml(rows) {
   `;
 }
 
+function renderDashboard() {
+  const myTeam = teamById[state.myTeamId];
+  const keys = Object.keys(state.competitions);
+
+  const cardsHtml = keys.map(key => {
+    const c = state.competitions[key];
+    const rows = sortedStandings(c.standings);
+    const myPos = rows.findIndex(r => r.teamId === c.teamId) + 1;
+    const round = currentRound(key);
+    const match = myMatchThisRound(key);
+    const seasonOver = !round;
+
+    let matchHtml = '';
+    if (seasonOver) {
+      matchHtml = `<p class="muted">Temporada encerrada! Confira a tabela final.</p>`;
+    } else if (match) {
+      const oppId = match.home === c.teamId ? match.away : match.home;
+      const opp = teamById[oppId];
+      const isHome = match.home === c.teamId;
+      matchHtml = `
+        <p><b>Rodada ${round.round}</b> — ${isHome ? 'em casa' : 'fora'} contra <b>${opp.name}</b></p>
+        <button class="playBtn goMatchdayBtn" data-comp="${key}">Preparar partida</button>
+      `;
+    }
+
+    return `
+      <div class="card">
+        <h3>${competitionLabel(key)} <span class="muted">— ${myPos}º lugar</span></h3>
+        ${matchHtml}
+      </div>
+    `;
+  }).join('');
+
+  content.innerHTML = `
+    <h1>Painel — ${myTeam.name}</h1>
+    ${keys.length > 1 ? `<p class="muted">O ${myTeam.name} disputa duas competições ao mesmo tempo — fique de olho nas duas agendas e reveze o elenco quando os jogos coincidirem.</p>` : ''}
+    ${cardsHtml}
+  `;
+
+  Array.from(document.querySelectorAll('.goMatchdayBtn')).forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.activeCompetition = btn.dataset.comp;
+      currentView = 'matchday';
+      render();
+    });
+  });
+}
+
 function renderStandings() {
+  const keys = Object.keys(state.competitions);
   content.innerHTML = `
     <h1>Tabela de Classificação</h1>
-    <div class="card">${renderTableHtml(standingsRows())}</div>
+    ${keys.map(key => {
+      const c = state.competitions[key];
+      return `<h2>${competitionLabel(key)}</h2><div class="card">${renderTableHtml(sortedStandings(c.standings), c.teamId)}</div>`;
+    }).join('')}
   `;
 }
 
 function renderFixture() {
-  content.innerHTML = `<h1>Fixture — Turno e Returno</h1><div id="fixtureList"></div>`;
-  const list = document.getElementById('fixtureList');
-  state.fixture.forEach(round => {
-    const block = document.createElement('div');
-    block.className = 'roundBlock card';
-    const isCurrent = round.round === (state.currentRoundIndex + 1);
-    block.innerHTML = `<div class="roundTitle">Rodada ${round.round}${isCurrent ? ' (atual)' : ''}</div>`;
-    round.matches.forEach(m => {
-      const home = teamById[m.home];
-      const away = teamById[m.away];
-      const mine = m.home === state.myTeamId || m.away === state.myTeamId;
-      const row = document.createElement('div');
-      row.className = 'matchRow' + (mine ? ' mine' : '');
-      row.innerHTML = `
-        <span class="teams">${home.name} <span class="muted">vs</span> ${away.name}</span>
-        ${m.played
-          ? `<span class="score">${m.scoreHome} - ${m.scoreAway}</span>`
-          : `<span class="pending">a definir</span>`}
-      `;
-      block.appendChild(row);
+  const keys = Object.keys(state.competitions);
+  content.innerHTML = `
+    <h1>Fixture — Turno e Returno</h1>
+    ${keys.map(key => `<h2>${competitionLabel(key)}</h2><div id="fixtureList-${key}"></div>`).join('')}
+  `;
+  keys.forEach(key => {
+    const c = state.competitions[key];
+    const list = document.getElementById(`fixtureList-${key}`);
+    c.fixture.forEach(round => {
+      const block = document.createElement('div');
+      block.className = 'roundBlock card';
+      const isCurrent = round.round === (c.currentRoundIndex + 1);
+      block.innerHTML = `<div class="roundTitle">Rodada ${round.round}${isCurrent ? ' (atual)' : ''}</div>`;
+      round.matches.forEach(m => {
+        const home = teamById[m.home];
+        const away = teamById[m.away];
+        const mine = m.home === c.teamId || m.away === c.teamId;
+        const row = document.createElement('div');
+        row.className = 'matchRow' + (mine ? ' mine' : '');
+        row.innerHTML = `
+          <span class="teams">${home.name} <span class="muted">vs</span> ${away.name}</span>
+          ${m.played
+            ? `<span class="score">${m.scoreHome} - ${m.scoreAway}</span>`
+            : `<span class="pending">a definir</span>`}
+        `;
+        block.appendChild(row);
+      });
+      list.appendChild(block);
     });
-    list.appendChild(block);
   });
 }
 
@@ -279,11 +345,11 @@ function statusCell(p) {
 }
 
 function renderRealSquad() {
-  const rows = rosterWithStatus(state.myTeamId);
+  const rows = rosterWithStatus(state.myTeamId, allRecentXVIds());
   const rowHtml = p => `
     <tr class="${p.status === 'lesionado' ? 'injuredRow' : ''}">
       <td>${statusCell(p)}</td>
-      <td class="teamCol">${p.name}${p.meta.nickname ? ` <span class="muted">"${p.meta.nickname}"</span>` : ''}${p.meta.captain ? ' <b>(C)</b>' : ''}</td>
+      <td class="teamCol">${p.name}${p.meta.nickname ? ` <span class="muted">"${p.meta.nickname}"</span>` : ''}${p.meta.captain ? ' <b>(C)</b>' : ''}${p.fatigued ? ' <span class="muted">(jogou recentemente)</span>' : ''}</td>
       <td class="posCol">${p.position}</td>
       <td><b>${p.rating}</b></td>
       ${SKILL_KEYS.map(k => skillCell(p.skills[k])).join('')}
@@ -361,15 +427,17 @@ function renderSquad() {
 }
 
 function renderMatchday() {
-  const match = myMatchThisRound();
+  const key = state.activeCompetition;
+  const c = comp(key);
+  const match = myMatchThisRound(key);
   if (!match) { currentView = 'dashboard'; render(); return; }
-  const oppId = match.home === state.myTeamId ? match.away : match.home;
+  const oppId = match.home === c.teamId ? match.away : match.home;
   const opp = teamById[oppId];
-  const myTeam = teamById[state.myTeamId];
-  const isHome = match.home === state.myTeamId;
+  const myTeam = teamById[c.teamId];
+  const isHome = match.home === c.teamId;
 
   content.innerHTML = `
-    <h1>Dia de jogo — Rodada ${currentRound().round}</h1>
+    <h1>Dia de jogo — ${competitionLabel(key)} — Rodada ${currentRound(key).round}</h1>
     <div class="card">
       <h3>${isHome ? `${myTeam.name} (casa) vs ${opp.name} (visitante)` : `${opp.name} (casa) vs ${myTeam.name} (visitante)`}</h3>
       <p class="muted">Ataque ${opp.attack} · Defesa ${opp.defense} · Físico ${opp.stamina}</p>
@@ -404,8 +472,10 @@ function pickOpponentTactic() {
 }
 
 function renderLive() {
-  const match = myMatchThisRound();
-  const isHome = match.home === state.myTeamId;
+  const key = state.activeCompetition;
+  const c = comp(key);
+  const match = myMatchThisRound(key);
+  const isHome = match.home === c.teamId;
   const homeId = match.home;
   const awayId = match.away;
   const homeTeam = teamById[homeId];
@@ -416,9 +486,16 @@ function renderLive() {
   const tacticHome = isHome ? myTactic : oppTactic;
   const tacticAway = isHome ? oppTactic : myTactic;
 
+  // Time do clube gerenciado entra com rodízio: quem jogou há pouco na outra
+  // competição sofre penalidade de escalação, abrindo espaço para o banco.
+  const fatigued = fatiguedIdsFor(key);
+  const homeSquad = homeId === c.teamId ? squadOf(homeId, fatigued) : squadOf(homeId);
+  const awaySquad = awayId === c.teamId ? squadOf(awayId, fatigued) : squadOf(awayId);
+  pendingMyXVIds = (homeId === c.teamId ? homeSquad : awaySquad).map(p => p.id);
+
   const result = simulateMatch(
-    homeTeam, squadOf(homeId), tacticHome,
-    awayTeam, squadOf(awayId), tacticAway,
+    homeTeam, homeSquad, tacticHome,
+    awayTeam, awaySquad, tacticAway,
   );
 
   content.innerHTML = `
@@ -550,7 +627,6 @@ function renderLive() {
 }
 
 function showSummary(result, isHome) {
-  const round = currentRound();
   const match = myMatchThisRound();
   const homeTeam = teamById[match.home];
   const awayTeam = teamById[match.away];
@@ -581,13 +657,15 @@ function showSummary(result, isHome) {
 }
 
 function finalizeRound() {
-  const round = currentRound();
+  const key = state.activeCompetition;
+  const c = comp(key);
+  const round = currentRound(key);
   round.matches.forEach(m => {
     if (m.played) return;
     const home = teamById[m.home];
     const away = teamById[m.away];
     let scoreHome, scoreAway;
-    if (m.home === state.myTeamId || m.away === state.myTeamId) {
+    if (m.home === c.teamId || m.away === c.teamId) {
       // Reaproveita o resultado já simulado e exibido ao vivo, para o placar
       // persistido bater exatamente com o que o usuário assistiu na quadra.
       scoreHome = pendingMatchResult.scoreA;
@@ -599,10 +677,14 @@ function finalizeRound() {
     m.played = true;
     m.scoreHome = scoreHome;
     m.scoreAway = scoreAway;
-    applyResult(state.standings, m.home, m.away, scoreHome, scoreAway);
+    applyResult(c.standings, m.home, m.away, scoreHome, scoreAway);
   });
-  state.currentRoundIndex++;
+  c.currentRoundIndex++;
+  if (pendingMyXVIds) {
+    state.recentXV[key] = pendingMyXVIds;
+  }
   pendingMatchResult = null;
+  pendingMyXVIds = null;
   currentView = 'dashboard';
   saveState();
   render();

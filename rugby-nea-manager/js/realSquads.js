@@ -147,9 +147,28 @@ export function getStaff(teamId) {
   return STAFF[teamId] || null;
 }
 
+// Clubes que disputam duas ligas ao mesmo tempo (mesmo elenco, calendários
+// independentes) — ex.: o Curda joga o NEA argentino e o campeonato
+// paraguaio simultaneamente, por isso o plantel tão grande.
+const DUAL_CLUBS = {
+  'ARG-CUR': 'PAR-CUR',
+  'PAR-CUR': 'ARG-CUR',
+};
+
+export function getDualPartner(teamId) {
+  return DUAL_CLUBS[teamId] || null;
+}
+
+const FATIGUE_PENALTY = 12;
+
 // Escolhe os 15 titulares (melhor jogador disponível por posição, excluindo
-// lesionados), numerados na convenção tradicional 1-15.
-export function pickStartingXV(roster) {
+// lesionados), numerados na convenção tradicional 1-15. fatiguedIds (Set de
+// ids) representa jogadores que acabaram de jogar no outro torneio do clube
+// há pouco tempo: sofrem uma penalidade só para fins de escalação, o que
+// incentiva rodízio de elenco em vez de escalar sempre os 15 melhores.
+export function pickStartingXV(roster, fatiguedIds) {
+  const fatigued = fatiguedIds || new Set();
+  const effRating = p => p.rating - (fatigued.has(p.id) ? FATIGUE_PENALTY : 0);
   const available = roster.filter(p => !p.meta.injuryWeeks);
   const used = new Set();
 
@@ -160,18 +179,19 @@ export function pickStartingXV(roster) {
     // mesma linha (forward/back) antes de pegar qualquer jogador disponível.
     if (!pool.length) pool = available.filter(p => p.group === group && !used.has(p.id));
     if (!pool.length) pool = available.filter(p => !used.has(p.id));
-    const pick = pool.reduce((best, p) => (p.rating > best.rating ? p : best), pool[0]);
+    const pick = pool.reduce((best, p) => (effRating(p) > effRating(best) ? p : best), pool[0]);
     used.add(pick.id);
-    return {...pick, number: idx + 1};
+    return {...pick, number: idx + 1, fatigued: fatigued.has(pick.id)};
   });
 }
 
 // Plantel completo com status (titular/reserva/lesionado), para a tela de Elenco.
-export function rosterWithStatus(teamId) {
+export function rosterWithStatus(teamId, fatiguedIds) {
   const roster = getRealRoster(teamId);
   if (!roster) return null;
-  const xv = pickStartingXV(roster);
+  const xv = pickStartingXV(roster, fatiguedIds);
   const numberById = Object.fromEntries(xv.map(p => [p.id, p.number]));
+  const fatigued = fatiguedIds || new Set();
 
   return [...roster]
     .sort((a, b) => b.rating - a.rating)
@@ -179,5 +199,6 @@ export function rosterWithStatus(teamId) {
       ...p,
       number: numberById[p.id] || null,
       status: p.meta.injuryWeeks ? 'lesionado' : (numberById[p.id] ? 'titular' : 'reserva'),
+      fatigued: fatigued.has(p.id),
     }));
 }

@@ -76,7 +76,7 @@ export const LEAGUES = [
     country: 'Paraguai',
     teams: [
       team('PAR-SNJ', 'San José', '#D32F2F', 73, 71, 75),
-      team('PAR-CUR', 'Curda', '#FBC02D', 67, 69, 71),
+      team('PAR-CUR', 'Curda', '#F9A825', 73, 72, 75),
       team('PAR-STC', 'Santa Clara', '#1976D2', 76, 75, 78),
       team('PAR-LUQ', 'Luque', '#7B1FA2', 71, 70, 74),
       team('PAR-ASU', 'Asunción', '#00695C', 80, 78, 82),
