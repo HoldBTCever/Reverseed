@@ -3,6 +3,7 @@ import {simulateMatch, TACTICS} from './engine.js';
 import {MatchRenderer} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus} from './realSquads.js';
 
 const SAVE_KEY = 'rugbyNeaSave_v3';
 
@@ -12,7 +13,10 @@ function crestCode(team) {
 }
 const squadCache = {};
 function squadOf(teamId) {
-  if (!squadCache[teamId]) squadCache[teamId] = generateSquad(teamById[teamId]);
+  if (!squadCache[teamId]) {
+    const realRoster = getRealRoster(teamId);
+    squadCache[teamId] = realRoster ? pickStartingXV(realRoster) : generateSquad(teamById[teamId]);
+  }
   return squadCache[teamId];
 }
 
@@ -259,7 +263,56 @@ function skillCell(value) {
   return `<td title="${value}"><span class="ratingBar"><span style="width:${value}%"></span></span>${value}</td>`;
 }
 
+function metaBadges(meta) {
+  const parts = [];
+  if (meta.nationalTeam) parts.push(meta.nationalTeam);
+  if (meta.age) parts.push(`${meta.age} anos`);
+  if (meta.potential) parts.push(`potencial ${meta.potential}`);
+  if (meta.note) parts.push(meta.note);
+  return parts.join(' · ');
+}
+
+function statusCell(p) {
+  if (p.status === 'lesionado') return `<span style="color:var(--accent-2)">Lesionado (${p.meta.injuryLabel})</span>`;
+  if (p.status === 'titular') return `<b>Titular #${p.number}</b>`;
+  return '<span class="muted">Reserva</span>';
+}
+
+function renderRealSquad() {
+  const rows = rosterWithStatus(state.myTeamId);
+  const rowHtml = p => `
+    <tr class="${p.status === 'lesionado' ? 'injuredRow' : ''}">
+      <td>${statusCell(p)}</td>
+      <td class="teamCol">${p.name}${p.meta.nickname ? ` <span class="muted">"${p.meta.nickname}"</span>` : ''}${p.meta.captain ? ' <b>(C)</b>' : ''}</td>
+      <td class="posCol">${p.position}</td>
+      <td><b>${p.rating}</b></td>
+      ${SKILL_KEYS.map(k => skillCell(p.skills[k])).join('')}
+      <td class="posCol">${metaBadges(p.meta)}</td>
+    </tr>
+  `;
+  const headHtml = `
+    <tr>
+      <th>Status</th><th class="teamCol">Jogador</th><th>Posição</th><th>Overall</th>
+      ${SKILL_KEYS.map(k => `<th title="${SKILL_LABELS[k]}">${SKILL_SHORT[k]}</th>`).join('')}
+      <th>Obs</th>
+    </tr>
+  `;
+  content.innerHTML = `
+    <h1>Elenco — ${teamById[state.myTeamId].name}</h1>
+    <p class="muted">PAS Passe · REC Recepção · LAT Lançamento lateral · SAL Salto · TAC Tackle · CHU Chute · VEL Velocidade · FOR Força</p>
+    <div class="card">
+      <h3>Plantel completo <span class="muted">(${rows.length} jogadores — titulares em destaque)</span></h3>
+      <div class="tableScroll"><table class="squadTable"><thead>${headHtml}</thead>
+      <tbody>${rows.map(rowHtml).join('')}</tbody></table></div>
+    </div>
+  `;
+}
+
 function renderSquad() {
+  if (getRealRoster(state.myTeamId)) {
+    renderRealSquad();
+    return;
+  }
   const players = squadOf(state.myTeamId);
   const forwards = players.filter(p => p.group === 'forward');
   const backs = players.filter(p => p.group === 'back');
