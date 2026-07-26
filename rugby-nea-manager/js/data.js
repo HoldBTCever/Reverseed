@@ -90,10 +90,13 @@ export const LEAGUES = [
 export const TEAMS = LEAGUES.flatMap(l => l.teams);
 
 // Craques conhecidos de alguns clubes: substituem o nome do jogador de maior
-// overall gerado para o time, mantendo posição e atributos.
+// overall gerado para o time, mantendo posição e atributos. San José (assim
+// como o Curda) é o mesmo clube nas duas ligas, então vale nos dois lados.
 const STAR_PLAYERS = {
   'ARG-CUR': 'Ignacio Cuevas',
+  'PAR-CUR': 'Ignacio Cuevas',
   'ARG-SNJ': 'Paco Lamas',
+  'PAR-SNJ': 'Paco Lamas',
 };
 
 const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));

@@ -119,8 +119,11 @@ const CURDA_ROSTER = [
   mkPlayer('Vic Torres', 'AL', 61, {}, {age: 'jovem', note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído'}),
 ];
 
+// O Curda é o mesmo clube nas duas ligas (disputa o NEA argentino e o
+// campeonato paraguaio) — mesmo plantel em ambas.
 const REAL_SQUADS = {
   'ARG-CUR': CURDA_ROSTER,
+  'PAR-CUR': CURDA_ROSTER,
 };
 
 const CURDA_STAFF = [
@@ -133,6 +136,7 @@ const CURDA_STAFF = [
 
 const STAFF = {
   'ARG-CUR': CURDA_STAFF,
+  'PAR-CUR': CURDA_STAFF,
 };
 
 export function getRealRoster(teamId) {
