@@ -55,16 +55,19 @@ export const LEAGUES = [
     name: 'Campeonato do Nordeste Argentino (NEA)',
     country: 'Argentina',
     teams: [
-      team('ARG-TAR', 'Taraguy', '#2E7D32', 72, 70, 75),
-      team('ARG-ARA', 'Aranduroga', '#C62828', 78, 74, 80),
-      team('ARG-REG', 'Regatas', '#1565C0', 84, 82, 85),
-      team('ARG-CUR', 'Curda', '#F9A825', 66, 68, 70),
-      team('ARG-SNJ', 'San José', '#6A1B9A', 70, 72, 74),
-      team('ARG-SIX', 'Sixty', '#37474F', 68, 65, 72),
-      team('ARG-CAP', 'Capri', '#EF6C00', 74, 71, 76),
-      team('ARG-CNE', 'Curne', '#00838F', 65, 69, 71),
-      team('ARG-AGU', 'Aguará', '#558B2F', 69, 66, 73),
-      team('ARG-SNP', 'San Patricio', '#AD1457', 71, 73, 77),
+      // Ataque/defesa/físico seguem a força real dos clubes na tabela do NEA
+      // (Taraguy o mais forte, Capri o mais fraco). A ordem do array em si
+      // NÃO pode mudar: ela define o calendário usado por seedNea.js.
+      team('ARG-TAR', 'Taraguy', '#2E7D32', 86, 84, 86),
+      team('ARG-ARA', 'Aranduroga', '#C62828', 83, 81, 83),
+      team('ARG-REG', 'Regatas', '#1565C0', 67, 66, 69),
+      team('ARG-CUR', 'Curda', '#F9A825', 73, 72, 75),
+      team('ARG-SNJ', 'San José', '#6A1B9A', 70, 69, 72),
+      team('ARG-SIX', 'Sixty', '#37474F', 64, 63, 66),
+      team('ARG-CAP', 'Capri', '#EF6C00', 55, 54, 58),
+      team('ARG-CNE', 'Curne', '#00838F', 76, 75, 77),
+      team('ARG-AGU', 'Aguará', '#558B2F', 61, 60, 63),
+      team('ARG-SNP', 'San Patricio', '#AD1457', 79, 78, 80),
     ],
   },
   {
