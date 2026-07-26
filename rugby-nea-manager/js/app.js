@@ -3,7 +3,7 @@ import {simulateMatch, TACTICS} from './engine.js';
 import {MatchRenderer} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
-import {getRealRoster, pickStartingXV, rosterWithStatus} from './realSquads.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff} from './realSquads.js';
 
 const SAVE_KEY = 'rugbyNeaSave_v3';
 
@@ -297,6 +297,18 @@ function renderRealSquad() {
       <th>Obs</th>
     </tr>
   `;
+  const staff = getStaff(state.myTeamId);
+  const staffHtml = staff ? `
+    <div class="card">
+      <h3>Comissão técnica</h3>
+      <table>
+        <tbody>
+          ${staff.map(s => `<tr><td class="teamCol">${s.role}</td><td class="teamCol"><b>${s.name}</b></td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  ` : '';
+
   content.innerHTML = `
     <h1>Elenco — ${teamById[state.myTeamId].name}</h1>
     <p class="muted">PAS Passe · REC Recepção · LAT Lançamento lateral · SAL Salto · TAC Tackle · CHU Chute · VEL Velocidade · FOR Força</p>
@@ -305,6 +317,7 @@ function renderRealSquad() {
       <div class="tableScroll"><table class="squadTable"><thead>${headHtml}</thead>
       <tbody>${rows.map(rowHtml).join('')}</tbody></table></div>
     </div>
+    ${staffHtml}
   `;
 }
 

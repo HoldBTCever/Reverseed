@@ -11,9 +11,9 @@ export const POSITIONS = [
   {id: 'N8', label: 'Octavo', group: 'forward'},
   {id: 'MS', label: 'Medio Scrum', group: 'back'},
   {id: 'AP', label: 'Apertura', group: 'back'},
-  {id: 'CE', label: 'Centro', group: 'back'},
-  {id: 'CE', label: 'Centro', group: 'back'},
   {id: 'WG', label: 'Wing', group: 'back'},
+  {id: 'CE', label: 'Centro', group: 'back'},
+  {id: 'CE', label: 'Centro', group: 'back'},
   {id: 'WG', label: 'Wing', group: 'back'},
   {id: 'FB', label: 'Fullback', group: 'back'},
 ];

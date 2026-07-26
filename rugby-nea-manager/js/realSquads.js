@@ -20,8 +20,8 @@ const POS_INFO = {
   FB: {label: 'Fullback', group: 'back'},
 };
 
-// Ordem-padrão de camisa 1-15, igual à convenção usada na geração procedural.
-const XV_SLOTS = ['PI', 'PI', 'HK', 'SL', 'SL', 'AL', 'AL', 'N8', 'MS', 'AP', 'CE', 'CE', 'WG', 'WG', 'FB'];
+// Ordem-padrão de camisa 1-15 (11=ponta, 12/13=centros, 14=ponta, como no rugby real).
+const XV_SLOTS = ['PI', 'PI', 'HK', 'SL', 'SL', 'AL', 'AL', 'N8', 'MS', 'AP', 'WG', 'CE', 'CE', 'WG', 'FB'];
 
 function clamp(v) {
   return Math.max(30, Math.min(99, Math.round(v)));
@@ -41,7 +41,9 @@ let autoId = 0;
 
 // base = nível geral do jogador (30-99). overrides ajusta skills específicas
 // citadas na descrição (ex.: um pilar "mais pesado do time" ganha força extra).
-function mkPlayer(name, posId, base, overrides = {}, meta = {}) {
+// overallOverride força o overall final (usado quando o overall "de scout"
+// do jogador é maior do que a média ponderada das skills sugeriria).
+function mkPlayer(name, posId, base, overrides = {}, meta = {}, overallOverride = null) {
   const profile = SKILL_PROFILES[posId];
   const skills = {};
   SKILL_KEYS.forEach(k => {
@@ -56,7 +58,7 @@ function mkPlayer(name, posId, base, overrides = {}, meta = {}) {
     posId,
     group: POS_INFO[posId].group,
     skills,
-    rating: computeOverall(skills, profile),
+    rating: overallOverride != null ? overallOverride : computeOverall(skills, profile),
     number: null,
     meta,
   };
@@ -74,7 +76,7 @@ const CURDA_ROSTER = [
   mkPlayer('Facundo Navas', 'WG', 88, {speed: 92}, {nationalTeam: 'seleção', note: 'um dos melhores jogadores do Curda'}),
   mkPlayer('Gianfranco Parodi', 'WG', 82, {}, {nationalTeam: 'seleção'}),
   mkPlayer('Horacio Agüero', 'FB', 78, {kicking: 84, reception: 85}, {note: 'ótima leitura de jogo e bons chutes'}),
-  mkPlayer('Ignacio Cuevas', 'CE', 93, {tackle: 95, speed: 90, strength: 88}, {nickname: 'Nacho', captain: true, note: 'maior craque do Curda; forte, rápido e difícil de ser tackleado'}),
+  mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado'}, 97),
   mkPlayer('Joaquim Mussi', 'FB', 90, {}, {nationalTeam: 'seleção', note: 'melhor fullback do time; também joga de apertura'}),
   mkPlayer('Martín Ayala', 'PI', 58, {}, {note: 'por vezes usado no time intermédio'}),
   mkPlayer('Lautaro', 'N8', 76, {pass: 85}, {note: 'ótima visão de jogo'}),
@@ -120,8 +122,24 @@ const REAL_SQUADS = {
   'ARG-CUR': CURDA_ROSTER,
 };
 
+const CURDA_STAFF = [
+  {role: 'Treinador Principal (Head Coach)', name: 'Lito Molina'},
+  {role: 'Treinador Geral', name: 'Alexis Cibils'},
+  {role: 'Preparador Físico', name: 'Osorio'},
+  {role: 'Nutricionista', name: 'Cibils'},
+  {role: 'Fisioterapeuta', name: 'Juan Carmona'},
+];
+
+const STAFF = {
+  'ARG-CUR': CURDA_STAFF,
+};
+
 export function getRealRoster(teamId) {
   return REAL_SQUADS[teamId] || null;
+}
+
+export function getStaff(teamId) {
+  return STAFF[teamId] || null;
 }
 
 // Escolhe os 15 titulares (melhor jogador disponível por posição, excluindo
