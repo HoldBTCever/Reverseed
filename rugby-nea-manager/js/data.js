@@ -86,6 +86,13 @@ export const LEAGUES = [
 
 export const TEAMS = LEAGUES.flatMap(l => l.teams);
 
+// Craques conhecidos de alguns clubes: substituem o nome do jogador de maior
+// overall gerado para o time, mantendo posição e atributos.
+const STAR_PLAYERS = {
+  'ARG-CUR': 'Ignacio Cuevas',
+  'ARG-SNJ': 'Paco Lamas',
+};
+
 const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 
 export function getTeam(id) {
@@ -180,6 +187,13 @@ export function generateSquad(team) {
       number: idx + 1,
     };
   });
+
+  const starName = STAR_PLAYERS[team.id];
+  if (starName) {
+    const star = players.reduce((best, p) => (p.rating > best.rating ? p : best), players[0]);
+    star.name = starName;
+  }
+
   return players;
 }
 

@@ -2,8 +2,9 @@ import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS} 
 import {simulateMatch, TACTICS} from './engine.js';
 import {MatchRenderer} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings} from './fixtures.js';
+import {NEA_SEED_MATCHES} from './seedNea.js';
 
-const SAVE_KEY = 'rugbyNeaSave_v2';
+const SAVE_KEY = 'rugbyNeaSave_v3';
 
 const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 function crestCode(team) {
@@ -36,11 +37,29 @@ function saveState() {
 function newGame(myTeamId) {
   const league = leagueOfTeam(myTeamId);
   const ids = league.teams.map(t => t.id);
+  const fixture = generateFixture(ids);
+  const standings = initialStandings(ids);
+  let currentRoundIndex = 0;
+
+  // O NEA começa a partir da 7ª rodada, refletindo a tabela real do campeonato em andamento.
+  if (league.id === 'nea') {
+    NEA_SEED_MATCHES.forEach(seed => {
+      const round = fixture[seed.round - 1];
+      const match = round.matches.find(m => m.home === seed.home && m.away === seed.away);
+      if (!match) return;
+      match.played = true;
+      match.scoreHome = seed.scoreHome;
+      match.scoreAway = seed.scoreAway;
+      applyResult(standings, seed.home, seed.away, seed.scoreHome, seed.scoreAway);
+    });
+    currentRoundIndex = 7;
+  }
+
   state = {
     myTeamId,
-    fixture: generateFixture(ids),
-    standings: initialStandings(ids),
-    currentRoundIndex: 0,
+    fixture,
+    standings,
+    currentRoundIndex,
     tactic: 'equilibrado',
   };
   saveState();
