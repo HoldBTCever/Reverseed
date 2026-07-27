@@ -1,4 +1,5 @@
-// Renderização da quadra 2D (campo de rugby completo) e animação da partida ao vivo.
+// Renderização da quadra 2D (campo de rugby completo) e animação da partida ao vivo,
+// além da escalação visual (campo estático com as camisas em formação).
 
 // As 15 posições da numeração tradicional do rugby, com onde cada uma se
 // posiciona em relação à bola (profundidade) e à largura do campo (y).
@@ -286,4 +287,100 @@ export class MatchRenderer {
 
     this.currentPos = pos;
   }
+}
+
+// ---- Escalação visual (campo estático, formação-padrão) -------------------
+// Layout percentual (top/left) por número de camisa, de cima (defesa/linha de
+// fundo) pra baixo (fullback), no formato tradicional de "prancheta" de time:
+// 1-2-3 na frente, 4-5 atrás, 6-8-7 na terceira linha, 9 e 10 no meio, 12-13
+// no meio-campo, 11 e 14 bem abertos e 15 solto atrás. 100% responsivo: é só
+// percentual dentro de um container com aspect-ratio fixo.
+const FORMATION_POSITIONS = {
+  1: {top: '6%', left: '30%'},
+  2: {top: '6%', left: '50%'},
+  3: {top: '6%', left: '70%'},
+  4: {top: '18%', left: '38%'},
+  5: {top: '18%', left: '62%'},
+  6: {top: '29%', left: '20%'},
+  8: {top: '29%', left: '50%'},
+  7: {top: '29%', left: '80%'},
+  9: {top: '41%', left: '50%'},
+  10: {top: '52%', left: '50%'},
+  12: {top: '63%', left: '38%'},
+  13: {top: '71%', left: '64%'},
+  11: {top: '82%', left: '12%'},
+  14: {top: '82%', left: '88%'},
+  15: {top: '93%', left: '50%'},
+};
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]));
+}
+
+function shortName(name) {
+  const parts = name.trim().split(/\s+/);
+  return parts.length > 1 ? parts[parts.length - 1] : name;
+}
+
+function conditionClass(condition) {
+  if (condition == null) return '';
+  if (condition < 40) return 'conditionCritical';
+  if (condition < 70) return 'conditionLow';
+  return '';
+}
+
+function shirtHtml(p, teamColor) {
+  const pos = FORMATION_POSITIONS[p.number] || {top: '50%', left: '50%'};
+  const cond = p.condition != null ? Math.round(p.condition) : 100;
+  const emergencyBadge = p.meta && p.meta.emergencyCallUp ? ' 🆘' : '';
+  return `
+    <div class="shirtSlot ${conditionClass(p.condition)}" style="top:${pos.top}; left:${pos.left};" title="${escapeHtml(p.name)} — ${p.position} — condição ${cond}%">
+      <div class="shirt" style="background:${teamColor}">${p.number}</div>
+      <div class="shirtName">${escapeHtml(shortName(p.name))}${emergencyBadge}</div>
+      <span class="ratingBar shirtCond"><span style="width:${cond}%"></span></span>
+    </div>
+  `;
+}
+
+function benchCardHtml(p, teamColor) {
+  const cond = p.condition != null ? Math.round(p.condition) : 100;
+  const injured = p.status === 'lesionado';
+  return `
+    <div class="benchCard ${conditionClass(p.condition)} ${injured ? 'injuredRow' : ''}" title="${escapeHtml(p.name)} — ${p.position}">
+      <div class="benchShirt" style="background:${teamColor}">${p.posId}</div>
+      <div class="benchName">${escapeHtml(shortName(p.name))}</div>
+      ${injured
+        ? '<div class="benchInjured">Lesionado</div>'
+        : `<span class="ratingBar shirtCond"><span style="width:${cond}%"></span></span>`}
+    </div>
+  `;
+}
+
+// xv: até 15 jogadores titulares (com .number 1-15 já atribuído).
+// bench: reservas (opcional — times procedurais não têm banco).
+export function renderFormationHtml(xv, bench, teamColor, title) {
+  const shirts = xv.filter(p => FORMATION_POSITIONS[p.number]).map(p => shirtHtml(p, teamColor)).join('');
+  const benchHtml = bench && bench.length ? `
+    <div class="benchSection">
+      <div class="benchTitle">Reservas</div>
+      <div class="benchRow">${bench.map(p => benchCardHtml(p, teamColor)).join('')}</div>
+    </div>
+  ` : '';
+
+  return `
+    <div class="card formationCard">
+      ${title ? `<h3>${escapeHtml(title)}</h3>` : ''}
+      <div class="pitchOuter">
+        <div class="pitchLine" style="top:0"></div>
+        <div class="pitchLine" style="top:22%"></div>
+        <div class="pitchLine solid" style="top:50%"></div>
+        <div class="pitchLine" style="top:78%"></div>
+        <div class="pitchLine" style="top:100%"></div>
+        ${shirts}
+      </div>
+      ${benchHtml}
+    </div>
+  `;
 }

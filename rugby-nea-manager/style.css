@@ -196,3 +196,65 @@ canvas#pitch {
 .summaryBox h2 { text-align: center; }
 .summaryBox .finalScore { text-align: center; font-size: 30px; font-weight: 800; margin: 14px 0; }
 .summaryBox ul { padding-left: 18px; font-size: 13px; color: var(--muted); }
+
+/* Escalação visual (campo estático em formação) */
+.formationCard { padding: 14px; }
+.pitchOuter {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  aspect-ratio: 3 / 4;
+  background:
+    repeating-linear-gradient(90deg, #1c6b2e 0, #1c6b2e 8%, #1a6329 8%, #1a6329 16%);
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.pitchLine { position: absolute; left: 4%; right: 4%; height: 1px; background: rgba(255,255,255,0.35); }
+.pitchLine.solid { height: 2px; background: rgba(255,255,255,0.6); }
+.shirtSlot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 62px;
+}
+.shirt {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 12px;
+  border: 2px solid rgba(0,0,0,0.4);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.45);
+  flex-shrink: 0;
+}
+.shirtName {
+  font-size: 10px; color: #fff; margin-top: 2px; text-align: center;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.shirtCond { width: 28px; height: 4px; margin: 2px 0 0; }
+.benchSection { margin-top: 14px; }
+.benchTitle { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+.benchRow { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
+.benchCard {
+  flex: 0 0 auto; width: 78px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px; text-align: center;
+}
+.benchShirt {
+  width: 26px; height: 26px; margin: 0 auto 4px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 10px;
+  border: 1px solid rgba(0,0,0,0.4);
+}
+.benchName { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.benchInjured { font-size: 9px; color: var(--accent-2); margin-top: 2px; }
+
+@media (min-width: 720px) {
+  .pitchOuter { max-width: 520px; }
+  .shirt { width: 34px; height: 34px; font-size: 13px; }
+  .shirtName { font-size: 11px; }
+}

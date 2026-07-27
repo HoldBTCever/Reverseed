@@ -1,6 +1,6 @@
 import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS} from './data.js';
 import {simulateMatch, TACTICS} from './engine.js';
-import {MatchRenderer} from './render.js';
+import {MatchRenderer, renderFormationHtml} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
 import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getDualPartner, conditionMultiplier} from './realSquads.js';
@@ -683,7 +683,10 @@ function statusCell(p) {
 }
 
 function renderRealSquad() {
-  const rows = rosterWithStatus(state.myTeamId, {conditionOf: currentConditionOf, metaOverrides: state.playerOverrides});
+  const myOptions = {conditionOf: currentConditionOf, metaOverrides: state.playerOverrides};
+  const rows = rosterWithStatus(state.myTeamId, myOptions);
+  const {xv, bench} = formationDataFor(state.myTeamId, myOptions);
+  const myTeam = teamById[state.myTeamId];
   const rowHtml = p => `
     <tr class="${p.status === 'lesionado' ? 'injuredRow' : ''}">
       <td>${statusCell(p)}</td>
@@ -715,7 +718,8 @@ function renderRealSquad() {
   ` : '';
 
   content.innerHTML = `
-    <h1>Elenco — ${teamById[state.myTeamId].name}</h1>
+    <h1>Elenco — ${myTeam.name}</h1>
+    ${renderFormationHtml(xv, bench, myTeam.color, 'Escalação titular atual')}
     <p class="muted">PAS Passe · REC Recepção · LAT Lançamento lateral · SAL Salto · TAC Tackle · CHU Chute · VEL Velocidade · FOR Força · RES Resistência · DET Determinação</p>
     <p class="muted">Pilares e hooker são especialistas de primeira línea: se faltarem, o clube precisa convocar às pressas um juvenil de 18 anos em vez de improvisar com outro jogador.</p>
     <p class="muted">A condição cai após cada partida (mais para quem tem menos resistência) e se recupera com o tempo; jogadores muito desgastados rendem menos e correm mais risco de lesão.</p>
@@ -734,6 +738,7 @@ function renderSquad() {
     return;
   }
   const players = squadOf(state.myTeamId);
+  const myTeam = teamById[state.myTeamId];
   const forwards = players.filter(p => p.group === 'forward');
   const backs = players.filter(p => p.group === 'back');
   const rowHtml = p => `
@@ -752,7 +757,8 @@ function renderSquad() {
     </tr>
   `;
   content.innerHTML = `
-    <h1>Elenco — ${teamById[state.myTeamId].name}</h1>
+    <h1>Elenco — ${myTeam.name}</h1>
+    ${renderFormationHtml(players, [], myTeam.color, 'Escalação titular')}
     <p class="muted">PAS Passe · REC Recepção · LAT Lançamento lateral · SAL Salto · TAC Tackle · CHU Chute · VEL Velocidade · FOR Força</p>
     <div class="card">
       <h3>Forwards <span class="muted">(overall ${teamOverall(players, 'forward')})</span></h3>
@@ -767,6 +773,15 @@ function renderSquad() {
   `;
 }
 
+// Monta a lista de titulares + reservas de um time pra exibição visual (campo
+// com camisas em formação). Times sem elenco real (procedurais) não têm banco.
+function formationDataFor(teamId, options) {
+  const xv = squadOf(teamId, options);
+  const roster = getRealRoster(teamId);
+  const bench = roster ? rosterWithStatus(teamId, options).filter(p => p.status === 'reserva') : [];
+  return {xv, bench};
+}
+
 function renderMatchday() {
   const key = state.activeCompetition;
   const c = comp(key);
@@ -778,12 +793,27 @@ function renderMatchday() {
   const isHome = match.home === c.teamId;
   const roundName = activeRoundName(c);
 
+  // Pré-visualização da escalação de hoje, já considerando eventual choque de
+  // agenda com a outra competição (mesmo cálculo usado quando a partida
+  // realmente começar em renderLive, então o que se vê aqui é o que vai jogar).
+  const {excludedIds, doubleHeaderIds} = clashInfoFor(key, match);
+  const myOptions = {
+    conditionOf: buildMatchConditionOf(doubleHeaderIds),
+    excludedIds,
+    metaOverrides: state.playerOverrides,
+  };
+  const {xv, bench} = formationDataFor(c.teamId, myOptions);
+  const clashNote = excludedIds.size
+    ? '<p class="muted">⚠️ Alguns jogadores estão indisponíveis hoje: já entraram em campo na outra competição no mesmo dia, em local diferente.</p>'
+    : (doubleHeaderIds.size ? '<p class="muted">⚠️ Jogo duplo no mesmo dia e local: parte do time já jogou mais cedo e entra em campo mais desgastada.</p>' : '');
+
   content.innerHTML = `
     <h1>Dia de jogo — ${competitionLabel(key)} — ${roundName}</h1>
     <div class="card">
       <h3>${isHome ? `${myTeam.name} (casa) vs ${opp.name} (visitante)` : `${opp.name} (casa) vs ${myTeam.name} (visitante)`}</h3>
       <p class="muted">Ataque ${opp.attack} · Defesa ${opp.defense} · Físico ${opp.stamina}</p>
       ${c.stage === 'knockout' ? '<p class="muted">Mata-mata: em caso de empate, a partida vai para a prorrogação até sair um vencedor.</p>' : ''}
+      ${clashNote}
       <h3>Escolha sua tática</h3>
       <div class="tacticOptions" id="tacticOptions">
         <button class="tacticBtn" data-t="agresivo"><b>Agresivo</b><span>+ataque, -defesa</span></button>
@@ -792,6 +822,7 @@ function renderMatchday() {
       </div>
       <button class="playBtn" id="startMatchBtn">Começar partida</button>
     </div>
+    ${renderFormationHtml(xv, bench, myTeam.color, 'Escalação para hoje')}
   `;
 
   const opts = document.getElementById('tacticOptions');

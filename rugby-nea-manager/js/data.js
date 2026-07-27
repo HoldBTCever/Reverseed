@@ -85,30 +85,25 @@ export const LEAGUES = [
       A: ['PAR-CUR', 'PAR-CRI', 'PAR-STC', 'PAR-VHA'],
       B: ['PAR-SNJ', 'PAR-LUQ', 'PAR-ASU', 'PAR-FDM'],
     },
+    // Força real do campeonato paraguaio: Curda e San José são disparados os
+    // melhores (dá pra dizer que, com o time principal em campo, não perdem
+    // ponto nenhum); Luque e Santa Clara formam o segundo escalão; Cristo Rey
+    // e Asunción vêm um pouco atrás disso; Villa Hayes e Fernando de la Mora
+    // fecham a tabela.
     teams: [
-      team('PAR-SNJ', 'San José', '#D32F2F', 73, 71, 75),
-      team('PAR-CUR', 'Curda', '#F9A825', 73, 72, 75),
-      team('PAR-STC', 'Santa Clara', '#1976D2', 76, 75, 78),
-      team('PAR-LUQ', 'Luque', '#7B1FA2', 71, 70, 74),
-      team('PAR-ASU', 'Asunción', '#00695C', 80, 78, 82),
-      team('PAR-VHA', 'Villa Hayes', '#455A64', 69, 67, 72),
-      team('PAR-CRI', 'Cristo Rey', '#8D6E63', 68, 72, 73),
-      team('PAR-FDM', 'Fernando de la Mora', '#C2185B', 72, 69, 76),
+      team('PAR-SNJ', 'San José', '#D32F2F', 91, 89, 85),
+      team('PAR-CUR', 'Curda', '#F9A825', 91, 89, 85),
+      team('PAR-STC', 'Santa Clara', '#1976D2', 79, 77, 78),
+      team('PAR-LUQ', 'Luque', '#7B1FA2', 79, 77, 78),
+      team('PAR-ASU', 'Asunción', '#00695C', 71, 70, 73),
+      team('PAR-VHA', 'Villa Hayes', '#455A64', 66, 64, 70),
+      team('PAR-CRI', 'Cristo Rey', '#8D6E63', 71, 70, 73),
+      team('PAR-FDM', 'Fernando de la Mora', '#C2185B', 65, 63, 69),
     ],
   },
 ];
 
 export const TEAMS = LEAGUES.flatMap(l => l.teams);
-
-// Craques conhecidos de alguns clubes: substituem o nome do jogador de maior
-// overall gerado para o time, mantendo posição e atributos. San José (assim
-// como o Curda) é o mesmo clube nas duas ligas, então vale nos dois lados.
-const STAR_PLAYERS = {
-  'ARG-CUR': 'Ignacio Cuevas',
-  'PAR-CUR': 'Ignacio Cuevas',
-  'ARG-SNJ': 'Paco Lamas',
-  'PAR-SNJ': 'Paco Lamas',
-};
 
 const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 
@@ -204,12 +199,6 @@ export function generateSquad(team) {
       number: idx + 1,
     };
   });
-
-  const starName = STAR_PLAYERS[team.id];
-  if (starName) {
-    const star = players.reduce((best, p) => (p.rating > best.rating ? p : best), players[0]);
-    star.name = starName;
-  }
 
   return players;
 }

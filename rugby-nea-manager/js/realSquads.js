@@ -119,11 +119,74 @@ const CURDA_ROSTER = [
   mkPlayer('Vic Torres', 'AL', 61, {}, {age: 'jovem', note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído'}),
 ];
 
+// Elenco real do San José, a partir das listas de convocados reais do clube
+// para o mesmo fim de semana: um jogo do NEA (contra o Curda, sábado 16:30)
+// e um jogo do Apertura paraguaio (18:30, mesma "Cancha URP") — exatamente o
+// choque de agenda de mesmo local que o clube dual pode encarar. Os
+// convocados do NEA são claramente o time principal (overall mais alto); os
+// que sobraram pro Apertura formam o time intermédio. Três jogadores
+// (Adrián León, Nicolás Arias, Jerónimo Arrellaga) aparecem nas duas listas:
+// jogam os dois compromissos no mesmo dia.
+const SANJOSE_ROSTER = [
+  // Convocados do NEA (time principal) — titulares
+  mkPlayer('Nicolás Cáceres', 'PI', 78),
+  mkPlayer('Agustín Benítez', 'PI', 75),
+  mkPlayer('Rodolfo Rivadeneira', 'HK', 79),
+  mkPlayer('Nahuel Kacerosky', 'SL', 80),
+  mkPlayer('Ignacio Martínez', 'SL', 76),
+  mkPlayer('Ariel Núñez', 'AL', 81),
+  mkPlayer('Francisco Bareiro', 'AL', 77),
+  mkPlayer('Mateo Rodríguez', 'N8', 82),
+  mkPlayer('Gonzalo Bareiro', 'MS', 84),
+  mkPlayer('Joaquín Lamas', 'AP', 86, {}, {note: 'possível parente de Paco Lamas'}),
+  mkPlayer('Santiago Álvarez', 'WG', 83),
+  mkPlayer('Thomas Guzmán', 'CE', 80),
+  mkPlayer('Patricio Cabrera', 'CE', 78),
+  mkPlayer('Juan Chilavert', 'WG', 82),
+  mkPlayer('Santiago Espínola', 'FB', 79),
+  // Convocados do NEA — banco
+  mkPlayer('Emilio Gorostiaga', 'PI', 68),
+  mkPlayer('César Pérez', 'PI', 67),
+  mkPlayer('Enrique Quintero', 'HK', 70),
+  mkPlayer('Adrián León', 'SL', 74, {}, {note: 'joga NEA e Apertura no mesmo fim de semana'}),
+  mkPlayer('Nicolás Arias', 'SL', 73, {}, {note: 'joga NEA e Apertura no mesmo fim de semana'}),
+  mkPlayer('Jerónimo Arrellaga', 'AL', 75, {}, {note: 'joga NEA e Apertura no mesmo fim de semana'}),
+  mkPlayer('Marcos Romanach', 'AL', 69),
+  mkPlayer('Kevin Grau', 'N8', 71),
+  // Convocados do Apertura paraguaio (time intermédio) — titulares
+  mkPlayer('Luciano Aguilar', 'PI', 62),
+  mkPlayer('Camilo García', 'PI', 60),
+  mkPlayer('Marcelo Fretes', 'HK', 63),
+  mkPlayer('Rubén Guerrero', 'SL', 65),
+  mkPlayer('Sharif Ruiz', 'SL', 61),
+  mkPlayer('Carlos Martins', 'AL', 66),
+  mkPlayer('Bruno Sánchez', 'AL', 64),
+  mkPlayer('Bruno Cabriza', 'N8', 67),
+  mkPlayer('Giovani Salgueiro', 'MS', 68),
+  mkPlayer('Luciano Weston', 'AP', 70),
+  mkPlayer('Facundo Berdejo', 'WG', 69),
+  mkPlayer('Enzo Villamayor', 'CE', 65),
+  mkPlayer('Marcelo Matiauda', 'CE', 63),
+  mkPlayer('Joaquín Zarate', 'WG', 66),
+  mkPlayer('Angelo Bogado', 'FB', 64),
+  // Convocados do Apertura — banco
+  mkPlayer('Elixandro Gómez', 'PI', 55),
+  mkPlayer('Joaquín Núñez', 'PI', 53),
+  mkPlayer('Bautista Núñes', 'HK', 56),
+  mkPlayer('Jorge Matiauda', 'SL', 58),
+  mkPlayer('Santino Scribano', 'SL', 54),
+  // Craque e capitão do time
+  mkPlayer('Paco Lamas', 'FB', 88, {}, {captain: true, note: 'melhor jogador do San José'}, 90),
+];
+
 // O Curda é o mesmo clube nas duas ligas (disputa o NEA argentino e o
-// campeonato paraguaio) — mesmo plantel em ambas.
+// campeonato paraguaio) — mesmo plantel em ambas. O San José também disputa
+// as duas ligas ao mesmo tempo, com o mesmo plantel real dos dois lados.
 const REAL_SQUADS = {
   'ARG-CUR': CURDA_ROSTER,
   'PAR-CUR': CURDA_ROSTER,
+  'ARG-SNJ': SANJOSE_ROSTER,
+  'PAR-SNJ': SANJOSE_ROSTER,
 };
 
 const CURDA_STAFF = [
@@ -148,11 +211,13 @@ export function getStaff(teamId) {
 }
 
 // Clubes que disputam duas ligas ao mesmo tempo (mesmo elenco, calendários
-// independentes) — ex.: o Curda joga o NEA argentino e o campeonato
-// paraguaio simultaneamente, por isso o plantel tão grande.
+// independentes) — ex.: Curda e San José jogam o NEA argentino e o
+// campeonato paraguaio simultaneamente, por isso plantéis tão grandes.
 const DUAL_CLUBS = {
   'ARG-CUR': 'PAR-CUR',
   'PAR-CUR': 'ARG-CUR',
+  'ARG-SNJ': 'PAR-SNJ',
+  'PAR-SNJ': 'ARG-SNJ',
 };
 
 export function getDualPartner(teamId) {
