@@ -39,7 +39,7 @@ const POS_INFO = {
 };
 
 // Ordem-padrão de camisa 1-15 (11=ponta, 12/13=centros, 14=ponta, como no rugby real).
-const XV_SLOTS = ['PI', 'PI', 'HK', 'SL', 'SL', 'AL', 'AL', 'N8', 'MS', 'AP', 'WG', 'CE', 'CE', 'WG', 'FB'];
+const XV_SLOTS = ['PI', 'HK', 'PI', 'SL', 'SL', 'AL', 'AL', 'N8', 'MS', 'AP', 'WG', 'CE', 'CE', 'WG', 'FB'];
 
 function clamp(v) {
   return Math.max(30, Math.min(99, Math.round(v)));
@@ -100,7 +100,7 @@ const CURDA_ROSTER = [
   mkPlayer('Camilo Orrego', 'AP', 76, {kicking: 85, strength: 78}, {note: 'melhor como centro (12/13), mais pesado; chuta bem'}),
   mkPlayer('Carlos Salta', 'PI', 68, {}, {note: 'natural de Salta'}),
   mkPlayer('Diego Miño', 'MS', 90, {pass: 95}, {nationalTeam: 'seleção do Paraguai adulta'}),
-  mkPlayer('Facundo Navas', 'WG', 88, {speed: 92}, {nationalTeam: 'seleção', note: 'um dos melhores jogadores do Curda'}),
+  mkPlayer('Facundo Paiva', 'WG', 88, {speed: 92}, {nationalTeam: 'seleção', note: 'um dos melhores jogadores do Curda'}),
   mkPlayer('Gianfranco Parodi', 'WG', 82, {}, {nationalTeam: 'seleção'}),
   mkPlayer('Horacio Agüero', 'FB', 78, {kicking: 84, reception: 85}, {note: 'ótima leitura de jogo e bons chutes'}),
   mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 92}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado'}, 97),

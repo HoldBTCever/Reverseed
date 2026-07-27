@@ -2,8 +2,8 @@
 
 export const POSITIONS = [
   {id: 'PI', label: 'Pilar', group: 'forward'},
-  {id: 'PI', label: 'Pilar', group: 'forward'},
   {id: 'HK', label: 'Hooker', group: 'forward'},
+  {id: 'PI', label: 'Pilar', group: 'forward'},
   {id: 'SL', label: 'Segunda Línea', group: 'forward'},
   {id: 'SL', label: 'Segunda Línea', group: 'forward'},
   {id: 'AL', label: 'Ala', group: 'forward'},
