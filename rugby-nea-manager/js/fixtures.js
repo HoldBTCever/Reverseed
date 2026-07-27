@@ -73,3 +73,41 @@ export function sortedStandings(standings) {
     return y.pf - x.pf;
   });
 }
+
+// Cria os confrontos de uma rodada de mata-mata a partir de uma lista de ids
+// ordenada do melhor (índice 0) ao pior colocado. Usa a semeadura padrão
+// (1x8, 4x5, 3x6, 2x7) para 8 times, garantindo que 1º e 2º só se encontrem
+// na final; para 4 e 2 times, casa os extremos (1x4, 2x3) e (1x2).
+export function firstKnockoutRound(rankedIds) {
+  const n = rankedIds.length;
+  let order;
+  if (n === 8) order = [0, 7, 3, 4, 2, 5, 1, 6];
+  else if (n === 4) order = [0, 3, 1, 2];
+  else if (n === 2) order = [0, 1];
+  else throw new Error(`Tamanho de chave não suportado: ${n}`);
+
+  const pairs = [];
+  for (let i = 0; i < order.length; i += 2) {
+    pairs.push({home: rankedIds[order[i]], away: rankedIds[order[i + 1]]});
+  }
+  return pairs.map(m => ({...m, played: false, scoreHome: null, scoreAway: null}));
+}
+
+// Próxima rodada de mata-mata a partir dos vencedores da rodada anterior,
+// respeitando a ordem do chaveamento (vencedor do confronto 1 x vencedor do
+// confronto 2, e assim por diante).
+export function nextKnockoutRound(previousMatches) {
+  const winners = previousMatches.map(m => (m.scoreHome > m.scoreAway ? m.home : m.away));
+  const pairs = [];
+  for (let i = 0; i < winners.length; i += 2) {
+    pairs.push({home: winners[i], away: winners[i + 1]});
+  }
+  return pairs.map(m => ({...m, played: false, scoreHome: null, scoreAway: null}));
+}
+
+export function knockoutStageName(numMatches) {
+  if (numMatches === 4) return 'Quartas de Final';
+  if (numMatches === 2) return 'Semifinal';
+  if (numMatches === 1) return 'Final';
+  return `Mata-mata (${numMatches * 2} times)`;
+}

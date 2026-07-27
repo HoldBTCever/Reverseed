@@ -74,13 +74,18 @@ export const LEAGUES = [
     id: 'paraguayo',
     name: 'Campeonato Paraguaio',
     country: 'Paraguai',
+    // Fase de grupos: os dois melhores de cada grupo avançam às semifinais.
+    groups: {
+      A: ['PAR-CUR', 'PAR-CRI', 'PAR-STC', 'PAR-VHA'],
+      B: ['PAR-SNJ', 'PAR-LUQ', 'PAR-ASU', 'PAR-FDM'],
+    },
     teams: [
       team('PAR-SNJ', 'San José', '#D32F2F', 73, 71, 75),
       team('PAR-CUR', 'Curda', '#F9A825', 73, 72, 75),
       team('PAR-STC', 'Santa Clara', '#1976D2', 76, 75, 78),
       team('PAR-LUQ', 'Luque', '#7B1FA2', 71, 70, 74),
       team('PAR-ASU', 'Asunción', '#00695C', 80, 78, 82),
-      team('PAR-AR1', 'Área 1', '#455A64', 69, 67, 72),
+      team('PAR-VHA', 'Villa Hayes', '#455A64', 69, 67, 72),
       team('PAR-CRI', 'Cristo Rey', '#8D6E63', 68, 72, 73),
       team('PAR-FDM', 'Fernando de la Mora', '#C2185B', 72, 69, 76),
     ],

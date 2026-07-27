@@ -161,6 +161,24 @@ export function getDualPartner(teamId) {
 
 const FATIGUE_PENALTY = 12;
 
+// Primeira línea (pilares e hooker) são especialistas: ao contrário das
+// demais posições, ninguém "improvisa" ali quando falta gente.
+const FRONT_ROW = new Set(['PI', 'HK']);
+
+// Convocação de emergência do juvenil: usada só quando um clube não tem mais
+// nenhum especialista de primeira línea disponível (lesões/fadiga esgotaram
+// o plantel). Jogador de 18 anos, recém-saído das categorias de base.
+function emergencyYouthPlayer(posId) {
+  const player = mkPlayer(
+    `Juvenil convocado (${POS_INFO[posId].label})`,
+    posId,
+    48,
+    {},
+    {age: 18, note: 'Promovido às pressas do juvenil (18 anos) por falta de especialistas de primeira línea', emergencyCallUp: true},
+  );
+  return player;
+}
+
 // Escolhe os 15 titulares (melhor jogador disponível por posição, excluindo
 // lesionados), numerados na convenção tradicional 1-15. fatiguedIds (Set de
 // ids) representa jogadores que acabaram de jogar no outro torneio do clube
@@ -175,8 +193,16 @@ export function pickStartingXV(roster, fatiguedIds) {
   return XV_SLOTS.map((posId, idx) => {
     const group = POS_INFO[posId].group;
     let pool = available.filter(p => p.posId === posId && !used.has(p.id));
-    // Salvaguarda: se faltar alguém na posição exata, prefere alguém da
-    // mesma linha (forward/back) antes de pegar qualquer jogador disponível.
+    if (!pool.length && FRONT_ROW.has(posId)) {
+      // Sem especialista de primeira línea disponível: não improvisa com
+      // jogador de outra posição, convoca um juvenil de emergência.
+      const emergency = emergencyYouthPlayer(posId);
+      used.add(emergency.id);
+      return {...emergency, number: idx + 1, fatigued: false};
+    }
+    // Salvaguarda: se faltar alguém na posição exata (fora da primeira
+    // línea), prefere alguém da mesma linha (forward/back) antes de pegar
+    // qualquer jogador disponível.
     if (!pool.length) pool = available.filter(p => p.group === group && !used.has(p.id));
     if (!pool.length) pool = available.filter(p => !used.has(p.id));
     const pick = pool.reduce((best, p) => (effRating(p) > effRating(best) ? p : best), pool[0]);
