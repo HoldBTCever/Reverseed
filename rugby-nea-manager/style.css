@@ -177,6 +177,17 @@ canvas#pitch {
 .squadTable th, .squadTable td { padding: 5px 6px; white-space: nowrap; }
 .tableScroll { overflow-x: auto; }
 .injuredRow { opacity: 0.55; }
+
+.squadRow { cursor: pointer; }
+.squadRow:hover { background: var(--panel-2); }
+.squadRow.expanded .teamCol { color: var(--accent); }
+.skillDetailTr { display: none; }
+.skillDetailTr.open { display: table-row; }
+.skillDetailWrap { display: flex; flex-wrap: wrap; gap: 18px; padding: 10px 4px; background: var(--panel-2); border-radius: 8px; white-space: normal; }
+.skillDetailGroup { min-width: 160px; }
+.skillDetailGroup h4 { margin: 0 0 6px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.skillDetailRow { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 0; }
+.skillDetailLabel { width: 34px; color: var(--muted); flex-shrink: 0; }
 .ratingBar { display: inline-block; width: 30px; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; vertical-align: middle; margin-right: 4px; }
 .ratingBar > span { display: block; height: 100%; background: var(--accent); }
 .conditionLow .ratingBar > span { background: #d4a017; }
@@ -266,3 +277,22 @@ canvas#pitch {
   padding: 6px 10px; font-size: 12px; color: var(--muted); cursor: pointer;
 }
 .sortBtn.selected { border-color: var(--accent); color: var(--text); background: rgba(46,204,113,0.1); }
+
+.lineupEditorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.lineupSlot { display: flex; flex-direction: column; gap: 4px; }
+.lineupSlot label { font-size: 11px; color: var(--muted); }
+.lineupSlot select {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px; font-size: 12px; width: 100%;
+}
+.lineupSlot select:disabled { color: var(--muted); font-style: italic; }
+
+.dipSelect {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px; font-size: 12px; max-width: 220px;
+}

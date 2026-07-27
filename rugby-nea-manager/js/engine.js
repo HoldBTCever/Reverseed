@@ -31,10 +31,12 @@ function bestByGroup(players, skillKey, group) {
 }
 
 // Qualidade de mão do time concentrada em quem mais toca a bola (9 e 10),
-// em vez de uma média diluída entre os 15 jogadores.
+// em vez de uma média diluída entre os 15 jogadores. Visão de jogo entra
+// junto do passe puro: um 9/10 com boa leitura erra menos, mesmo com
+// técnica de passe mediana.
 function handlingRating(scrumHalf, flyHalf) {
-  return scrumHalf.skills.pass * 0.5 + scrumHalf.skills.reception * 0.15
-    + flyHalf.skills.pass * 0.25 + flyHalf.skills.reception * 0.10;
+  return scrumHalf.skills.pass * 0.40 + scrumHalf.skills.reception * 0.12 + scrumHalf.skills.vision * 0.13
+    + flyHalf.skills.pass * 0.20 + flyHalf.skills.reception * 0.08 + flyHalf.skills.vision * 0.07;
 }
 
 function handlingErrorChance(handling) {
@@ -52,6 +54,27 @@ function breakChance(pace) {
   return Math.max(0.005, Math.min(0.09, 0.035 + (pace - 70) * 0.0018));
 }
 
+// Turnover/jackal: rouba a bola no chão logo após o tackle, bem dependente
+// do especialista defensivo (normalmente um ala).
+function turnoverChance(turnoverSkill) {
+  return Math.max(0.004, Math.min(0.035, 0.012 + (turnoverSkill - 65) * 0.0006));
+}
+
+function hasTrait(players, trait) {
+  return players.some(p => p.meta && p.meta.traits && p.meta.traits.includes(trait));
+}
+
+function isLineoutSpecialist(player) {
+  return !!(player.meta && player.meta.traits && player.meta.traits.includes('lineoutSpecialist'));
+}
+
+// Chute efetivo pra conversões/penais: combina técnica de chute com
+// compostura, que pesa mais nos minutos finais (momento de pressão).
+function kickEffective(player, tick) {
+  const clutch = tick > 30 ? 0.28 : 0.15;
+  return player.skills.kicking * (1 - clutch) + player.skills.composure * clutch;
+}
+
 // Fator de cansaço dentro da própria partida: nos primeiros 40 minutos o time
 // joga em plena força; a partir daí perde intensidade progressivamente, mais
 // ou menos conforme a resistência média do time (staminaAvg). Times com pouca
@@ -65,7 +88,17 @@ function inMatchFatigueFactor(tick, staminaAvg) {
 
 function teamStrength(team, players, tacticKey) {
   const tactic = TACTICS[tacticKey] || TACTICS.equilibrado;
-  const forwardsAtk = teamOverall(players, 'forward');
+  const forwards = players.filter(p => p.group === 'forward');
+
+  // Técnica de scrum e peso médio do pack dão um pequeno ajuste ao valor
+  // "puro" dos forwards, além de um empurrão extra se houver um líder de
+  // pack em campo.
+  const scrumAvg = teamSkillAvg(players, 'scrum', 'forward');
+  const avgWeight = forwards.length ? forwards.reduce((s, p) => s + (p.weightKg || 100), 0) / forwards.length : 100;
+  const weightBonus = Math.max(-4, Math.min(4, (avgWeight - 108) * 0.35));
+  const packLeaderMod = hasTrait(forwards, 'packLeader') ? 1.03 : 1;
+
+  const forwardsAtk = (teamOverall(players, 'forward') * 0.85 + scrumAvg * 0.15 + weightBonus) * packLeaderMod;
   const backsAtk = teamOverall(players, 'back');
   const squadAttack = forwardsAtk * 0.4 + backsAtk * 0.6;
   const squadDefense = forwardsAtk * 0.55 + backsAtk * 0.45;
@@ -104,6 +137,20 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
   const staminaAvgA = teamSkillAvg(playersA, 'stamina');
   const staminaAvgB = teamSkillAvg(playersB, 'stamina');
+
+  const turnoverForwardA = bestByGroup(playersA, 'turnover', 'forward');
+  const turnoverForwardB = bestByGroup(playersB, 'turnover', 'forward');
+  const turnoverChanceA = turnoverChance(turnoverForwardA.skills.turnover);
+  const turnoverChanceB = turnoverChance(turnoverForwardB.skills.turnover);
+
+  // Disciplina reduz a chance de cartão (tanto amarelo quanto vermelho).
+  const disciplineAvgA = teamSkillAvg(playersA, 'discipline');
+  const disciplineAvgB = teamSkillAvg(playersB, 'discipline');
+  const disciplineFactor = avg => Math.max(0.4, Math.min(1.1, 1.3 - avg / 100));
+  const yellowChanceA = 0.012 * disciplineFactor(disciplineAvgA);
+  const yellowChanceB = 0.012 * disciplineFactor(disciplineAvgB);
+  const redChanceA = 0.0025 * disciplineFactor(disciplineAvgA);
+  const redChanceB = 0.0025 * disciplineFactor(disciplineAvgB);
 
   let pos = 50; // 0 = try-line de A (perigo p/ A), 100 = try-line de B (perigo p/ B)
   let scoreA = 0;
@@ -161,6 +208,18 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       addLog(minute, `¡${fastestBackB.name} rompe la línea con velocidad y avanza para ${teamB.name}!`);
     }
 
+    // Turnover/jackal: robo de la pelota en el tackle, muy dependiente del
+    // especialista defensivo (normalmente un ala).
+    if (!eventHandled && Math.random() < turnoverChanceA) {
+      push += rand(6, 14);
+      addLog(minute, `¡${turnoverForwardA.name} le roba la pelota al rival en el tackle para ${teamA.name}!`);
+      eventHandled = true;
+    } else if (!eventHandled && Math.random() < turnoverChanceB) {
+      push -= rand(6, 14);
+      addLog(minute, `¡${turnoverForwardB.name} le roba la pelota al rival en el tackle para ${teamB.name}!`);
+      eventHandled = true;
+    }
+
     // Error de manos: concentrado en el 9 y el 10, que son quienes más tocan la
     // pelota. El cansancio (fatigueA/B < 1 en el segundo tiempo) suma más
     // errores de mano, reflejando peores decisiones con el cuerpo pesado.
@@ -178,14 +237,17 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       eventHandled = true;
     }
 
-    // Line-out disputado (lanzamiento vs salto)
+    // Line-out disputado (lanzamiento vs salto). Especialistas em lineout
+    // (trait) dão um pequeno bônus extra pra quem lança ou pra quem salta.
     if (!eventHandled && Math.random() < 0.05) {
       const throwingA = Math.random() < 0.5;
       const thrower = throwingA ? hookerA : hookerB;
       const rivalJumper = throwingA ? jumperB : jumperA;
       const throwTeam = throwingA ? teamA : teamB;
       const rivalTeam = throwingA ? teamB : teamA;
-      const success = rand(0, 100) < (thrower.skills.lineoutThrow * 0.75 - rivalJumper.skills.jump * 0.25 + 55);
+      const throwerBonus = isLineoutSpecialist(thrower) ? 8 : 0;
+      const jumperBonus = isLineoutSpecialist(rivalJumper) ? 8 : 0;
+      const success = rand(0, 100) < (thrower.skills.lineoutThrow * 0.75 + throwerBonus - (rivalJumper.skills.jump * 0.25 + jumperBonus) + 55);
       if (success) {
         addLog(minute, `Line-out limpio para ${throwTeam.name}: lanzamiento preciso de ${thrower.name}.`);
         push += throwingA ? rand(5, 12) : -rand(5, 12);
@@ -199,31 +261,34 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     pos = Math.max(0, Math.min(100, pos + push));
     eventHandled = false;
 
-    // Tarjeta amarilla (poco frecuente)
-    if (!eventHandled && Math.random() < 0.012) {
-      const toA = Math.random() < 0.5;
-      const teamCard = toA ? teamA : teamB;
-      const players = toA ? playersA : playersB;
-      const player = pick(players.filter(p => p.group === 'forward'));
-      if (toA) cardPenaltyA = 5; else cardPenaltyB = 5;
-      cards.push({minute, team: teamCard.name, player: player.name, type: 'yellow'});
-      addLog(minute, `Tarjeta amarilla para ${player.name} (${teamCard.name}). 10 minutos afuera.`);
+    // Tarjeta amarilla (poco frecuente): times mais disciplinados sofrem menos.
+    if (!eventHandled && Math.random() < yellowChanceA) {
+      const player = pick(playersA.filter(p => p.group === 'forward'));
+      cardPenaltyA = 5;
+      cards.push({minute, team: teamA.name, player: player.name, type: 'yellow'});
+      addLog(minute, `Tarjeta amarilla para ${player.name} (${teamA.name}). 10 minutos afuera.`);
+      eventHandled = true;
+    } else if (!eventHandled && Math.random() < yellowChanceB) {
+      const player = pick(playersB.filter(p => p.group === 'forward'));
+      cardPenaltyB = 5;
+      cards.push({minute, team: teamB.name, player: player.name, type: 'yellow'});
+      addLog(minute, `Tarjeta amarilla para ${player.name} (${teamB.name}). 10 minutos afuera.`);
       eventHandled = true;
     }
 
     // Tarjeta roja (muy poco frecuente): expulsión por el resto del partido.
-    if (!eventHandled && Math.random() < 0.0025) {
-      const toA = Math.random() < 0.5;
-      const alreadyRed = toA ? redCardA : redCardB;
-      if (!alreadyRed) {
-        const teamCard = toA ? teamA : teamB;
-        const players = toA ? playersA : playersB;
-        const player = pick(players.filter(p => p.group === 'forward'));
-        if (toA) redCardA = true; else redCardB = true;
-        cards.push({minute, team: teamCard.name, player: player.name, type: 'red'});
-        addLog(minute, `¡Tarjeta roja para ${player.name} (${teamCard.name})! Jugará el resto del partido con un hombre menos.`);
-        eventHandled = true;
-      }
+    if (!eventHandled && !redCardA && Math.random() < redChanceA) {
+      const player = pick(playersA.filter(p => p.group === 'forward'));
+      redCardA = true;
+      cards.push({minute, team: teamA.name, player: player.name, type: 'red'});
+      addLog(minute, `¡Tarjeta roja para ${player.name} (${teamA.name})! Jugará el resto del partido con un hombre menos.`);
+      eventHandled = true;
+    } else if (!eventHandled && !redCardB && Math.random() < redChanceB) {
+      const player = pick(playersB.filter(p => p.group === 'forward'));
+      redCardB = true;
+      cards.push({minute, team: teamB.name, player: player.name, type: 'red'});
+      addLog(minute, `¡Tarjeta roja para ${player.name} (${teamB.name})! Jugará el resto del partido con un hombre menos.`);
+      eventHandled = true;
     }
 
     // Try
@@ -232,7 +297,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       scoreA += 5;
       scorersA.push({minute, player: scorer.name});
       addLog(minute, `¡TRY de ${teamA.name}! Anota ${scorer.name}.`);
-      if (Math.random() * 100 < kickerA.skills.kicking * 0.9) {
+      if (Math.random() * 100 < kickEffective(kickerA, tick) * 0.9) {
         scoreA += 2;
         addLog(minute, `${kickerA.name} convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
       } else {
@@ -245,7 +310,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       scoreB += 5;
       scorersB.push({minute, player: scorer.name});
       addLog(minute, `¡TRY de ${teamB.name}! Anota ${scorer.name}.`);
-      if (Math.random() * 100 < kickerB.skills.kicking * 0.9) {
+      if (Math.random() * 100 < kickEffective(kickerB, tick) * 0.9) {
         scoreB += 2;
         addLog(minute, `${kickerB.name} convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
       } else {
@@ -257,7 +322,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
     // Penal
     if (!eventHandled && pos >= 72 && pos < 94 && Math.random() < 0.08) {
-      if (Math.random() * 100 < kickerA.skills.kicking * 0.85) {
+      if (Math.random() * 100 < kickEffective(kickerA, tick) * 0.85) {
         scoreA += 3;
         addLog(minute, `Penal para ${teamA.name}. ${kickerA.name} patea y convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
       } else {
@@ -266,7 +331,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       pos = 50;
       eventHandled = true;
     } else if (!eventHandled && pos <= 28 && pos > 6 && Math.random() < 0.08) {
-      if (Math.random() * 100 < kickerB.skills.kicking * 0.85) {
+      if (Math.random() * 100 < kickEffective(kickerB, tick) * 0.85) {
         scoreB += 3;
         addLog(minute, `Penal para ${teamB.name}. ${kickerB.name} patea y convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
       } else {
@@ -276,15 +341,26 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       eventHandled = true;
     }
 
-    // Drop goal ocasional
-    if (!eventHandled && pos >= 60 && pos < 80 && Math.random() < 0.015) {
-      scoreA += 3;
-      addLog(minute, `¡Drop de ${kickerA.name}! ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
+    // Drop goal ocasional: agora tem chance real de errar, dependendo da
+    // técnica específica de drop (DRO) e da compostura do chutador.
+    if (!eventHandled && pos >= 60 && pos < 80 && Math.random() < 0.02) {
+      const dropper = bestBy(playersA, 'dropGoal', 'AP');
+      if (Math.random() * 100 < dropper.skills.dropGoal * 0.75 + dropper.skills.composure * 0.15) {
+        scoreA += 3;
+        addLog(minute, `¡Drop de ${dropper.name}! ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
+      } else {
+        addLog(minute, `${dropper.name} intenta el drop pero erra el palo.`);
+      }
       pos = 50;
       eventHandled = true;
-    } else if (!eventHandled && pos <= 40 && pos > 20 && Math.random() < 0.015) {
-      scoreB += 3;
-      addLog(minute, `¡Drop de ${kickerB.name}! ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
+    } else if (!eventHandled && pos <= 40 && pos > 20 && Math.random() < 0.02) {
+      const dropper = bestBy(playersB, 'dropGoal', 'AP');
+      if (Math.random() * 100 < dropper.skills.dropGoal * 0.75 + dropper.skills.composure * 0.15) {
+        scoreB += 3;
+        addLog(minute, `¡Drop de ${dropper.name}! ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
+      } else {
+        addLog(minute, `${dropper.name} intenta el drop pero erra el palo.`);
+      }
       pos = 50;
       eventHandled = true;
     }

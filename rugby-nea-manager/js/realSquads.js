@@ -3,9 +3,27 @@
 // temos essa informação. Times sem entrada aqui continuam usando
 // generateSquad() normalmente.
 
-import {SKILL_PROFILES, SKILL_LABELS} from './data.js';
+import {SKILL_PROFILES, SKILL_LABELS, genBiometrics, genTraits} from './data.js';
 
 const SKILL_KEYS = Object.keys(SKILL_LABELS);
+
+function mulberry32(seed) {
+  return function () {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seedFromString(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  }
+  return h;
+}
 
 const POS_INFO = {
   PI: {label: 'Pilar', group: 'forward'},
@@ -51,6 +69,13 @@ function mkPlayer(name, posId, base, overrides = {}, meta = {}, overallOverride 
   });
   Object.entries(overrides).forEach(([k, v]) => { skills[k] = clamp(v); });
 
+  // Altura/peso e traits ocultos são sorteados de forma determinística (semente
+  // pelo nome+posição), exceto quando o próprio meta já vem com traits explícitos
+  // (ex.: um jogador com nota descrevendo especialidade de lineout).
+  const rng = mulberry32(seedFromString(name + posId));
+  const {heightCm, weightKg} = genBiometrics(rng, posId);
+  const traits = meta.traits || genTraits(rng, POS_INFO[posId].group);
+
   return {
     id: `real-${autoId++}`,
     name,
@@ -60,7 +85,9 @@ function mkPlayer(name, posId, base, overrides = {}, meta = {}, overallOverride 
     skills,
     rating: overallOverride != null ? overallOverride : computeOverall(skills, profile),
     number: null,
-    meta,
+    heightCm,
+    weightKg,
+    meta: {...meta, traits},
   };
 }
 
@@ -80,7 +107,7 @@ const CURDA_ROSTER = [
   mkPlayer('Joaquim Mussi', 'FB', 90, {}, {nationalTeam: 'seleção', note: 'melhor fullback do time; também joga de apertura'}),
   mkPlayer('Martín Ayala', 'PI', 58, {}, {note: 'por vezes usado no time intermédio'}),
   mkPlayer('Lautaro', 'N8', 76, {pass: 85}, {note: 'ótima visão de jogo'}),
-  mkPlayer('Mariano Garcete', 'SL', 91, {jump: 90, strength: 88, determination: 90}, {nationalTeam: 'ex-capitão da seleção do Paraguai'}),
+  mkPlayer('Mariano Garcete', 'SL', 91, {jump: 90, strength: 88, determination: 90}, {nationalTeam: 'ex-capitão da seleção do Paraguai', traits: ['packLeader']}),
   mkPlayer('Matías Ballasch', 'PI', 70, {}, {note: 'também joga de hooker'}),
   mkPlayer('Estefano Aranda', 'PI', 84, {}, {nationalTeam: 'seleção'}),
   mkPlayer('Martín Sitjar', 'PI', 74, {strength: 92}, {note: 'o jogador mais pesado do time'}),
@@ -112,12 +139,12 @@ const CURDA_ROSTER = [
   mkPlayer('Marcelo Villaroel', 'CE', 66, {}, {nickname: 'Negro'}),
   mkPlayer('Sebas Urbieta', 'CE', 80, {}, {nationalTeam: 'seleção'}),
   mkPlayer('Mariano Segovia', 'SL', 64, {}, {nickname: 'Volei'}),
-  mkPlayer('Lucas Otaño', 'HK', 72, {}, {injuryWeeks: 13, injuryLabel: '3 meses'}),
+  mkPlayer('Lucas Otaño', 'HK', 72, {}, {injuryWeeks: 13, injuryLabel: '3 meses', traits: ['injuryProne']}),
   mkPlayer('Fernando Alvarado', 'MS', 80, {}, {nickname: 'Ferchu', age: 'jovem', potential: 'altíssimo', injuryWeeks: 26, injuryLabel: '6 meses'}),
   mkPlayer('Jean Paul Clemont', 'AL', 70, {}, {nickname: 'JP', injuryWeeks: 43, injuryLabel: '10 meses'}),
   mkPlayer('Joaquín Alzueta', 'AL', 68, {}, {nickname: 'Joaco', age: 'jovem', note: 'joga também de centro'}),
   mkPlayer('Vic Torres', 'AL', 61, {}, {age: 'jovem', note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído'}),
-  mkPlayer('Gonza Alvarado', 'SL', 78, {jump: 91, lineoutThrow: 60}, {note: 'excelente no salto para o line-out, no estilo do Álvaro Allo'}),
+  mkPlayer('Gonza Alvarado', 'SL', 78, {jump: 91, lineoutThrow: 60}, {note: 'excelente no salto para o line-out, no estilo do Álvaro Allo', traits: ['lineoutSpecialist']}),
 ];
 
 // Elenco real do San José, a partir das listas de convocados reais do clube
@@ -180,14 +207,64 @@ const SANJOSE_ROSTER = [
   mkPlayer('Paco Lamas', 'FB', 88, {}, {captain: true, note: 'melhor jogador do San José'}, 90),
 ];
 
+// Elenco do Curne, mesmo clube que disputa o NEA argentino e também o
+// Torneio do Interior (competição regional própria, times de cidades do
+// interior de Corrientes) — mesmo plantel nos dois lados, igual ao esquema
+// do Curda e do San José.
+const CURNE_ROSTER = [
+  // Titulares
+  mkPlayer('Bruno Zacarías', 'PI', 82, {}, {note: 'pilar direito, forte no scrum'}),
+  mkPlayer('Nahuel Portillo', 'PI', 79),
+  mkPlayer('Tomás Escalante', 'HK', 83, {lineoutThrow: 88}, {captain: true, note: 'capitão, lançador de lineout mais preciso do time'}),
+  mkPlayer('Ezequiel Miranda', 'SL', 84, {jump: 90}, {note: 'salto de lineout, referência do pack'}),
+  mkPlayer('Franco Basualdo', 'SL', 80),
+  mkPlayer('Rodrigo Cañete', 'AL', 81),
+  mkPlayer('Matías Insaurralde', 'AL', 78),
+  mkPlayer('Gastón Verón', 'N8', 85, {}, {note: 'motor do jogo aos contatos, muito determinado'}),
+  mkPlayer('Iván Recalde', 'MS', 83),
+  mkPlayer('Lucas Denis', 'AP', 86, {kicking: 88}, {note: 'principal cobrador de penais e conversões'}),
+  mkPlayer('Braian Sanabria', 'WG', 84, {speed: 91}),
+  mkPlayer('Octavio Meza', 'CE', 82),
+  mkPlayer('Fabricio Aquino', 'CE', 80),
+  mkPlayer('Ramiro Cardozo', 'WG', 83, {speed: 90}),
+  mkPlayer('Julián Torales', 'FB', 85, {kicking: 80}),
+  // Banco / rotação
+  mkPlayer('Emanuel Godoy', 'PI', 70),
+  mkPlayer('Cristian Ovelar', 'PI', 68),
+  mkPlayer('Damián Ríos', 'PI', 66),
+  mkPlayer('Facundo Britez', 'HK', 71),
+  mkPlayer('Néstor Galarza', 'HK', 65),
+  mkPlayer('Agustín Duarte', 'SL', 73),
+  mkPlayer('Braulio Chaparro', 'SL', 70),
+  mkPlayer('Ulises Maidana', 'AL', 74),
+  mkPlayer('Kevin Villagra', 'AL', 69),
+  mkPlayer('Ariel Coronel', 'N8', 72),
+  mkPlayer('Gabriel Cabañas', 'MS', 71),
+  mkPlayer('Facundo Leiva', 'MS', 66),
+  mkPlayer('Nicolás Franco', 'AP', 73),
+  mkPlayer('Emiliano Ledesma', 'WG', 72),
+  mkPlayer('Tobías Amarilla', 'CE', 71),
+  mkPlayer('Federico Barreto', 'CE', 68),
+  mkPlayer('Santino Vera', 'WG', 70),
+  mkPlayer('Joaquín Espínola', 'FB', 69),
+  // Juvenis em ascensão
+  mkPlayer('Ignacio Sena', 'PI', 58, {}, {age: 19}),
+  mkPlayer('Bautista Ojeda', 'SL', 57, {}, {age: 19}),
+  mkPlayer('Thiago Núñez', 'CE', 59, {}, {age: 18}),
+];
+
 // O Curda é o mesmo clube nas duas ligas (disputa o NEA argentino e o
 // campeonato paraguaio) — mesmo plantel em ambas. O San José também disputa
 // as duas ligas ao mesmo tempo, com o mesmo plantel real dos dois lados.
+// O Curne segue o mesmo padrão: disputa o NEA argentino e o Torneio do
+// Interior (regional) com o mesmo plantel.
 const REAL_SQUADS = {
   'ARG-CUR': CURDA_ROSTER,
   'PAR-CUR': CURDA_ROSTER,
   'ARG-SNJ': SANJOSE_ROSTER,
   'PAR-SNJ': SANJOSE_ROSTER,
+  'ARG-CNE': CURNE_ROSTER,
+  'INT-CNE': CURNE_ROSTER,
 };
 
 const CURDA_STAFF = [
@@ -199,9 +276,29 @@ const CURDA_STAFF = [
   {role: 'Auxiliar Técnico', name: 'Sebas Bereta', note: 'assume o time B quando NEA e Paraguaio caem no mesmo dia em locais diferentes'},
 ];
 
+const CURNE_STAFF = [
+  {role: 'Treinador Principal (Head Coach)', name: 'Darío Meza'},
+  {role: 'Preparador Físico', name: 'Coco Villagra'},
+  {role: 'Fisioterapeuta', name: 'Ramona Sena'},
+  {role: 'Auxiliar Técnico', name: 'Beto Franco', note: 'assume o time B quando NEA e Interior caem no mesmo dia em locais diferentes'},
+];
+
 const STAFF = {
   'ARG-CUR': CURDA_STAFF,
   'PAR-CUR': CURDA_STAFF,
+  'ARG-CNE': CURNE_STAFF,
+  'INT-CNE': CURNE_STAFF,
+};
+
+// Qualidade da comissão técnica: multiplica o ritmo de evolução dos
+// atributos no treino (ver tickTraining em app.js). O Curda tem comissão
+// toda avaliada como excelente, então evolui mais rápido; a do Curne é boa,
+// mas não no mesmo nível.
+const STAFF_QUALITY = {
+  'ARG-CUR': 1.5,
+  'PAR-CUR': 1.5,
+  'ARG-CNE': 1.2,
+  'INT-CNE': 1.2,
 };
 
 export function getRealRoster(teamId) {
@@ -212,6 +309,10 @@ export function getStaff(teamId) {
   return STAFF[teamId] || null;
 }
 
+export function getStaffQuality(teamId) {
+  return STAFF_QUALITY[teamId] || 1;
+}
+
 // Clubes que disputam duas ligas ao mesmo tempo (mesmo elenco, calendários
 // independentes) — ex.: Curda e San José jogam o NEA argentino e o
 // campeonato paraguaio simultaneamente, por isso plantéis tão grandes.
@@ -220,6 +321,8 @@ const DUAL_CLUBS = {
   'PAR-CUR': 'ARG-CUR',
   'ARG-SNJ': 'PAR-SNJ',
   'PAR-SNJ': 'ARG-SNJ',
+  'ARG-CNE': 'INT-CNE',
+  'INT-CNE': 'ARG-CNE',
 };
 
 export function getDualPartner(teamId) {
@@ -253,6 +356,22 @@ export function conditionMultiplier(condition) {
   return 0.72 + 0.28 * (c / 100);
 }
 
+// Aplica lesões dinâmicas (metaOverrides) e evolução por treino
+// (skillOverrides — valores absolutos que sobrescrevem as skills base) a um
+// jogador, sem mutar o elenco estático. O overall nunca cai por causa do
+// treino (só sobe, se a recomputação das skills superar o overall "de
+// scout" original).
+function applyOverrides(p, metaOverrides, skillOverrides) {
+  let player = p;
+  if (metaOverrides[p.id]) player = {...player, meta: {...player.meta, ...metaOverrides[p.id]}};
+  if (skillOverrides[p.id]) {
+    const skills = {...player.skills, ...skillOverrides[p.id]};
+    const recomputed = computeOverall(skills, SKILL_PROFILES[player.posId]);
+    player = {...player, skills, rating: Math.max(player.rating, recomputed)};
+  }
+  return player;
+}
+
 // Escolhe os 15 titulares (melhor jogador disponível por posição, excluindo
 // lesionados e indisponíveis), numerados na convenção tradicional 1-15.
 //   options.conditionOf(player) -> condição física 0-100 (default 100):
@@ -264,13 +383,16 @@ export function conditionMultiplier(condition) {
 //     exclusão dura, o jogador nem entra no pool.
 //   options.metaOverrides -> {[id]: {injuryWeeks, injuryLabel, ...}} lesões
 //     dinâmicas (por fadiga) que sobrescrevem o meta estático do jogador.
+//   options.skillOverrides -> {[id]: {skillKey: novoValor}} evolução por
+//     treino (ver tickTraining em app.js).
 export function pickStartingXV(roster, options = {}) {
   const conditionOf = options.conditionOf || (() => 100);
   const excludedIds = options.excludedIds || new Set();
   const metaOverrides = options.metaOverrides || {};
+  const skillOverrides = options.skillOverrides || {};
   const effRating = p => p.rating * conditionMultiplier(conditionOf(p));
 
-  const withMeta = roster.map(p => (metaOverrides[p.id] ? {...p, meta: {...p.meta, ...metaOverrides[p.id]}} : p));
+  const withMeta = roster.map(p => applyOverrides(p, metaOverrides, skillOverrides));
   const available = withMeta.filter(p => !p.meta.injuryWeeks && !excludedIds.has(p.id));
   const used = new Set();
 
@@ -302,12 +424,13 @@ export function rosterWithStatus(teamId, options = {}) {
   if (!roster) return null;
   const conditionOf = options.conditionOf || (() => 100);
   const metaOverrides = options.metaOverrides || {};
+  const skillOverrides = options.skillOverrides || {};
   const xv = pickStartingXV(roster, options);
   const numberById = Object.fromEntries(xv.map(p => [p.id, p.number]));
   const excludedIds = options.excludedIds || new Set();
 
   return [...roster]
-    .map(p => (metaOverrides[p.id] ? {...p, meta: {...p.meta, ...metaOverrides[p.id]}} : p))
+    .map(p => applyOverrides(p, metaOverrides, skillOverrides))
     .sort((a, b) => b.rating - a.rating)
     .map(p => {
       let status = 'reserva';

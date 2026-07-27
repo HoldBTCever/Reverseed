@@ -1,11 +1,11 @@
-import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS} from './data.js';
+import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS} from './data.js';
 import {simulateMatch, TACTICS} from './engine.js';
 import {MatchRenderer, renderFormationHtml} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
-import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getDualPartner, conditionMultiplier} from './realSquads.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier} from './realSquads.js';
 
-const SAVE_KEY = 'rugbyNeaSave_v6';
+const SAVE_KEY = 'rugbyNeaSave_v7';
 
 const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 function crestCode(team) {
@@ -43,6 +43,8 @@ let state = null;
 let matchAnim = null; // controle da partida ao vivo em andamento
 let pendingMatchResult = null; // resultado já simulado/exibido da partida do usuário nesta rodada
 let pendingMyXV = null; // escalação (jogadores inteiros) usada na partida em andamento
+let manualSlots = null; // array de 15 playerIds (ou null nalguma posição = automático) em edição na tela de Dia de Jogo
+let manualSlotsSignature = null; // identifica pra qual partida o manualSlots atual pertence, pra resetar ao mudar de jogo
 
 function loadState() {
   try {
@@ -132,6 +134,9 @@ function newGame(myTeamId) {
     playerCondition: {}, // {[playerId]: {condition, atTick}} — condição registrada logo após a última partida do jogador
     playerOverrides: {}, // {[playerId]: {injuryWeeks, injuryLabel, dynamicInjury}} — lesões dinâmicas por fadiga
     lastMatch: {}, // {[competitionKey]: {ids, roundsElapsed, venue}} — última escalação usada em cada competição, p/ detectar choque de agenda
+    lineupPresets: {}, // {[teamId]: {A: [15 playerIds ou null], B: [...]}} — escalações salvas (Time A / Time B)
+    skillGrowth: {}, // {[playerId]: {skillKey: novoValorAbsoluto}} — evolução de atributos por treino (ver tickTraining)
+    dipTraining: {}, // {[playerId]: skillKey} — foco de treino individual intensivo (DIP) escolhido pelo manager
   };
   saveState();
   render();
@@ -266,7 +271,8 @@ function declineAfterMatch(player, preMatchCondition) {
 // durões se cuidam/se seguram melhor mesmo cansados).
 function rollFatigueInjury(player, postMatchCondition) {
   if (postMatchCondition >= 35) return null;
-  const risk = Math.max(0.02, 0.10 - player.skills.determination * 0.0008);
+  let risk = Math.max(0.02, 0.10 - player.skills.determination * 0.0008);
+  if (player.meta && player.meta.traits && player.meta.traits.includes('injuryProne')) risk *= 1.8;
   if (Math.random() >= risk) return null;
   const weeks = 1 + Math.floor(Math.random() * 4);
   return {injuryWeeks: weeks, injuryLabel: weeksLabel(weeks), dynamicInjury: true};
@@ -297,6 +303,65 @@ function tickInjuries() {
       injuryWeeks: remaining,
       injuryLabel: remaining > 0 ? weeksLabel(remaining) : undefined,
     };
+  });
+}
+
+// Soma `amount` ao valor mais atual (já com evolução anterior) de uma skill
+// e grava em state.skillGrowth como valor absoluto — o overall recalculado
+// nunca cai por causa do treino (applyOverrides em realSquads.js já garante
+// isso ao escolher o maior entre o overall "de scout" e o recomputado).
+function growSkill(playerId, baseSkills, key, amount) {
+  const current = (state.skillGrowth[playerId] && state.skillGrowth[playerId][key] != null)
+    ? state.skillGrowth[playerId][key] : baseSkills[key];
+  const next = Math.max(current, Math.min(99, Math.round(current + amount)));
+  if (next === current) return;
+  state.skillGrowth[playerId] = {...(state.skillGrowth[playerId] || {}), [key]: next};
+}
+
+// Sorteia uma skill pra evoluir no treino de clube, com mais chance nas
+// skills que definem a posição do jogador (peso do SKILL_PROFILES).
+function weightedRandomSkill(posId) {
+  const profile = SKILL_PROFILES[posId];
+  const totalWeight = SKILL_KEYS.reduce((sum, k) => sum + profile[k], 0);
+  let roll = Math.random() * totalWeight;
+  for (const k of SKILL_KEYS) {
+    roll -= profile[k];
+    if (roll <= 0) return k;
+  }
+  return SKILL_KEYS[SKILL_KEYS.length - 1];
+}
+
+// Treino do clube: segunda, terça e quinta, uma vez por rodada finalizada.
+// Fadiga leve pra todo mundo (registrada como mais uma queda de condição,
+// que se recupera igual à fadiga de partida) e chance de evolução gradual
+// de algum atributo. Jogadores com determinação ≥75 podem entrar em treino
+// individual intensivo (DIP), focado num atributo escolhido no Elenco: evolui
+// garantido e mais rápido ali, à custa de bem mais desgaste físico. A
+// qualidade da comissão técnica (getStaffQuality) acelera tudo isso. Só se
+// aplica ao elenco real do clube gerenciado — mesma restrição de tickInjuries.
+function tickTraining() {
+  const roster = getRealRoster(state.myTeamId);
+  if (!roster) return;
+  const quality = getStaffQuality(state.myTeamId);
+  roster.forEach(p => {
+    const override = state.playerOverrides[p.id];
+    const injuryWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
+    if (injuryWeeks) return; // lesionado não treina
+
+    const dipKey = state.dipTraining[p.id];
+    const dipEligible = dipKey && p.skills.determination >= 75;
+    let fatigue;
+    if (dipEligible) {
+      growSkill(p.id, p.skills, dipKey, 2 * quality);
+      fatigue = 10 + Math.random() * 8;
+    } else {
+      fatigue = 3 + Math.random() * 5;
+      if (Math.random() < 0.3 * quality) {
+        growSkill(p.id, p.skills, weightedRandomSkill(p.posId), Math.max(1, Math.round(quality)));
+      }
+    }
+    const current = currentConditionOf(p);
+    state.playerCondition[p.id] = {condition: Math.max(15, current - fatigue), atTick: state.globalTick};
   });
 }
 
@@ -652,10 +717,86 @@ const SKILL_SHORT = {
   pass: 'PAS', reception: 'REC', lineoutThrow: 'LAT', jump: 'SAL',
   tackle: 'TAC', kicking: 'CHU', speed: 'VEL', strength: 'FOR',
   stamina: 'RES', determination: 'DET',
+  ruck: 'RUK', turnover: 'TUR', scrum: 'SCR', dropGoal: 'DRO', sidestep: 'DRI',
+  vision: 'VIS', positioning: 'POS', discipline: 'DIS', leadership: 'LID', composure: 'CAL',
+  agility: 'AGI', recovery: 'RCP',
 };
 
+const TRAIT_ICON = {
+  injuryProne: '🩹',
+  lineoutSpecialist: '🙌',
+  packLeader: '🛡️',
+};
+
+function categoryAvg(skills, keys) {
+  const sum = keys.reduce((acc, k) => acc + skills[k], 0);
+  return Math.round(sum / keys.length);
+}
+
+// Usado dentro de .skillDetailRow (uma <div>, não uma <table>) — precisa ser
+// um <span>, não um <td>: um <td> solto fora de tabela quebra o parser HTML
+// (o navegador fecha as divs abertas cedo e derrama o resto do conteúdo pra
+// fora da estrutura de grupos, sumindo com os rótulos).
 function skillCell(value) {
-  return `<td title="${value}"><span class="ratingBar"><span style="width:${value}%"></span></span>${value}</td>`;
+  return `<span class="skillValue" title="${value}"><span class="ratingBar"><span style="width:${value}%"></span></span>${value}</span>`;
+}
+
+// Célula compacta com a média de uma categoria de atributos (técnico/mental/
+// físico), usada na tabela principal em vez de uma coluna por skill — com 22
+// atributos ao todo, uma coluna por skill deixaria a tabela ilegível.
+function categoryCell(skills, category) {
+  const avg = categoryAvg(skills, SKILL_CATEGORIES[category]);
+  return `<td title="Média ${category}"><span class="ratingBar"><span style="width:${avg}%"></span></span>${avg}</td>`;
+}
+
+function traitsHtml(meta) {
+  if (!meta.traits || !meta.traits.length) return '';
+  return meta.traits.map(t => `<span title="${TRAITS[t] ? TRAITS[t].label : t}">${TRAIT_ICON[t] || '★'}</span>`).join(' ');
+}
+
+// Painel expandido com a nota individual de cada um dos 22 atributos,
+// agrupados por categoria — aberto ao clicar na linha do jogador.
+function skillDetailHtml(p, colspan, dipEnabled) {
+  const groupHtml = category => `
+    <div class="skillDetailGroup">
+      <h4>${category[0].toUpperCase()}${category.slice(1)}</h4>
+      ${SKILL_CATEGORIES[category].map(k => `
+        <div class="skillDetailRow">
+          <span class="skillDetailLabel" title="${SKILL_LABELS[k]}">${SKILL_SHORT[k]}</span>
+          ${skillCell(p.skills[k])}
+        </div>
+      `).join('')}
+    </div>
+  `;
+  const dipHtml = dipEnabled && p.skills.determination >= 75 ? `
+    <div class="skillDetailGroup">
+      <h4>Treino individual (DIP)</h4>
+      <div class="skillDetailRow">
+        <span class="skillDetailLabel">Foco</span>
+        <select class="dipSelect" data-player="${p.id}">
+          <option value="">Nenhum (só treino de clube)</option>
+          ${SKILL_KEYS.map(k => `<option value="${k}" ${state.dipTraining[p.id] === k ? 'selected' : ''}>${SKILL_LABELS[k]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="skillDetailRow"><span class="muted" style="font-size:11px">Determinação ≥75 libera treino individual intensivo: evolui garantido no atributo escolhido, mais rápido que o treino de clube, à custa de bem mais desgaste físico.</span></div>
+    </div>
+  ` : '';
+  return `
+    <tr class="skillDetailTr">
+      <td colspan="${colspan}">
+        <div class="skillDetailWrap">
+          ${Object.keys(SKILL_CATEGORIES).map(groupHtml).join('')}
+          <div class="skillDetailGroup">
+            <h4>Biometria</h4>
+            <div class="skillDetailRow"><span class="skillDetailLabel">Altura</span> ${p.heightCm ? `${p.heightCm} cm` : '—'}</div>
+            <div class="skillDetailRow"><span class="skillDetailLabel">Peso</span> ${p.weightKg ? `${p.weightKg} kg` : '—'}</div>
+            ${p.meta.traits && p.meta.traits.length ? `<div class="skillDetailRow"><span class="skillDetailLabel">Traits</span> ${p.meta.traits.map(t => `${TRAIT_ICON[t] || '★'} ${TRAITS[t] ? TRAITS[t].label : t}`).join(', ')}</div>` : ''}
+          </div>
+          ${dipHtml}
+        </div>
+      </td>
+    </tr>
+  `;
 }
 
 function conditionCell(value) {
@@ -702,26 +843,33 @@ function sortRowsByPosition(rows) {
 }
 
 function renderRealSquad() {
-  const myOptions = {conditionOf: currentConditionOf, metaOverrides: state.playerOverrides};
+  const myOptions = {conditionOf: currentConditionOf, metaOverrides: state.playerOverrides, skillOverrides: state.skillGrowth};
   let rows = rosterWithStatus(state.myTeamId, myOptions);
   if (squadSortMode === 'position') rows = sortRowsByPosition(rows);
   const {xv, bench} = formationDataFor(state.myTeamId, myOptions);
   const myTeam = teamById[state.myTeamId];
   const rowHtml = p => `
-    <tr class="${p.status === 'lesionado' ? 'injuredRow' : ''}">
+    <tr class="squadRow ${p.status === 'lesionado' ? 'injuredRow' : ''}" data-player="${p.id}">
       <td>${statusCell(p)}</td>
-      <td class="teamCol">${p.name}${p.meta.nickname ? ` <span class="muted">"${p.meta.nickname}"</span>` : ''}${p.meta.captain ? ' <b>(C)</b>' : ''}${p.meta.emergencyCallUp ? ' <span class="muted">(convocação de emergência)</span>' : ''}</td>
+      <td class="teamCol">▸ ${p.name}${p.meta.nickname ? ` <span class="muted">"${p.meta.nickname}"</span>` : ''}${p.meta.captain ? ' <b>(C)</b>' : ''}${p.meta.emergencyCallUp ? ' <span class="muted">(convocação de emergência)</span>' : ''} ${traitsHtml(p.meta)}</td>
       <td class="posCol">${p.position}</td>
       <td><b>${p.rating}</b></td>
       ${conditionCell(p.condition)}
-      ${SKILL_KEYS.map(k => skillCell(p.skills[k])).join('')}
+      ${categoryCell(p.skills, 'técnico')}
+      ${categoryCell(p.skills, 'mental')}
+      ${categoryCell(p.skills, 'físico')}
+      <td class="posCol">${p.heightCm ? `${p.heightCm}cm/${p.weightKg}kg` : '—'}</td>
       <td class="posCol">${metaBadges(p.meta)}</td>
     </tr>
+    ${skillDetailHtml(p, 10, true)}
   `;
   const headHtml = `
     <tr>
       <th>Status</th><th class="teamCol">Jogador</th><th>Posição</th><th>Overall</th><th>Condição</th>
-      ${SKILL_KEYS.map(k => `<th title="${SKILL_LABELS[k]}">${SKILL_SHORT[k]}</th>`).join('')}
+      <th title="Técnico: ${SKILL_CATEGORIES.técnico.map(k => SKILL_LABELS[k]).join(', ')}">Técnico</th>
+      <th title="Mental: ${SKILL_CATEGORIES.mental.map(k => SKILL_LABELS[k]).join(', ')}">Mental</th>
+      <th title="Físico: ${SKILL_CATEGORIES.físico.map(k => SKILL_LABELS[k]).join(', ')}">Físico</th>
+      <th>Bio</th>
       <th>Obs</th>
     </tr>
   `;
@@ -740,9 +888,10 @@ function renderRealSquad() {
   content.innerHTML = `
     <h1>Elenco — ${myTeam.name}</h1>
     ${renderFormationHtml(xv, bench, myTeam.color, 'Escalação titular atual')}
-    <p class="muted">PAS Passe · REC Recepção · LAT Lançamento lateral · SAL Salto · TAC Tackle · CHU Chute · VEL Velocidade · FOR Força · RES Resistência · DET Determinação</p>
+    <p class="muted">Técnico, Mental e Físico são médias de categoria — clique num jogador pra ver os 22 atributos individuais, biometria e traits.</p>
     <p class="muted">Pilares e hooker são especialistas de primeira línea: se faltarem, o clube precisa convocar às pressas um juvenil de 18 anos em vez de improvisar com outro jogador.</p>
     <p class="muted">A condição cai após cada partida (mais para quem tem menos resistência) e se recupera com o tempo; jogadores muito desgastados rendem menos e correm mais risco de lesão.</p>
+    <p class="muted">O clube treina segunda, terça e quinta: fadiga leve a cada rodada, mas evolução gradual dos atributos ao longo da temporada. Jogadores com determinação ≥75 podem escolher treino individual intensivo (DIP) num atributo específico, clicando no jogador — evolui mais rápido ali, com mais desgaste físico.</p>
     <div class="card">
       <div class="squadHeaderRow">
         <h3>Plantel completo <span class="muted">(${rows.length} jogadores — titulares em destaque)</span></h3>
@@ -765,6 +914,24 @@ function renderRealSquad() {
       renderRealSquad();
     });
   });
+
+  Array.from(document.querySelectorAll('.squadRow')).forEach(tr => {
+    tr.addEventListener('click', () => {
+      const detail = tr.nextElementSibling;
+      detail.classList.toggle('open');
+      tr.classList.toggle('expanded');
+    });
+  });
+
+  Array.from(document.querySelectorAll('.dipSelect')).forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('change', () => {
+      const pid = sel.dataset.player;
+      if (sel.value) state.dipTraining[pid] = sel.value;
+      else delete state.dipTraining[pid];
+      saveState();
+    });
+  });
 }
 
 function renderSquad() {
@@ -777,24 +944,28 @@ function renderSquad() {
   const forwards = players.filter(p => p.group === 'forward');
   const backs = players.filter(p => p.group === 'back');
   const rowHtml = p => `
-    <tr>
+    <tr class="squadRow" data-player="${p.id}">
       <td>${p.number}</td>
-      <td class="teamCol">${p.name}</td>
+      <td class="teamCol">▸ ${p.name} ${traitsHtml(p.meta)}</td>
       <td class="posCol">${p.position}</td>
       <td><b>${p.rating}</b></td>
-      ${SKILL_KEYS.map(k => skillCell(p.skills[k])).join('')}
+      ${categoryCell(p.skills, 'técnico')}
+      ${categoryCell(p.skills, 'mental')}
+      ${categoryCell(p.skills, 'físico')}
+      <td class="posCol">${p.heightCm ? `${p.heightCm}cm/${p.weightKg}kg` : '—'}</td>
     </tr>
+    ${skillDetailHtml(p, 8)}
   `;
   const headHtml = `
     <tr>
       <th>#</th><th class="teamCol">Jogador</th><th>Posição</th><th>Overall</th>
-      ${SKILL_KEYS.map(k => `<th title="${SKILL_LABELS[k]}">${SKILL_SHORT[k]}</th>`).join('')}
+      <th>Técnico</th><th>Mental</th><th>Físico</th><th>Bio</th>
     </tr>
   `;
   content.innerHTML = `
     <h1>Elenco — ${myTeam.name}</h1>
     ${renderFormationHtml(players, [], myTeam.color, 'Escalação titular')}
-    <p class="muted">PAS Passe · REC Recepção · LAT Lançamento lateral · SAL Salto · TAC Tackle · CHU Chute · VEL Velocidade · FOR Força</p>
+    <p class="muted">Técnico, Mental e Físico são médias de categoria — clique num jogador pra ver os 22 atributos individuais.</p>
     <div class="card">
       <h3>Forwards <span class="muted">(overall ${teamOverall(players, 'forward')})</span></h3>
       <div class="tableScroll"><table class="squadTable"><thead>${headHtml}</thead>
@@ -806,6 +977,14 @@ function renderSquad() {
       <tbody>${backs.map(rowHtml).join('')}</tbody></table></div>
     </div>
   `;
+
+  Array.from(document.querySelectorAll('.squadRow')).forEach(tr => {
+    tr.addEventListener('click', () => {
+      const detail = tr.nextElementSibling;
+      detail.classList.toggle('open');
+      tr.classList.toggle('expanded');
+    });
+  });
 }
 
 // Monta a lista de titulares + reservas de um time pra exibição visual (campo
@@ -815,6 +994,107 @@ function formationDataFor(teamId, options) {
   const roster = getRealRoster(teamId);
   const bench = roster ? rosterWithStatus(teamId, options).filter(p => p.status === 'reserva') : [];
   return {xv, bench};
+}
+
+// ---- Editor manual de escalação (Time A / Time B) -------------------------
+// O manager pode escolher manualmente quem joga cada posição, em vez de
+// depender só da seleção automática por overall/condição. Só faz sentido pra
+// elencos reais (times procedurais só têm os 15 jogadores gerados, sem banco).
+
+const POS_LABEL = Object.fromEntries(POSITIONS.map(p => [p.id, p.label]));
+const FRONT_ROW_POS = new Set(['PI', 'HK']);
+
+function manualEligiblePlayers(teamId, myOptions) {
+  const full = rosterWithStatus(teamId, myOptions);
+  return full.filter(p => p.status !== 'lesionado' && p.status !== 'indisponivel');
+}
+
+// Converte a escalação automática (já calculada por squadOf/pickStartingXV,
+// considerando condição e choque de agenda) no formato do editor manual —
+// null numa posição indica convocação de emergência (não é um jogador do
+// elenco selecionável).
+function slotsFromXV(xv) {
+  return xv.map(p => (p.meta && p.meta.emergencyCallUp ? null : p.id));
+}
+
+// Recalcula os 15 jogadores a partir da seleção manual atual. Retorna null
+// (cai pro automático) se alguma posição de primeira línea ficou sem
+// especialista disponível — nesse caso a convocação de emergência do juvenil
+// é feita pela seleção automática normal, não pelo editor manual.
+function resolveManualXV(teamId, myOptions) {
+  if (!manualSlots) return null;
+  const eligible = manualEligiblePlayers(teamId, myOptions);
+  const byId = Object.fromEntries(eligible.map(p => [p.id, p]));
+  const xv = POSITIONS.map((slot, idx) => {
+    const pid = manualSlots[idx];
+    const player = pid && byId[pid];
+    if (!player) return null;
+    return {...player, number: idx + 1};
+  });
+  if (xv.some(p => !p)) return null;
+  return xv;
+}
+
+function matchSignature(key, c, match) {
+  return `${key}|${c.stage}|${c.currentRoundIndex}|${match.home}|${match.away}`;
+}
+
+function renderLineupEditorHtml(teamId, myOptions) {
+  const eligible = manualEligiblePlayers(teamId, myOptions);
+  return `
+    <div class="card">
+      <div class="squadHeaderRow">
+        <h3>Escalar manualmente</h3>
+        <div class="sortToggle">
+          <button class="sortBtn" id="lineupAutoBtn">Auto-preencher</button>
+          <button class="sortBtn" id="lineupSaveABtn">Salvar Time A</button>
+          <button class="sortBtn" id="lineupLoadABtn">Usar Time A</button>
+          <button class="sortBtn" id="lineupSaveBBtn">Salvar Time B</button>
+          <button class="sortBtn" id="lineupLoadBBtn">Usar Time B</button>
+        </div>
+      </div>
+      <div class="lineupEditorGrid">
+        ${POSITIONS.map((slot, idx) => {
+          const posId = slot.id;
+          const currentId = manualSlots ? manualSlots[idx] : null;
+          if (FRONT_ROW_POS.has(posId)) {
+            const specialists = eligible.filter(p => p.posId === posId);
+            if (!specialists.length) {
+              return `
+                <div class="lineupSlot">
+                  <label>#${idx + 1} ${POS_LABEL[posId]}</label>
+                  <select disabled><option>— Convocação de emergência (juvenil) —</option></select>
+                </div>
+              `;
+            }
+            return `
+              <div class="lineupSlot">
+                <label>#${idx + 1} ${POS_LABEL[posId]}</label>
+                <select data-slot="${idx}">
+                  ${specialists.map(p => `<option value="${p.id}" ${p.id === currentId ? 'selected' : ''}>${p.name} (${p.rating}, ${Math.round(p.condition)}%)</option>`).join('')}
+                </select>
+              </div>
+            `;
+          }
+          const group = slot.group;
+          const specialists = eligible.filter(p => p.posId === posId);
+          const sameGroup = eligible.filter(p => p.posId !== posId && p.group === group);
+          const rest = eligible.filter(p => p.group !== group);
+          const optHtml = p => `<option value="${p.id}" ${p.id === currentId ? 'selected' : ''}>${p.name} (${p.rating}, ${Math.round(p.condition)}%)</option>`;
+          return `
+            <div class="lineupSlot">
+              <label>#${idx + 1} ${POS_LABEL[posId]}</label>
+              <select data-slot="${idx}">
+                <optgroup label="Especialistas">${specialists.map(optHtml).join('')}</optgroup>
+                <optgroup label="Mesma linha">${sameGroup.map(optHtml).join('')}</optgroup>
+                <optgroup label="Outras posições">${rest.map(optHtml).join('')}</optgroup>
+              </select>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
 }
 
 function renderMatchday() {
@@ -836,8 +1116,23 @@ function renderMatchday() {
     conditionOf: buildMatchConditionOf(doubleHeaderIds),
     excludedIds,
     metaOverrides: state.playerOverrides,
+    skillOverrides: state.skillGrowth,
   };
-  const {xv, bench} = formationDataFor(c.teamId, myOptions);
+
+  // Reseta a escalação manual em edição sempre que a partida muda (rodada
+  // diferente, ou outra competição/adversário).
+  const sig = matchSignature(key, c, match);
+  if (manualSlotsSignature !== sig) {
+    manualSlots = null;
+    manualSlotsSignature = sig;
+  }
+
+  const isRealRoster = !!getRealRoster(c.teamId);
+  const {xv: autoXV, bench} = formationDataFor(c.teamId, myOptions);
+  if (isRealRoster && !manualSlots) manualSlots = slotsFromXV(autoXV);
+  const manualXV = isRealRoster ? resolveManualXV(c.teamId, myOptions) : null;
+  const effectiveXV = manualXV || autoXV;
+
   const clashNote = excludedIds.size
     ? '<p class="muted">⚠️ Alguns jogadores estão indisponíveis hoje: já entraram em campo na outra competição no mesmo dia, em local diferente.</p>'
     : (doubleHeaderIds.size ? '<p class="muted">⚠️ Jogo duplo no mesmo dia e local: parte do time já jogou mais cedo e entra em campo mais desgastada.</p>' : '');
@@ -857,7 +1152,8 @@ function renderMatchday() {
       </div>
       <button class="playBtn" id="startMatchBtn">Começar partida</button>
     </div>
-    ${renderFormationHtml(xv, bench, myTeam.color, 'Escalação para hoje')}
+    ${renderFormationHtml(effectiveXV, bench, myTeam.color, 'Escalação para hoje')}
+    ${isRealRoster ? renderLineupEditorHtml(c.teamId, myOptions) : ''}
   `;
 
   const opts = document.getElementById('tacticOptions');
@@ -873,6 +1169,47 @@ function renderMatchday() {
     currentView = 'live';
     render();
   });
+
+  if (isRealRoster) {
+    Array.from(document.querySelectorAll('.lineupEditorGrid select[data-slot]')).forEach(select => {
+      select.addEventListener('change', () => {
+        const idx = Number(select.dataset.slot);
+        const newId = select.value;
+        const dupIdx = manualSlots.findIndex((pid, i) => pid === newId && i !== idx);
+        if (dupIdx !== -1) manualSlots[dupIdx] = manualSlots[idx];
+        manualSlots[idx] = newId;
+        renderMatchday();
+      });
+    });
+    document.getElementById('lineupAutoBtn').addEventListener('click', () => {
+      manualSlots = slotsFromXV(autoXV);
+      renderMatchday();
+    });
+    document.getElementById('lineupSaveABtn').addEventListener('click', () => {
+      state.lineupPresets[c.teamId] = state.lineupPresets[c.teamId] || {};
+      state.lineupPresets[c.teamId].A = [...manualSlots];
+      saveState();
+      alert('Escalação salva como Time A.');
+    });
+    document.getElementById('lineupSaveBBtn').addEventListener('click', () => {
+      state.lineupPresets[c.teamId] = state.lineupPresets[c.teamId] || {};
+      state.lineupPresets[c.teamId].B = [...manualSlots];
+      saveState();
+      alert('Escalação salva como Time B.');
+    });
+    document.getElementById('lineupLoadABtn').addEventListener('click', () => {
+      const preset = state.lineupPresets[c.teamId] && state.lineupPresets[c.teamId].A;
+      if (!preset) { alert('Time A ainda não foi salvo.'); return; }
+      manualSlots = [...preset];
+      renderMatchday();
+    });
+    document.getElementById('lineupLoadBBtn').addEventListener('click', () => {
+      const preset = state.lineupPresets[c.teamId] && state.lineupPresets[c.teamId].B;
+      if (!preset) { alert('Time B ainda não foi salvo.'); return; }
+      manualSlots = [...preset];
+      renderMatchday();
+    });
+  }
 }
 
 function pickOpponentTactic() {
@@ -905,10 +1242,16 @@ function renderLive() {
     conditionOf: buildMatchConditionOf(doubleHeaderIds),
     excludedIds,
     metaOverrides: state.playerOverrides,
+    skillOverrides: state.skillGrowth,
   };
-  const homeSquad = homeId === c.teamId ? squadOf(homeId, myOptions) : squadOf(homeId);
-  const awaySquad = awayId === c.teamId ? squadOf(awayId, myOptions) : squadOf(awayId);
-  pendingMyXV = homeId === c.teamId ? homeSquad : awaySquad;
+  // Se o manager escalou manualmente na tela de Dia de Jogo, usa essa
+  // escalação em vez da seleção automática (cai pro automático se alguma
+  // posição de primeira línea tiver ficado sem especialista disponível).
+  const manualXV = getRealRoster(c.teamId) ? resolveManualXV(c.teamId, myOptions) : null;
+  const mySquad = manualXV || squadOf(c.teamId, myOptions);
+  const homeSquad = homeId === c.teamId ? mySquad : squadOf(homeId);
+  const awaySquad = awayId === c.teamId ? mySquad : squadOf(awayId);
+  pendingMyXV = mySquad;
 
   const result = simulateMatch(
     homeTeam, homeSquad, tacticHome,
@@ -1124,6 +1467,7 @@ function finalizeRound() {
   // nesta rodada.
   state.globalTick++;
   tickInjuries();
+  tickTraining();
   if (pendingMyXV && pendingMyXV.length) {
     const venue = myMatch ? venueOf(myMatch, c.teamId) : 'home';
     // Condição/lesão por fadiga só existem pra elencos reais (curados): times
