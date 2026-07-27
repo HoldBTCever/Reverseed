@@ -92,43 +92,43 @@ function mkPlayer(name, posId, base, overrides = {}, meta = {}, overallOverride 
 }
 
 const CURDA_ROSTER = [
-  mkPlayer('Agustín Dupuy', 'MS', 88, {}, {age: 19, potential: 'altíssimo', nationalTeam: 'seleção adulta', note: 'também joga de apertura'}),
+  mkPlayer('Agustín Dupuy', 'MS', 88, {}, {age: 19, potential: 'altíssimo', nationalTeam: 'seleção adulta', note: 'também joga de apertura', altPos: ['AP']}),
   mkPlayer('Agustín Vázquez', 'SL', 76, {}, {nickname: 'Prolijo'}),
   mkPlayer('Alejo Centurión', 'HK', 78, {lineoutThrow: 90, determination: 85}, {age: 19, nationalTeam: 'seleção juvenil'}),
   mkPlayer('Álvaro Allo', 'AL', 78, {jump: 92}, {note: 'excelente no salto para o line-out'}),
   mkPlayer('Arturo López', 'FB', 87, {}, {nationalTeam: 'seleção adulta'}),
-  mkPlayer('Camilo Orrego', 'AP', 76, {kicking: 85, strength: 78}, {note: 'melhor como centro (12/13), mais pesado; chuta bem'}),
+  mkPlayer('Camilo Orrego', 'AP', 76, {kicking: 85, strength: 78}, {note: 'melhor como centro (12/13), mais pesado; chuta bem', altPos: ['CE']}),
   mkPlayer('Carlos Salta', 'PI', 68, {}, {note: 'natural de Salta'}),
   mkPlayer('Diego Miño', 'MS', 90, {pass: 95}, {nationalTeam: 'seleção do Paraguai adulta'}),
   mkPlayer('Facundo Paiva', 'WG', 88, {speed: 92}, {nationalTeam: 'seleção', note: 'um dos melhores jogadores do Curda'}),
   mkPlayer('Gianfranco Parodi', 'WG', 82, {}, {nationalTeam: 'seleção'}),
   mkPlayer('Horacio Agüero', 'FB', 78, {kicking: 84, reception: 85}, {note: 'ótima leitura de jogo e bons chutes'}),
   mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 96}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado'}, 97),
-  mkPlayer('Joaquim Mussi', 'FB', 90, {}, {nationalTeam: 'seleção', note: 'melhor fullback do time; também joga de apertura'}),
+  mkPlayer('Joaquim Mussi', 'FB', 90, {}, {nationalTeam: 'seleção', note: 'melhor fullback do time; também joga de apertura', altPos: ['AP']}),
   mkPlayer('Martín Ayala', 'PI', 58, {}, {note: 'por vezes usado no time intermédio'}),
   mkPlayer('Lautaro', 'N8', 76, {pass: 85}, {note: 'ótima visão de jogo'}),
   mkPlayer('Mariano Garcete', 'SL', 91, {jump: 90, strength: 88, determination: 90}, {nationalTeam: 'ex-capitão da seleção do Paraguai', traits: ['packLeader']}),
-  mkPlayer('Matías Ballasch', 'PI', 70, {}, {note: 'também joga de hooker'}),
+  mkPlayer('Matías Ballasch', 'PI', 70, {}, {note: 'também joga de hooker', altPos: ['HK']}),
   mkPlayer('Estefano Aranda', 'PI', 84, {}, {nationalTeam: 'seleção'}),
   mkPlayer('Martín Sitjar', 'PI', 74, {strength: 92}, {note: 'o jogador mais pesado do time'}),
   mkPlayer('Bruno Heisecke', 'SL', 68),
   mkPlayer('José Santacruz', 'PI', 66, {}, {nickname: 'Josechi'}),
   mkPlayer('Benjamín Micmacher', 'WG', 68),
-  mkPlayer('Adolfo Jariton', 'PI', 66, {}, {note: 'também joga de hooker'}),
-  mkPlayer('Marcos Riquelme', 'N8', 74, {}, {note: 'joga de 3ª línea, melhor como oitavo'}),
-  mkPlayer('Benjamín Moratal', 'AP', 68, {}, {note: 'usado como 9 ou 10'}),
-  mkPlayer('Julián Díaz', 'FB', 70, {}, {age: 'jovem', potential: 'muito alto', note: 'também joga de apertura'}),
+  mkPlayer('Adolfo Jariton', 'PI', 66, {}, {note: 'também joga de hooker', altPos: ['HK']}),
+  mkPlayer('Marcos Riquelme', 'N8', 74, {}, {note: 'joga de 3ª línea, melhor como oitavo', altPos: ['AL']}),
+  mkPlayer('Benjamín Moratal', 'AP', 68, {}, {note: 'usado como 9 ou 10', altPos: ['MS']}),
+  mkPlayer('Julián Díaz', 'FB', 70, {}, {age: 'jovem', potential: 'muito alto', note: 'também joga de apertura', altPos: ['AP']}),
   mkPlayer('Ignacio Murdoch', 'MS', 72),
   mkPlayer('Luciano Marsal', 'MS', 70),
   mkPlayer('Tiago Riveros', 'PI', 66, {}, {age: 'jovem', potential: 'alto'}),
-  mkPlayer('Fábio Silva', 'HK', 60, {speed: 80, determination: 85, stamina: 70}, {note: 'o mais velho do elenco, mais dedicado porém com menor conhecimento; joga também de ponta por ser rápido'}),
+  mkPlayer('Fábio Silva', 'HK', 60, {speed: 80, determination: 85, stamina: 70}, {note: 'o mais velho do elenco, mais dedicado porém com menor conhecimento; joga também de ponta por ser rápido', altPos: ['WG']}),
   mkPlayer('Piacentini', 'PI', 56, {}, {note: 'pilar mediano'}),
   mkPlayer('Juan King', 'WG', 80, {speed: 88, tackle: 82, stamina: 85}, {note: 'ótima disposição, velocidade e tackles'}),
-  mkPlayer('Luis Giménez', 'CE', 80, {}, {nickname: 'Luismi', note: 'também joga de ponta'}),
-  mkPlayer('Franco Laterza', 'PI', 76, {}, {nationalTeam: 'seleção juvenil', note: 'também joga de hooker'}),
+  mkPlayer('Luis Giménez', 'CE', 80, {}, {nickname: 'Luismi', note: 'também joga de ponta', altPos: ['WG']}),
+  mkPlayer('Franco Laterza', 'PI', 76, {}, {nationalTeam: 'seleção juvenil', note: 'também joga de hooker', altPos: ['HK']}),
   mkPlayer('Sebas Benítez', 'SL', 64),
   mkPlayer('René Villar', 'SL', 64),
-  mkPlayer('Elías Achon', 'AL', 76, {tackle: 86, stamina: 88, determination: 88}, {note: 'hooker ou 3ª línea, joga mais de 3ª; muito bom nos tackles e muita disposição física'}),
+  mkPlayer('Elías Achon', 'AL', 76, {tackle: 86, stamina: 88, determination: 88}, {note: 'hooker ou 3ª línea, joga mais de 3ª; muito bom nos tackles e muita disposição física', altPos: ['HK']}),
   mkPlayer('Nico Allo', 'CE', 66),
   mkPlayer('Diego Argaña', 'CE', 66),
   mkPlayer('Fernando Gracía', 'PI', 58, {}, {nickname: 'England', note: 'pilar mediano'}),
@@ -142,8 +142,8 @@ const CURDA_ROSTER = [
   mkPlayer('Lucas Otaño', 'HK', 72, {}, {injuryWeeks: 13, injuryLabel: '3 meses', traits: ['injuryProne']}),
   mkPlayer('Fernando Alvarado', 'MS', 80, {}, {nickname: 'Ferchu', age: 'jovem', potential: 'altíssimo', injuryWeeks: 26, injuryLabel: '6 meses'}),
   mkPlayer('Jean Paul Clemont', 'AL', 70, {}, {nickname: 'JP', injuryWeeks: 43, injuryLabel: '10 meses'}),
-  mkPlayer('Joaquín Alzueta', 'AL', 68, {}, {nickname: 'Joaco', age: 'jovem', note: 'joga também de centro'}),
-  mkPlayer('Vic Torres', 'AL', 61, {determination: 80}, {age: 'jovem', note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído'}),
+  mkPlayer('Joaquín Alzueta', 'AL', 68, {}, {nickname: 'Joaco', age: 'jovem', note: 'joga também de centro', altPos: ['CE']}),
+  mkPlayer('Vic Torres', 'AL', 61, {determination: 80}, {age: 'jovem', note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído', altPos: ['WG']}),
   mkPlayer('Gonza Alvarado', 'SL', 78, {jump: 91, lineoutThrow: 60}, {note: 'excelente no salto para o line-out, no estilo do Álvaro Allo', traits: ['lineoutSpecialist']}),
 ];
 
@@ -385,12 +385,22 @@ function applyOverrides(p, metaOverrides, skillOverrides) {
 //     dinâmicas (por fadiga) que sobrescrevem o meta estático do jogador.
 //   options.skillOverrides -> {[id]: {skillKey: novoValor}} evolução por
 //     treino (ver tickTraining em app.js).
+// Verdadeiro se o jogador pode ocupar essa posição: no posto que é o dele
+// mesmo, ou numa posição alternativa listada em meta.altPos (jogadores que a
+// observação de scout diz que "também jogam" ali).
+function canPlay(p, posId) {
+  return p.posId === posId || (p.meta.altPos && p.meta.altPos.includes(posId));
+}
+
 export function pickStartingXV(roster, options = {}) {
   const conditionOf = options.conditionOf || (() => 100);
   const excludedIds = options.excludedIds || new Set();
   const metaOverrides = options.metaOverrides || {};
   const skillOverrides = options.skillOverrides || {};
-  const effRating = p => p.rating * conditionMultiplier(conditionOf(p));
+  // Fora do posto natural (posição alternativa) rende um pouco menos: prefere
+  // o especialista quando os dois estão disponíveis, mas ainda assim é bem
+  // melhor que precisar de convocação de emergência.
+  const effRatingAt = (p, posId) => p.rating * conditionMultiplier(conditionOf(p)) * (p.posId === posId ? 1 : 0.92);
 
   const withMeta = roster.map(p => applyOverrides(p, metaOverrides, skillOverrides));
   const available = withMeta.filter(p => !p.meta.injuryWeeks && !excludedIds.has(p.id));
@@ -398,22 +408,26 @@ export function pickStartingXV(roster, options = {}) {
 
   return XV_SLOTS.map((posId, idx) => {
     const group = POS_INFO[posId].group;
-    let pool = available.filter(p => p.posId === posId && !used.has(p.id));
+    let pool = available.filter(p => canPlay(p, posId) && !used.has(p.id));
     if (!pool.length && FRONT_ROW.has(posId)) {
-      // Sem especialista de primeira línea disponível: não improvisa com
-      // jogador de outra posição, convoca um juvenil de emergência.
+      // Sem especialista (nem alternativa) de primeira línea disponível: não
+      // improvisa com qualquer jogador, convoca um juvenil de emergência.
       const emergency = emergencyYouthPlayer(posId);
       used.add(emergency.id);
       return {...emergency, number: idx + 1, condition: 100};
     }
-    // Salvaguarda: se faltar alguém na posição exata (fora da primeira
-    // línea), prefere alguém da mesma linha (forward/back) antes de pegar
-    // qualquer jogador disponível.
+    // Salvaguarda: se faltar alguém na posição exata ou alternativa (fora da
+    // primeira línea), prefere alguém da mesma linha (forward/back) antes de
+    // pegar qualquer jogador disponível.
     if (!pool.length) pool = available.filter(p => p.group === group && !used.has(p.id));
     if (!pool.length) pool = available.filter(p => !used.has(p.id));
-    const pick = pool.reduce((best, p) => (effRating(p) > effRating(best) ? p : best), pool[0]);
+    const pick = pool.reduce((best, p) => (effRatingAt(p, posId) > effRatingAt(best, posId) ? p : best), pool[0]);
     used.add(pick.id);
-    return {...pick, number: idx + 1, condition: conditionOf(pick)};
+    // Estampa o posto, o rótulo e o grupo (forward/back) de acordo com ONDE
+    // ele está jogando nesta partida — importante pro motor (que identifica
+    // 9/10, lançador de lineout etc. pelo posId), pra separação
+    // forwards/backs e pro rótulo mostrado na camisa/tooltip da quadra.
+    return {...pick, posId, position: POS_INFO[posId].label, group: POS_INFO[posId].group, number: idx + 1, condition: conditionOf(pick)};
   });
 }
 

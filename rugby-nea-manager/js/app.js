@@ -64,6 +64,8 @@ const I18N = {
     altura: 'Altura',
     peso: 'Peso',
     traitsLabel: 'Rasgos',
+    altPosPrefix: 'tb.',
+    altPosTitle: 'También puede jugar en esta posición',
     media: 'Promedio {category}',
     condicaoFisica: 'Condición física: {v}%',
     anos: '{age} años',
@@ -191,6 +193,8 @@ const I18N = {
     altura: 'Altura',
     peso: 'Peso',
     traitsLabel: 'Traits',
+    altPosPrefix: 'tb.',
+    altPosTitle: 'Também pode jogar nesta posição',
     media: 'Média {category}',
     condicaoFisica: 'Condição física: {v}%',
     anos: '{age} anos',
@@ -1111,6 +1115,14 @@ function traitsHtml(meta) {
   return meta.traits.map(tr => `<span title="${traitLabel(tr)}">${TRAIT_ICON[tr] || '★'}</span>`).join(' ');
 }
 
+// Posições alternativas do jogador (meta.altPos) — mostradas como um "tb."
+// (também) discreto ao lado do posto principal, pra ficar visível que ele
+// pode ser escalado noutro posto (ver canPlay/pickStartingXV).
+function altPosHtml(meta) {
+  if (!meta.altPos || !meta.altPos.length) return '';
+  return ` <span class="muted altPosBadge" title="${t('altPosTitle')}">(${t('altPosPrefix')} ${meta.altPos.map(id => POS_LABEL[id]).join('/')})</span>`;
+}
+
 // Painel expandido com a nota individual de cada um dos 22 atributos,
 // agrupados por categoria — aberto ao clicar na linha do jogador.
 function skillDetailHtml(p, colspan, dipEnabled) {
@@ -1209,7 +1221,7 @@ function renderRealSquad() {
     <tr class="squadRow ${p.status === 'lesionado' ? 'injuredRow' : ''}" data-player="${p.id}">
       <td>${statusCell(p)}</td>
       <td class="teamCol">▸ ${p.name}${p.meta.nickname ? ` <span class="muted">"${p.meta.nickname}"</span>` : ''}${p.meta.captain ? ' <b>(C)</b>' : ''}${p.meta.emergencyCallUp ? ` <span class="muted">(${t('convocacaoEmergenciaBadge')})</span>` : ''} ${traitsHtml(p.meta)}</td>
-      <td class="posCol">${p.position}</td>
+      <td class="posCol">${p.position}${altPosHtml(p.meta)}</td>
       <td><b>${p.rating}</b></td>
       ${conditionCell(p.condition)}
       ${categoryCell(p.skills, 'técnico')}
@@ -1304,7 +1316,7 @@ function renderSquad() {
     <tr class="squadRow" data-player="${p.id}">
       <td>${p.number}</td>
       <td class="teamCol">▸ ${p.name} ${traitsHtml(p.meta)}</td>
-      <td class="posCol">${p.position}</td>
+      <td class="posCol">${p.position}${altPosHtml(p.meta)}</td>
       <td><b>${p.rating}</b></td>
       ${categoryCell(p.skills, 'técnico')}
       ${categoryCell(p.skills, 'mental')}
@@ -1361,6 +1373,13 @@ function formationDataFor(teamId, options) {
 const POS_LABEL = Object.fromEntries(POSITIONS.map(p => [p.id, p.label]));
 const FRONT_ROW_POS = new Set(['PI', 'HK']);
 
+// Verdadeiro se o jogador pode ocupar essa posição: a dele mesmo, ou uma
+// posição alternativa listada em meta.altPos (jogadores que a observação de
+// scout diz que "também jogam" ali).
+function canPlay(p, posId) {
+  return p.posId === posId || (p.meta.altPos && p.meta.altPos.includes(posId));
+}
+
 function manualEligiblePlayers(teamId, myOptions) {
   const full = rosterWithStatus(teamId, myOptions);
   return full.filter(p => p.status !== 'lesionado' && p.status !== 'indisponivel');
@@ -1386,7 +1405,11 @@ function resolveManualXV(teamId, myOptions) {
     const pid = manualSlots[idx];
     const player = pid && byId[pid];
     if (!player) return null;
-    return {...player, number: idx + 1};
+    // Estampa o posto/rótulo/grupo de acordo com ONDE ele foi escalado (pode
+    // ser diferente do posto natural dele, via posição alternativa ou
+    // escolha livre do manager) — mesmo ajuste feito em pickStartingXV, pro
+    // motor e pra quadra ficarem consistentes com a escalação manual.
+    return {...player, posId: slot.id, position: POS_LABEL[slot.id], group: slot.group, number: idx + 1};
   });
   if (xv.some(p => !p)) return null;
   return xv;
@@ -1414,8 +1437,9 @@ function renderLineupEditorHtml(teamId, myOptions) {
         ${POSITIONS.map((slot, idx) => {
           const posId = slot.id;
           const currentId = manualSlots ? manualSlots[idx] : null;
+          const altMark = p => (p.posId === posId ? '' : ' ⇄');
           if (FRONT_ROW_POS.has(posId)) {
-            const specialists = eligible.filter(p => p.posId === posId);
+            const specialists = eligible.filter(p => canPlay(p, posId));
             if (!specialists.length) {
               return `
                 <div class="lineupSlot">
@@ -1428,16 +1452,16 @@ function renderLineupEditorHtml(teamId, myOptions) {
               <div class="lineupSlot">
                 <label>#${idx + 1} ${POS_LABEL[posId]}</label>
                 <select data-slot="${idx}">
-                  ${specialists.map(p => `<option value="${p.id}" ${p.id === currentId ? 'selected' : ''}>${p.name} (${p.rating}, ${Math.round(p.condition)}%)</option>`).join('')}
+                  ${specialists.map(p => `<option value="${p.id}" ${p.id === currentId ? 'selected' : ''}>${p.name} (${p.rating}, ${Math.round(p.condition)}%)${altMark(p)}</option>`).join('')}
                 </select>
               </div>
             `;
           }
           const group = slot.group;
-          const specialists = eligible.filter(p => p.posId === posId);
-          const sameGroup = eligible.filter(p => p.posId !== posId && p.group === group);
-          const rest = eligible.filter(p => p.group !== group);
-          const optHtml = p => `<option value="${p.id}" ${p.id === currentId ? 'selected' : ''}>${p.name} (${p.rating}, ${Math.round(p.condition)}%)</option>`;
+          const specialists = eligible.filter(p => canPlay(p, posId));
+          const sameGroup = eligible.filter(p => !canPlay(p, posId) && p.group === group);
+          const rest = eligible.filter(p => !canPlay(p, posId) && p.group !== group);
+          const optHtml = p => `<option value="${p.id}" ${p.id === currentId ? 'selected' : ''}>${p.name} (${p.rating}, ${Math.round(p.condition)}%)${altMark(p)}</option>`;
           return `
             <div class="lineupSlot">
               <label>#${idx + 1} ${POS_LABEL[posId]}</label>
