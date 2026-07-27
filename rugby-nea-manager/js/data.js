@@ -125,14 +125,18 @@ export const LEAGUES = [
       // Ataque/defesa/físico seguem a força real dos clubes na tabela do NEA
       // (Taraguy o mais forte, Capri o mais fraco). A ordem do array em si
       // NÃO pode mudar: ela define o calendário usado por seedNea.js.
+      // Curda, San José e Curne disputam duas competições com o MESMO
+      // plantel — por isso usam o mesmo ataque/defesa/físico nas duas ligas
+      // em que jogam (não faria sentido o mesmo time/jogadores render mais
+      // ou menos força só por trocar de campeonato).
       team('ARG-TAR', 'Taraguy', '#2E7D32', 86, 84, 86),
       team('ARG-ARA', 'Aranduroga', '#C62828', 83, 81, 83),
       team('ARG-REG', 'Regatas', '#1565C0', 67, 66, 69),
-      team('ARG-CUR', 'Curda', '#F9A825', 73, 72, 75),
-      team('ARG-SNJ', 'San José', '#6A1B9A', 70, 69, 72),
+      team('ARG-CUR', 'Curda', '#F9A825', 82, 81, 80),
+      team('ARG-SNJ', 'San José', '#6A1B9A', 80, 79, 78),
       team('ARG-SIX', 'Sixty', '#37474F', 64, 63, 66),
       team('ARG-CAP', 'Capri', '#EF6C00', 55, 54, 58),
-      team('ARG-CNE', 'Curne', '#00838F', 76, 75, 77),
+      team('ARG-CNE', 'Curne', '#00838F', 82, 81, 81),
       team('ARG-AGU', 'Aguará', '#558B2F', 61, 60, 63),
       team('ARG-SNP', 'San Patricio', '#AD1457', 79, 78, 80),
     ],
@@ -146,14 +150,14 @@ export const LEAGUES = [
       A: ['PAR-CUR', 'PAR-CRI', 'PAR-STC', 'PAR-VHA'],
       B: ['PAR-SNJ', 'PAR-LUQ', 'PAR-ASU', 'PAR-FDM'],
     },
-    // Força real do campeonato paraguaio: Curda e San José são disparados os
-    // melhores (dá pra dizer que, com o time principal em campo, não perdem
-    // ponto nenhum); Luque e Santa Clara formam o segundo escalão; Cristo Rey
-    // e Asunción vêm um pouco atrás disso; Villa Hayes e Fernando de la Mora
-    // fecham a tabela.
+    // Força real do campeonato paraguaio: Curda e San José seguem entre os
+    // melhores do campeonato (mesmo ataque/defesa/físico que usam no NEA,
+    // já que é o mesmo plantel); Luque e Santa Clara formam o segundo
+    // escalão; Cristo Rey e Asunción vêm um pouco atrás disso; Villa Hayes e
+    // Fernando de la Mora fecham a tabela.
     teams: [
-      team('PAR-SNJ', 'San José', '#D32F2F', 91, 89, 85),
-      team('PAR-CUR', 'Curda', '#F9A825', 91, 89, 85),
+      team('PAR-SNJ', 'San José', '#D32F2F', 80, 79, 78),
+      team('PAR-CUR', 'Curda', '#F9A825', 82, 81, 80),
       team('PAR-STC', 'Santa Clara', '#1976D2', 79, 77, 78),
       team('PAR-LUQ', 'Luque', '#7B1FA2', 79, 77, 78),
       team('PAR-ASU', 'Asunción', '#00695C', 71, 70, 73),
@@ -168,10 +172,10 @@ export const LEAGUES = [
     country: 'Argentina (Corrientes)',
     // Competição regional entre clubes de cidades do interior de Corrientes.
     // O Curne disputa o NEA argentino e também este torneio ao mesmo tempo
-    // (mesmo plantel nos dois lados), sendo disparado o favorito aqui —
-    // o mesmo papel que Curda e San José ocupam no campeonato paraguaio.
+    // com o MESMO plantel — mesmo ataque/defesa/físico usado no NEA, sendo
+    // ainda assim o favorito aqui por ser um campeonato mais fraco.
     teams: [
-      team('INT-CNE', 'Curne', '#00838F', 88, 86, 85),
+      team('INT-CNE', 'Curne', '#00838F', 82, 81, 81),
       team('INT-MER', 'Mercedes RC', '#2E7D32', 78, 76, 77),
       team('INT-GOY', 'Goya RC', '#C62828', 77, 75, 76),
       team('INT-STM', 'Santo Tomé RC', '#1565C0', 70, 69, 72),

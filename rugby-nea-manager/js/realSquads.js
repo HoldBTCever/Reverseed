@@ -94,7 +94,7 @@ function mkPlayer(name, posId, base, overrides = {}, meta = {}, overallOverride 
 const CURDA_ROSTER = [
   mkPlayer('Agustín Dupuy', 'MS', 88, {}, {age: 19, potential: 'altíssimo', nationalTeam: 'seleção adulta', note: 'também joga de apertura'}),
   mkPlayer('Agustín Vázquez', 'SL', 76, {}, {nickname: 'Prolijo'}),
-  mkPlayer('Alejo Centurión', 'HK', 78, {lineoutThrow: 90}, {age: 19, nationalTeam: 'seleção juvenil'}),
+  mkPlayer('Alejo Centurión', 'HK', 78, {lineoutThrow: 90, determination: 85}, {age: 19, nationalTeam: 'seleção juvenil'}),
   mkPlayer('Álvaro Allo', 'AL', 78, {jump: 92}, {note: 'excelente no salto para o line-out'}),
   mkPlayer('Arturo López', 'FB', 87, {}, {nationalTeam: 'seleção adulta'}),
   mkPlayer('Camilo Orrego', 'AP', 76, {kicking: 85, strength: 78}, {note: 'melhor como centro (12/13), mais pesado; chuta bem'}),
@@ -103,7 +103,7 @@ const CURDA_ROSTER = [
   mkPlayer('Facundo Paiva', 'WG', 88, {speed: 92}, {nationalTeam: 'seleção', note: 'um dos melhores jogadores do Curda'}),
   mkPlayer('Gianfranco Parodi', 'WG', 82, {}, {nationalTeam: 'seleção'}),
   mkPlayer('Horacio Agüero', 'FB', 78, {kicking: 84, reception: 85}, {note: 'ótima leitura de jogo e bons chutes'}),
-  mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 92}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado'}, 97),
+  mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 96}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado'}, 97),
   mkPlayer('Joaquim Mussi', 'FB', 90, {}, {nationalTeam: 'seleção', note: 'melhor fullback do time; também joga de apertura'}),
   mkPlayer('Martín Ayala', 'PI', 58, {}, {note: 'por vezes usado no time intermédio'}),
   mkPlayer('Lautaro', 'N8', 76, {pass: 85}, {note: 'ótima visão de jogo'}),
@@ -128,7 +128,7 @@ const CURDA_ROSTER = [
   mkPlayer('Franco Laterza', 'PI', 76, {}, {nationalTeam: 'seleção juvenil', note: 'também joga de hooker'}),
   mkPlayer('Sebas Benítez', 'SL', 64),
   mkPlayer('René Villar', 'SL', 64),
-  mkPlayer('Elías Achon', 'AL', 76, {tackle: 86, stamina: 88}, {note: 'hooker ou 3ª línea, joga mais de 3ª; muito bom nos tackles e muita disposição física'}),
+  mkPlayer('Elías Achon', 'AL', 76, {tackle: 86, stamina: 88, determination: 88}, {note: 'hooker ou 3ª línea, joga mais de 3ª; muito bom nos tackles e muita disposição física'}),
   mkPlayer('Nico Allo', 'CE', 66),
   mkPlayer('Diego Argaña', 'CE', 66),
   mkPlayer('Fernando Gracía', 'PI', 58, {}, {nickname: 'England', note: 'pilar mediano'}),
@@ -143,7 +143,7 @@ const CURDA_ROSTER = [
   mkPlayer('Fernando Alvarado', 'MS', 80, {}, {nickname: 'Ferchu', age: 'jovem', potential: 'altíssimo', injuryWeeks: 26, injuryLabel: '6 meses'}),
   mkPlayer('Jean Paul Clemont', 'AL', 70, {}, {nickname: 'JP', injuryWeeks: 43, injuryLabel: '10 meses'}),
   mkPlayer('Joaquín Alzueta', 'AL', 68, {}, {nickname: 'Joaco', age: 'jovem', note: 'joga também de centro'}),
-  mkPlayer('Vic Torres', 'AL', 61, {}, {age: 'jovem', note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído'}),
+  mkPlayer('Vic Torres', 'AL', 61, {determination: 80}, {age: 'jovem', note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído'}),
   mkPlayer('Gonza Alvarado', 'SL', 78, {jump: 91, lineoutThrow: 60}, {note: 'excelente no salto para o line-out, no estilo do Álvaro Allo', traits: ['lineoutSpecialist']}),
 ];
 
