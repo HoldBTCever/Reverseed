@@ -105,9 +105,9 @@ export function nextKnockoutRound(previousMatches) {
   return pairs.map(m => ({...m, played: false, scoreHome: null, scoreAway: null}));
 }
 
-export function knockoutStageName(numMatches) {
-  if (numMatches === 4) return 'Quartas de Final';
+export function knockoutStageName(numMatches, lang) {
+  if (numMatches === 4) return lang === 'es' ? 'Cuartos de Final' : 'Quartas de Final';
   if (numMatches === 2) return 'Semifinal';
   if (numMatches === 1) return 'Final';
-  return `Mata-mata (${numMatches * 2} times)`;
+  return lang === 'es' ? `Playoffs (${numMatches * 2} equipos)` : `Mata-mata (${numMatches * 2} times)`;
 }

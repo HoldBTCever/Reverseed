@@ -7,6 +7,352 @@ import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuali
 
 const SAVE_KEY = 'rugbyNeaSave_v8';
 
+// ---- Idioma (i18n) --------------------------------------------------------
+// Espanhol paraguaio é o idioma padrão do app; português fica disponível
+// através do botão de troca no topbar, com a escolha salva no localStorage.
+const LANG_KEY = 'rugbyNeaLang';
+
+const I18N = {
+  es: {
+    confirmNewGame: '¿Seguro que querés empezar un juego nuevo? El progreso actual se va a perder.',
+    navPainel: 'Panel',
+    navTabela: 'Tabla',
+    navFixture: 'Fixture',
+    navElenco: 'Plantel',
+    newGameBtn: 'Nuevo juego',
+    newGameBtnTitle: 'Empezar un juego nuevo',
+    langToggleBtn: 'Português',
+    teamSelectTitle: '🏉 Elegí tu equipo',
+    teamSelectDesc: 'Elegí el club que vas a dirigir como manager. Disputás el campeonato de tu país, junto con los demás clubes de la misma liga, y seguís los partidos en vivo en la cancha. Algunos clubes disputan dos ligas al mismo tiempo.',
+    statsLine: 'Ataque {a} · Defensa {d} · Físico {s}',
+    dualLeague: 'Disputa dos ligas',
+    colTime: 'Equipo',
+    colPJ: 'PJ',
+    colV: 'G',
+    colE: 'E',
+    colD: 'P',
+    colPF: 'PF',
+    colPC: 'PC',
+    colDIF: 'DIF',
+    colPts: 'Pts',
+    bracketTitle: 'Playoffs',
+    pending: 'a definir',
+    home: 'en casa',
+    away: 'de visitante',
+    prepareMatch: 'Preparar partido',
+    seasonOver: '¡Temporada terminada! Mirá la tabla final.',
+    dashboardTitle: 'Panel — {team}',
+    dashboardDualNote: '{team} disputa dos competencias al mismo tiempo — estate atento a las dos agendas y rotá el plantel cuando los partidos coincidan.',
+    notQualified: 'No se clasificó para los playoffs',
+    eliminated: 'Eliminado',
+    champion: '¡Campeón! 🏆',
+    runnerUp: 'Subcampeón',
+    positionLeague: '{pos}º lugar',
+    positionGroup: '{pos}º en el Grupo {g}',
+    groupA: 'Grupo A',
+    groupB: 'Grupo B',
+    standingsTitle: 'Tabla de Posiciones',
+    roundLabel: 'Fecha {n}',
+    groupPhaseRound: 'Fase de Grupos — Fecha {n}',
+    currentSuffix: ' (actual)',
+    fixtureTitle: 'Fixture — Ida y Vuelta',
+    dipTitle: 'Entrenamiento individual (DIP)',
+    focusLabel: 'Foco',
+    noneClubTraining: 'Ninguno (solo entrenamiento de club)',
+    dipHelp: 'Determinación ≥75 habilita entrenamiento individual intensivo: mejora garantizada en el atributo elegido, más rápido que el entrenamiento de club, a costa de mucho más desgaste físico.',
+    biometria: 'Biometría',
+    altura: 'Altura',
+    peso: 'Peso',
+    traitsLabel: 'Rasgos',
+    media: 'Promedio {category}',
+    condicaoFisica: 'Condición física: {v}%',
+    anos: '{age} años',
+    potencial: 'potencial {p}',
+    lesaoFadigaBadge: 'lesión por fatiga',
+    lesionado: 'Lesionado ({label})',
+    indisponivel: 'No disponible (compromiso simultáneo)',
+    titular: 'Titular #{n}',
+    reserva: 'Reserva',
+    elencoTitle: 'Plantel — {team}',
+    escalacaoAtual: 'Formación titular actual',
+    escalacaoSimples: 'Formación titular',
+    explicacaoCategorias: 'Técnico, Mental y Físico son promedios de categoría — hacé clic en un jugador para ver los 22 atributos individuales, biometría y rasgos.',
+    explicacaoPrimeiraLinea: 'Pilares y hooker son especialistas de primera línea: si faltan, el club tiene que convocar de urgencia a un juvenil de 18 años en vez de improvisar con otro jugador.',
+    explicacaoCondicao: 'La condición baja después de cada partido (más para quien tiene menos resistencia) y se recupera con el tiempo; los jugadores muy desgastados rinden menos y corren más riesgo de lesión.',
+    explicacaoTreino: 'El club entrena lunes, martes y jueves: fatiga leve en cada fecha, pero evolución gradual de los atributos a lo largo de la temporada. Los jugadores con determinación ≥75 pueden elegir entrenamiento individual intensivo (DIP) en un atributo específico, haciendo clic en el jugador — mejora más rápido ahí, con más desgaste físico.',
+    plantelCompleto: 'Plantel completo ({n} jugadores — titulares destacados)',
+    porOverall: 'Por overall',
+    porPosicao: 'Por posición',
+    colStatus: 'Estado',
+    colJogador: 'Jugador',
+    colPosicao: 'Posición',
+    colOverall: 'Overall',
+    colCondicao: 'Condición',
+    colTecnico: 'Técnico',
+    colMental: 'Mental',
+    colFisico: 'Físico',
+    colBio: 'Bio',
+    colObs: 'Obs',
+    comissaoTecnica: 'Cuerpo técnico',
+    forwardsTitle: 'Forwards (overall {n})',
+    backsTitle: 'Backs (overall {n})',
+    escalarManual: 'Formación manual',
+    autoPreencher: 'Autocompletar',
+    salvarTimeA: 'Guardar Equipo A',
+    usarTimeA: 'Usar Equipo A',
+    salvarTimeB: 'Guardar Equipo B',
+    usarTimeB: 'Usar Equipo B',
+    convocacaoEmergencia: '— Convocatoria de emergencia (juvenil) —',
+    convocacaoEmergenciaBadge: 'convocatoria de emergencia',
+    especialistas: 'Especialistas',
+    mesmaLinha: 'Misma línea',
+    outrasPosicoes: 'Otras posiciones',
+    diaDeJogo: 'Día de partido — {comp} — {round}',
+    casaVs: '{home} (local) vs {away} (visitante)',
+    mataDesempate: 'Playoffs: en caso de empate, el partido va a tiempo suplementario hasta que salga un ganador.',
+    excluidoHoje: '⚠️ Algunos jugadores no están disponibles hoy: ya jugaron en la otra competencia el mismo día, en otra sede.',
+    jogoDuplo: '⚠️ Doble partido el mismo día y sede: parte del equipo ya jugó más temprano y entra a la cancha más desgastado.',
+    escolhaTatica: 'Elegí tu táctica',
+    taticaAgresivo: 'Agresivo',
+    taticaAgresivoDesc: '+ataque, -defensa',
+    taticaEquilibrado: 'Equilibrado',
+    taticaEquilibradoDesc: 'sin cambios',
+    taticaDefensivo: 'Defensivo',
+    taticaDefensivoDesc: '+defensa, -ataque',
+    comecarPartida: 'Empezar partido',
+    escalacaoHoje: 'Formación de hoy',
+    escalacaoSalvaA: 'Formación guardada como Equipo A.',
+    escalacaoSalvaB: 'Formación guardada como Equipo B.',
+    timeANaoSalvo: 'El Equipo A todavía no fue guardado.',
+    timeBNaoSalvo: 'El Equipo B todavía no fue guardado.',
+    pausar: '⏸ Pausar',
+    continuarPlay: '▶ Continuar',
+    adiantar: 'Adelantar hasta el final ⏭',
+    fimDeJogo: 'Fin del partido',
+    decididoProrrogacao: 'Decidido en tiempo suplementario — los playoffs no permiten empate.',
+    triesDe: 'Tries {team}',
+    semTries: 'Sin tries.',
+    craqueDaPartida: 'Mejor jugador del partido:',
+    continuar: 'Continuar',
+    lesaoFadigaAlert: 'Lesión por fatiga: {names} no va a poder jugar por un tiempo — el desgaste acumulado cobró su precio.',
+    semana1: '{n} semana',
+    semanaN: '{n} semanas',
+    mes1: '{n} mes',
+    mesN: '{n} meses',
+  },
+  pt: {
+    confirmNewGame: 'Tem certeza que quer começar um novo jogo? O progresso atual será perdido.',
+    navPainel: 'Painel',
+    navTabela: 'Tabela',
+    navFixture: 'Fixture',
+    navElenco: 'Elenco',
+    newGameBtn: 'Novo jogo',
+    newGameBtnTitle: 'Começar um novo jogo',
+    langToggleBtn: 'Español',
+    teamSelectTitle: '🏉 Escolha seu time',
+    teamSelectDesc: 'Selecione o clube que você vai comandar como manager. Você disputa o campeonato do seu país, junto com os outros clubes da mesma liga, e acompanha as partidas ao vivo na quadra. Alguns clubes disputam duas ligas ao mesmo tempo.',
+    statsLine: 'Ataque {a} · Defesa {d} · Físico {s}',
+    dualLeague: 'Disputa duas ligas',
+    colTime: 'Time',
+    colPJ: 'PJ',
+    colV: 'V',
+    colE: 'E',
+    colD: 'D',
+    colPF: 'PF',
+    colPC: 'PC',
+    colDIF: 'DIF',
+    colPts: 'Pts',
+    bracketTitle: 'Mata-mata',
+    pending: 'a definir',
+    home: 'em casa',
+    away: 'fora',
+    prepareMatch: 'Preparar partida',
+    seasonOver: 'Temporada encerrada! Confira a tabela final.',
+    dashboardTitle: 'Painel — {team}',
+    dashboardDualNote: 'O {team} disputa duas competições ao mesmo tempo — fique de olho nas duas agendas e reveze o elenco quando os jogos coincidirem.',
+    notQualified: 'Não se classificou para o mata-mata',
+    eliminated: 'Eliminado',
+    champion: 'Campeão! 🏆',
+    runnerUp: 'Vice-campeão',
+    positionLeague: '{pos}º lugar',
+    positionGroup: '{pos}º no Grupo {g}',
+    groupA: 'Grupo A',
+    groupB: 'Grupo B',
+    standingsTitle: 'Tabela de Classificação',
+    roundLabel: 'Rodada {n}',
+    groupPhaseRound: 'Fase de Grupos — Rodada {n}',
+    currentSuffix: ' (atual)',
+    fixtureTitle: 'Fixture — Turno e Returno',
+    dipTitle: 'Treino individual (DIP)',
+    focusLabel: 'Foco',
+    noneClubTraining: 'Nenhum (só treino de clube)',
+    dipHelp: 'Determinação ≥75 libera treino individual intensivo: evolui garantido no atributo escolhido, mais rápido que o treino de clube, à custa de bem mais desgaste físico.',
+    biometria: 'Biometria',
+    altura: 'Altura',
+    peso: 'Peso',
+    traitsLabel: 'Traits',
+    media: 'Média {category}',
+    condicaoFisica: 'Condição física: {v}%',
+    anos: '{age} anos',
+    potencial: 'potencial {p}',
+    lesaoFadigaBadge: 'lesão por fadiga',
+    lesionado: 'Lesionado ({label})',
+    indisponivel: 'Indisponível (compromisso simultâneo)',
+    titular: 'Titular #{n}',
+    reserva: 'Reserva',
+    elencoTitle: 'Elenco — {team}',
+    escalacaoAtual: 'Escalação titular atual',
+    escalacaoSimples: 'Escalação titular',
+    explicacaoCategorias: 'Técnico, Mental e Físico são médias de categoria — clique num jogador pra ver os 22 atributos individuais, biometria e traits.',
+    explicacaoPrimeiraLinea: 'Pilares e hooker são especialistas de primeira línea: se faltarem, o clube precisa convocar às pressas um juvenil de 18 anos em vez de improvisar com outro jogador.',
+    explicacaoCondicao: 'A condição cai após cada partida (mais para quem tem menos resistência) e se recupera com o tempo; jogadores muito desgastados rendem menos e correm mais risco de lesão.',
+    explicacaoTreino: 'O clube treina segunda, terça e quinta: fadiga leve a cada rodada, mas evolução gradual dos atributos ao longo da temporada. Jogadores com determinação ≥75 podem escolher treino individual intensivo (DIP) num atributo específico, clicando no jogador — evolui mais rápido ali, com mais desgaste físico.',
+    plantelCompleto: 'Plantel completo ({n} jogadores — titulares em destaque)',
+    porOverall: 'Por overall',
+    porPosicao: 'Por posição',
+    colStatus: 'Status',
+    colJogador: 'Jogador',
+    colPosicao: 'Posição',
+    colOverall: 'Overall',
+    colCondicao: 'Condição',
+    colTecnico: 'Técnico',
+    colMental: 'Mental',
+    colFisico: 'Físico',
+    colBio: 'Bio',
+    colObs: 'Obs',
+    comissaoTecnica: 'Comissão técnica',
+    forwardsTitle: 'Forwards (overall {n})',
+    backsTitle: 'Backs (overall {n})',
+    escalarManual: 'Escalar manualmente',
+    autoPreencher: 'Auto-preencher',
+    salvarTimeA: 'Salvar Time A',
+    usarTimeA: 'Usar Time A',
+    salvarTimeB: 'Salvar Time B',
+    usarTimeB: 'Usar Time B',
+    convocacaoEmergencia: '— Convocação de emergência (juvenil) —',
+    convocacaoEmergenciaBadge: 'convocação de emergência',
+    especialistas: 'Especialistas',
+    mesmaLinha: 'Mesma linha',
+    outrasPosicoes: 'Outras posições',
+    diaDeJogo: 'Dia de jogo — {comp} — {round}',
+    casaVs: '{home} (casa) vs {away} (visitante)',
+    mataDesempate: 'Mata-mata: em caso de empate, a partida vai para a prorrogação até sair um vencedor.',
+    excluidoHoje: '⚠️ Alguns jogadores estão indisponíveis hoje: já entraram em campo na outra competição no mesmo dia, em local diferente.',
+    jogoDuplo: '⚠️ Jogo duplo no mesmo dia e local: parte do time já jogou mais cedo e entra em campo mais desgastada.',
+    escolhaTatica: 'Escolha sua tática',
+    taticaAgresivo: 'Agresivo',
+    taticaAgresivoDesc: '+ataque, -defesa',
+    taticaEquilibrado: 'Equilibrado',
+    taticaEquilibradoDesc: 'sem alterações',
+    taticaDefensivo: 'Defensivo',
+    taticaDefensivoDesc: '+defesa, -ataque',
+    comecarPartida: 'Começar partida',
+    escalacaoHoje: 'Escalação para hoje',
+    escalacaoSalvaA: 'Escalação salva como Time A.',
+    escalacaoSalvaB: 'Escalação salva como Time B.',
+    timeANaoSalvo: 'Time A ainda não foi salvo.',
+    timeBNaoSalvo: 'Time B ainda não foi salvo.',
+    pausar: '⏸ Pausar',
+    continuarPlay: '▶ Continuar',
+    adiantar: 'Adiantar até o final ⏭',
+    fimDeJogo: 'Fim de jogo',
+    decididoProrrogacao: 'Decidido na prorrogação — mata-mata não permite empate.',
+    triesDe: 'Tries {team}',
+    semTries: 'Sem tries.',
+    craqueDaPartida: 'Craque da partida:',
+    continuar: 'Continuar',
+    lesaoFadigaAlert: 'Lesão por fadiga: {names} não vai poder jogar por um tempo — o desgaste acumulado cobrou o preço.',
+    semana1: '{n} semana',
+    semanaN: '{n} semanas',
+    mes1: '{n} mês',
+    mesN: '{n} meses',
+  },
+};
+
+let lang = localStorage.getItem(LANG_KEY) === 'pt' ? 'pt' : 'es';
+
+function t(key, vars) {
+  let str = (I18N[lang] && I18N[lang][key] != null) ? I18N[lang][key] : (I18N.es[key] != null ? I18N.es[key] : key);
+  if (vars) {
+    Object.entries(vars).forEach(([k, v]) => {
+      str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+    });
+  }
+  return str;
+}
+
+// Nomes de competição e país variam pouco entre os dois idiomas (o resto do
+// conteúdo — clubes, jogadores, observações de scouting — não é traduzido,
+// só a interface do app).
+const LEAGUE_NAME_ES = {
+  nea: 'Campeonato del Nordeste Argentino (NEA)',
+  paraguayo: 'Campeonato Paraguayo',
+  interior: 'Torneo del Interior',
+};
+const COUNTRY_ES = {
+  'Paraguai': 'Paraguay',
+};
+
+function leagueName(league) {
+  if (lang === 'es' && LEAGUE_NAME_ES[league.id]) return LEAGUE_NAME_ES[league.id];
+  return league.name;
+}
+
+function countryName(country) {
+  if (lang === 'es' && COUNTRY_ES[country]) return COUNTRY_ES[country];
+  return country;
+}
+
+// Rótulos e abreviações de atributos em espanhol — o restante do conteúdo
+// (nomes de jogadores, observações de scout, staff) permanece como está.
+const SKILL_LABELS_ES = {
+  pass: 'Pase', reception: 'Recepción', lineoutThrow: 'Lateral', jump: 'Salto',
+  tackle: 'Tackle', kicking: 'Patada', speed: 'Velocidad', strength: 'Fuerza',
+  stamina: 'Resistencia', determination: 'Determinación',
+  ruck: 'Ruck', turnover: 'Jackal', scrum: 'Scrum', dropGoal: 'Drop Goal', sidestep: 'Quiebre',
+  vision: 'Visión', positioning: 'Posicionamiento', discipline: 'Disciplina', leadership: 'Liderazgo',
+  composure: 'Compostura', agility: 'Agilidad', recovery: 'Recuperación',
+};
+
+function skillLabel(key) {
+  return lang === 'es' ? (SKILL_LABELS_ES[key] || SKILL_LABELS[key]) : SKILL_LABELS[key];
+}
+
+const TRAITS_ES = {
+  injuryProne: 'Propenso a Lesiones',
+  lineoutSpecialist: 'Especialista en Line-out',
+  packLeader: 'Líder del Pack',
+};
+
+function traitLabel(key) {
+  if (lang === 'es') return TRAITS_ES[key] || (TRAITS[key] ? TRAITS[key].label : key);
+  return TRAITS[key] ? TRAITS[key].label : key;
+}
+
+function setLang(newLang) {
+  lang = newLang;
+  localStorage.setItem(LANG_KEY, lang);
+  document.documentElement.lang = lang === 'es' ? 'es-PY' : 'pt-BR';
+  applyStaticTranslations();
+  render();
+}
+
+function applyStaticTranslations() {
+  const dashboardBtn = mainNav.querySelector('[data-view="dashboard"]');
+  const standingsBtn = mainNav.querySelector('[data-view="standings"]');
+  const fixtureBtn = mainNav.querySelector('[data-view="fixture"]');
+  const squadBtn = mainNav.querySelector('[data-view="squad"]');
+  if (dashboardBtn) dashboardBtn.textContent = t('navPainel');
+  if (standingsBtn) standingsBtn.textContent = t('navTabela');
+  if (fixtureBtn) fixtureBtn.textContent = t('navFixture');
+  if (squadBtn) squadBtn.textContent = t('navElenco');
+  const newGameBtnEl = document.getElementById('newGameBtn');
+  newGameBtnEl.textContent = t('newGameBtn');
+  newGameBtnEl.title = t('newGameBtnTitle');
+  const langBtn = document.getElementById('langToggleBtn');
+  if (langBtn) langBtn.textContent = t('langToggleBtn');
+}
+
 const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 function crestCode(team) {
   return team.id.slice(-3);
@@ -151,7 +497,7 @@ function newGame(myTeamId) {
 }
 
 function resetGame() {
-  if (!confirm('Tem certeza que quer começar um novo jogo? O progresso atual será perdido.')) return;
+  if (!confirm(t('confirmNewGame'))) return;
   localStorage.removeItem(SAVE_KEY);
   state = null;
   currentView = 'dashboard';
@@ -173,6 +519,9 @@ mainNav.addEventListener('click', e => {
   currentView = btn.dataset.view;
   render();
 });
+document.getElementById('langToggleBtn').addEventListener('click', () => setLang(lang === 'es' ? 'pt' : 'es'));
+document.documentElement.lang = lang === 'es' ? 'es-PY' : 'pt-BR';
+applyStaticTranslations();
 
 function comp(key) {
   return state.competitions[key || state.activeCompetition];
@@ -180,7 +529,7 @@ function comp(key) {
 
 function competitionLabel(key) {
   const league = LEAGUES.find(l => l.id === key);
-  return league ? league.name : key;
+  return league ? leagueName(league) : key;
 }
 
 // Retorna a lista de partidas (por referência, mutável) da rodada/estágio
@@ -206,12 +555,12 @@ function activeRoundMatches(c) {
 function activeRoundName(c) {
   if (c.stage === 'league') {
     const round = c.fixture[c.currentRoundIndex];
-    return round ? `Rodada ${round.round}` : null;
+    return round ? t('roundLabel', {n: round.round}) : null;
   }
   if (c.stage === 'groups') {
     const idx = c.currentRoundIndex;
     const r = c.groupFixtures.A[idx] || c.groupFixtures.B[idx];
-    return r ? `Fase de Grupos — Rodada ${idx + 1}` : null;
+    return r ? t('groupPhaseRound', {n: idx + 1}) : null;
   }
   if (c.stage === 'knockout') {
     const round = c.knockoutRounds[c.currentRoundIndex];
@@ -289,9 +638,9 @@ function rollFatigueInjury(player, postMatchCondition) {
 function weeksLabel(weeks) {
   if (weeks >= 8) {
     const months = Math.round(weeks / 4.33);
-    return `${months} ${months > 1 ? 'meses' : 'mês'}`;
+    return t(months > 1 ? 'mesN' : 'mes1', {n: months});
   }
-  return `${weeks} semana${weeks > 1 ? 's' : ''}`;
+  return t(weeks > 1 ? 'semanaN' : 'semana1', {n: weeks});
 }
 
 // Passa 1 semana pra qualquer lesão em andamento do elenco do clube
@@ -405,7 +754,7 @@ function startKnockoutFromLeague(c) {
   const matches = firstKnockoutRound(top8);
   c.stage = 'knockout';
   c.currentRoundIndex = 0;
-  c.knockoutRounds = [{name: knockoutStageName(matches.length), matches}];
+  c.knockoutRounds = [{name: knockoutStageName(matches.length, lang), matches}];
 }
 
 function startKnockoutFromGroups(c) {
@@ -417,7 +766,7 @@ function startKnockoutFromGroups(c) {
   ];
   c.stage = 'knockout';
   c.currentRoundIndex = 0;
-  c.knockoutRounds = [{name: knockoutStageName(matches.length), matches}];
+  c.knockoutRounds = [{name: knockoutStageName(matches.length, lang), matches}];
 }
 
 // Depois que o time do usuário é eliminado do mata-mata, não há mais
@@ -441,7 +790,7 @@ function autoResolveIfEliminated(c) {
     c.currentRoundIndex++;
     if (round.matches.length <= 1) break; // era a final
     const next = nextKnockoutRound(round.matches);
-    c.knockoutRounds.push({name: knockoutStageName(next.length), matches: next});
+    c.knockoutRounds.push({name: knockoutStageName(next.length, lang), matches: next});
   }
 }
 
@@ -457,7 +806,7 @@ function afterRoundAdvance(c) {
     const justPlayed = c.knockoutRounds[c.currentRoundIndex - 1];
     if (!justPlayed || justPlayed.matches.length <= 1) return; // final já disputada
     const next = nextKnockoutRound(justPlayed.matches);
-    c.knockoutRounds.push({name: knockoutStageName(next.length), matches: next});
+    c.knockoutRounds.push({name: knockoutStageName(next.length, lang), matches: next});
   }
   autoResolveIfEliminated(c);
 }
@@ -467,17 +816,17 @@ function afterRoundAdvance(c) {
 function knockoutStatusLabel(c) {
   const rounds = c.knockoutRounds;
   const appeared = rounds.some(r => r.matches.some(m => m.home === c.teamId || m.away === c.teamId));
-  if (!appeared) return 'Não se classificou para o mata-mata';
+  if (!appeared) return t('notQualified');
   const last = rounds[rounds.length - 1];
   const stillInLast = last.matches.some(m => m.home === c.teamId || m.away === c.teamId);
   // Só é campeão/vice quem de fato chegou à última fase gerada (a final);
   // quem caiu antes disso está simplesmente eliminado, mesmo que não seja
   // o campeão dessa última fase.
-  if (!stillInLast) return 'Eliminado';
+  if (!stillInLast) return t('eliminated');
   if (last.matches.length === 1 && last.matches[0].played) {
     const final = last.matches[0];
     const championId = final.scoreHome > final.scoreAway ? final.home : final.away;
-    return championId === c.teamId ? 'Campeão! 🏆' : 'Vice-campeão';
+    return championId === c.teamId ? t('champion') : t('runnerUp');
   }
   return last.name;
 }
@@ -486,13 +835,13 @@ function competitionStatusLabel(c) {
   if (c.stage === 'league') {
     const rows = sortedStandings(c.standings);
     const pos = rows.findIndex(r => r.teamId === c.teamId) + 1;
-    return `${pos}º lugar`;
+    return t('positionLeague', {pos});
   }
   if (c.stage === 'groups') {
     const g = c.groupOf[c.teamId];
     const rows = sortedStandings(c.groupStandings[g]);
     const pos = rows.findIndex(r => r.teamId === c.teamId) + 1;
-    return `${pos}º no Grupo ${g}`;
+    return t('positionGroup', {pos, g});
   }
   return knockoutStatusLabel(c);
 }
@@ -526,15 +875,15 @@ function render() {
 
 function renderTeamSelect() {
   content.innerHTML = `
-    <h1>🏉 Escolha seu time</h1>
-    <p class="muted">Selecione o clube que você vai comandar como manager. Você disputa o campeonato do seu país, junto com os outros clubes da mesma liga, e acompanha as partidas ao vivo na quadra. Alguns clubes disputam duas ligas ao mesmo tempo.</p>
+    <h1>${t('teamSelectTitle')}</h1>
+    <p class="muted">${t('teamSelectDesc')}</p>
     <div id="leagueSections"></div>
   `;
   const sections = document.getElementById('leagueSections');
   LEAGUES.forEach(league => {
     const section = document.createElement('div');
     section.className = 'card';
-    section.innerHTML = `<h2>${league.name} <span class="muted">— ${league.country}</span></h2>`;
+    section.innerHTML = `<h2>${leagueName(league)} <span class="muted">— ${countryName(league.country)}</span></h2>`;
     const grid = document.createElement('div');
     grid.className = 'teamGrid';
     league.teams.forEach(team => {
@@ -544,8 +893,8 @@ function renderTeamSelect() {
       card.innerHTML = `
         <div class="teamCrest" style="background:${team.color}">${crestCode(team)}</div>
         <div class="teamName">${team.name}</div>
-        <div class="teamStats">Ataque ${team.attack} · Defesa ${team.defense} · Físico ${team.stamina}</div>
-        ${dual ? '<div class="teamStats muted">Disputa duas ligas</div>' : ''}
+        <div class="teamStats">${t('statsLine', {a: team.attack, d: team.defense, s: team.stamina})}</div>
+        ${dual ? `<div class="teamStats muted">${t('dualLeague')}</div>` : ''}
       `;
       card.addEventListener('click', () => newGame(team.id));
       grid.appendChild(card);
@@ -559,14 +908,14 @@ function renderTableHtml(rows, mineId) {
   return `
     <table>
       <thead><tr>
-        <th class="teamCol">Time</th><th>PJ</th><th>V</th><th>E</th><th>D</th><th>PF</th><th>PC</th><th>DIF</th><th>Pts</th>
+        <th class="teamCol">${t('colTime')}</th><th>${t('colPJ')}</th><th>${t('colV')}</th><th>${t('colE')}</th><th>${t('colD')}</th><th>${t('colPF')}</th><th>${t('colPC')}</th><th>${t('colDIF')}</th><th>${t('colPts')}</th>
       </tr></thead>
       <tbody>
         ${rows.map(r => {
-          const t = teamById[r.teamId];
+          const tm = teamById[r.teamId];
           const mine = r.teamId === mineId;
           return `<tr class="${mine ? 'myTeamRow' : ''}">
-            <td class="teamCol">${t.name}</td>
+            <td class="teamCol">${tm.name}</td>
             <td>${r.pj}</td><td>${r.pg}</td><td>${r.pe}</td><td>${r.pp}</td>
             <td>${r.pf}</td><td>${r.pc}</td><td>${r.pf - r.pc}</td><td><b>${r.pts}</b></td>
           </tr>`;
@@ -578,7 +927,7 @@ function renderTableHtml(rows, mineId) {
 
 function renderBracketHtml(c) {
   return `
-    <h3>Mata-mata</h3>
+    <h3>${t('bracketTitle')}</h3>
     ${c.knockoutRounds.map(r => `
       <div class="roundBlock card">
         <div class="roundTitle">${r.name}</div>
@@ -588,7 +937,7 @@ function renderBracketHtml(c) {
           const mine = m.home === c.teamId || m.away === c.teamId;
           return `<div class="matchRow${mine ? ' mine' : ''}">
             <span class="teams">${home.name} <span class="muted">vs</span> ${away.name}</span>
-            ${m.played ? `<span class="score">${m.scoreHome} - ${m.scoreAway}</span>` : `<span class="pending">a definir</span>`}
+            ${m.played ? `<span class="score">${m.scoreHome} - ${m.scoreAway}</span>` : `<span class="pending">${t('pending')}</span>`}
           </div>`;
         }).join('')}
       </div>
@@ -612,13 +961,13 @@ function renderDashboard() {
       const opp = teamById[oppId];
       const isHome = match.home === c.teamId;
       matchHtml = `
-        <p><b>${roundName}</b> — ${isHome ? 'em casa' : 'fora'} contra <b>${opp.name}</b></p>
-        <button class="playBtn goMatchdayBtn" data-comp="${key}">Preparar partida</button>
+        <p><b>${roundName}</b> — ${isHome ? t('home') : t('away')} contra <b>${opp.name}</b></p>
+        <button class="playBtn goMatchdayBtn" data-comp="${key}">${t('prepareMatch')}</button>
       `;
     } else if (c.stage === 'knockout') {
       matchHtml = `<p class="muted">${status}</p>`;
     } else {
-      matchHtml = `<p class="muted">Temporada encerrada! Confira a tabela final.</p>`;
+      matchHtml = `<p class="muted">${t('seasonOver')}</p>`;
     }
 
     return `
@@ -630,8 +979,8 @@ function renderDashboard() {
   }).join('');
 
   content.innerHTML = `
-    <h1>Painel — ${myTeam.name}</h1>
-    ${keys.length > 1 ? `<p class="muted">O ${myTeam.name} disputa duas competições ao mesmo tempo — fique de olho nas duas agendas e reveze o elenco quando os jogos coincidirem.</p>` : ''}
+    <h1>${t('dashboardTitle', {team: myTeam.name})}</h1>
+    ${keys.length > 1 ? `<p class="muted">${t('dashboardDualNote', {team: myTeam.name})}</p>` : ''}
     ${cardsHtml}
   `;
 
@@ -651,8 +1000,8 @@ function renderCompetitionStandingsBlock(c) {
   }
   if (c.groupStandings) {
     body += `
-      <div class="card"><h3>Grupo A</h3>${renderTableHtml(sortedStandings(c.groupStandings.A), c.teamId)}</div>
-      <div class="card"><h3>Grupo B</h3>${renderTableHtml(sortedStandings(c.groupStandings.B), c.teamId)}</div>
+      <div class="card"><h3>${t('groupA')}</h3>${renderTableHtml(sortedStandings(c.groupStandings.A), c.teamId)}</div>
+      <div class="card"><h3>${t('groupB')}</h3>${renderTableHtml(sortedStandings(c.groupStandings.B), c.teamId)}</div>
     `;
   }
   if (c.stage === 'knockout' && c.knockoutRounds.length) {
@@ -664,7 +1013,7 @@ function renderCompetitionStandingsBlock(c) {
 function renderStandings() {
   const keys = Object.keys(state.competitions);
   content.innerHTML = `
-    <h1>Tabela de Classificação</h1>
+    <h1>${t('standingsTitle')}</h1>
     ${keys.map(key => renderCompetitionStandingsBlock(state.competitions[key])).join('')}
   `;
 }
@@ -674,7 +1023,7 @@ function renderRoundRobinInto(list, fixture, c) {
     const block = document.createElement('div');
     block.className = 'roundBlock card';
     const isCurrent = c.stage !== 'knockout' && round.round === (c.currentRoundIndex + 1);
-    block.innerHTML = `<div class="roundTitle">Rodada ${round.round}${isCurrent ? ' (atual)' : ''}</div>`;
+    block.innerHTML = `<div class="roundTitle">${t('roundLabel', {n: round.round})}${isCurrent ? t('currentSuffix') : ''}</div>`;
     round.matches.forEach(m => {
       const home = teamById[m.home];
       const away = teamById[m.away];
@@ -685,7 +1034,7 @@ function renderRoundRobinInto(list, fixture, c) {
         <span class="teams">${home.name} <span class="muted">vs</span> ${away.name}</span>
         ${m.played
           ? `<span class="score">${m.scoreHome} - ${m.scoreAway}</span>`
-          : `<span class="pending">a definir</span>`}
+          : `<span class="pending">${t('pending')}</span>`}
       `;
       block.appendChild(row);
     });
@@ -696,7 +1045,7 @@ function renderRoundRobinInto(list, fixture, c) {
 function renderFixture() {
   const keys = Object.keys(state.competitions);
   content.innerHTML = `
-    <h1>Fixture — Turno e Returno</h1>
+    <h1>${t('fixtureTitle')}</h1>
     ${keys.map(key => `<h2>${competitionLabel(key)}</h2><div id="fixtureList-${key}"></div>`).join('')}
   `;
   keys.forEach(key => {
@@ -705,10 +1054,10 @@ function renderFixture() {
     if (c.fixture) {
       renderRoundRobinInto(list, c.fixture, c);
     } else if (c.groupFixtures) {
-      const titleA = document.createElement('h3'); titleA.textContent = 'Grupo A';
+      const titleA = document.createElement('h3'); titleA.textContent = t('groupA');
       list.appendChild(titleA);
       renderRoundRobinInto(list, c.groupFixtures.A, c);
-      const titleB = document.createElement('h3'); titleB.textContent = 'Grupo B';
+      const titleB = document.createElement('h3'); titleB.textContent = t('groupB');
       list.appendChild(titleB);
       renderRoundRobinInto(list, c.groupFixtures.B, c);
     }
@@ -754,12 +1103,12 @@ function skillCell(value) {
 // atributos ao todo, uma coluna por skill deixaria a tabela ilegível.
 function categoryCell(skills, category) {
   const avg = categoryAvg(skills, SKILL_CATEGORIES[category]);
-  return `<td title="Média ${category}"><span class="ratingBar"><span style="width:${avg}%"></span></span>${avg}</td>`;
+  return `<td title="${t('media', {category})}"><span class="ratingBar"><span style="width:${avg}%"></span></span>${avg}</td>`;
 }
 
 function traitsHtml(meta) {
   if (!meta.traits || !meta.traits.length) return '';
-  return meta.traits.map(t => `<span title="${TRAITS[t] ? TRAITS[t].label : t}">${TRAIT_ICON[t] || '★'}</span>`).join(' ');
+  return meta.traits.map(tr => `<span title="${traitLabel(tr)}">${TRAIT_ICON[tr] || '★'}</span>`).join(' ');
 }
 
 // Painel expandido com a nota individual de cada um dos 22 atributos,
@@ -770,7 +1119,7 @@ function skillDetailHtml(p, colspan, dipEnabled) {
       <h4>${category[0].toUpperCase()}${category.slice(1)}</h4>
       ${SKILL_CATEGORIES[category].map(k => `
         <div class="skillDetailRow">
-          <span class="skillDetailLabel" title="${SKILL_LABELS[k]}">${SKILL_SHORT[k]}</span>
+          <span class="skillDetailLabel" title="${skillLabel(k)}">${SKILL_SHORT[k]}</span>
           ${skillCell(p.skills[k])}
         </div>
       `).join('')}
@@ -778,15 +1127,15 @@ function skillDetailHtml(p, colspan, dipEnabled) {
   `;
   const dipHtml = dipEnabled && p.skills.determination >= 75 ? `
     <div class="skillDetailGroup">
-      <h4>Treino individual (DIP)</h4>
+      <h4>${t('dipTitle')}</h4>
       <div class="skillDetailRow">
-        <span class="skillDetailLabel">Foco</span>
+        <span class="skillDetailLabel">${t('focusLabel')}</span>
         <select class="dipSelect" data-player="${p.id}">
-          <option value="">Nenhum (só treino de clube)</option>
-          ${SKILL_KEYS.map(k => `<option value="${k}" ${state.dipTraining[p.id] === k ? 'selected' : ''}>${SKILL_LABELS[k]}</option>`).join('')}
+          <option value="">${t('noneClubTraining')}</option>
+          ${SKILL_KEYS.map(k => `<option value="${k}" ${state.dipTraining[p.id] === k ? 'selected' : ''}>${skillLabel(k)}</option>`).join('')}
         </select>
       </div>
-      <div class="skillDetailRow"><span class="muted" style="font-size:11px">Determinação ≥75 libera treino individual intensivo: evolui garantido no atributo escolhido, mais rápido que o treino de clube, à custa de bem mais desgaste físico.</span></div>
+      <div class="skillDetailRow"><span class="muted" style="font-size:11px">${t('dipHelp')}</span></div>
     </div>
   ` : '';
   return `
@@ -795,10 +1144,10 @@ function skillDetailHtml(p, colspan, dipEnabled) {
         <div class="skillDetailWrap">
           ${Object.keys(SKILL_CATEGORIES).map(groupHtml).join('')}
           <div class="skillDetailGroup">
-            <h4>Biometria</h4>
-            <div class="skillDetailRow"><span class="skillDetailLabel">Altura</span> ${p.heightCm ? `${p.heightCm} cm` : '—'}</div>
-            <div class="skillDetailRow"><span class="skillDetailLabel">Peso</span> ${p.weightKg ? `${p.weightKg} kg` : '—'}</div>
-            ${p.meta.traits && p.meta.traits.length ? `<div class="skillDetailRow"><span class="skillDetailLabel">Traits</span> ${p.meta.traits.map(t => `${TRAIT_ICON[t] || '★'} ${TRAITS[t] ? TRAITS[t].label : t}`).join(', ')}</div>` : ''}
+            <h4>${t('biometria')}</h4>
+            <div class="skillDetailRow"><span class="skillDetailLabel">${t('altura')}</span> ${p.heightCm ? `${p.heightCm} cm` : '—'}</div>
+            <div class="skillDetailRow"><span class="skillDetailLabel">${t('peso')}</span> ${p.weightKg ? `${p.weightKg} kg` : '—'}</div>
+            ${p.meta.traits && p.meta.traits.length ? `<div class="skillDetailRow"><span class="skillDetailLabel">${t('traitsLabel')}</span> ${p.meta.traits.map(tr => `${TRAIT_ICON[tr] || '★'} ${traitLabel(tr)}`).join(', ')}</div>` : ''}
           </div>
           ${dipHtml}
         </div>
@@ -812,24 +1161,24 @@ function conditionCell(value) {
   let cls = '';
   if (v < 40) cls = 'conditionCritical';
   else if (v < 70) cls = 'conditionLow';
-  return `<td class="${cls}" title="Condição física: ${v}%"><span class="ratingBar"><span style="width:${v}%"></span></span>${v}%</td>`;
+  return `<td class="${cls}" title="${t('condicaoFisica', {v})}"><span class="ratingBar"><span style="width:${v}%"></span></span>${v}%</td>`;
 }
 
 function metaBadges(meta) {
   const parts = [];
   if (meta.nationalTeam) parts.push(meta.nationalTeam);
-  if (meta.age) parts.push(`${meta.age} anos`);
-  if (meta.potential) parts.push(`potencial ${meta.potential}`);
-  if (meta.dynamicInjury) parts.push('lesão por fadiga');
+  if (meta.age) parts.push(t('anos', {age: meta.age}));
+  if (meta.potential) parts.push(t('potencial', {p: meta.potential}));
+  if (meta.dynamicInjury) parts.push(t('lesaoFadigaBadge'));
   if (meta.note) parts.push(meta.note);
   return parts.join(' · ');
 }
 
 function statusCell(p) {
-  if (p.status === 'lesionado') return `<span style="color:var(--accent-2)">Lesionado (${p.meta.injuryLabel})</span>`;
-  if (p.status === 'indisponivel') return '<span style="color:var(--accent-2)">Indisponível (compromisso simultâneo)</span>';
-  if (p.status === 'titular') return `<b>Titular #${p.number}</b>`;
-  return '<span class="muted">Reserva</span>';
+  if (p.status === 'lesionado') return `<span style="color:var(--accent-2)">${t('lesionado', {label: p.meta.injuryLabel})}</span>`;
+  if (p.status === 'indisponivel') return `<span style="color:var(--accent-2)">${t('indisponivel')}</span>`;
+  if (p.status === 'titular') return `<b>${t('titular', {n: p.number})}</b>`;
+  return `<span class="muted">${t('reserva')}</span>`;
 }
 
 // Ordem de posto (forwards antes de backs, seguindo a numeração tradicional
@@ -859,7 +1208,7 @@ function renderRealSquad() {
   const rowHtml = p => `
     <tr class="squadRow ${p.status === 'lesionado' ? 'injuredRow' : ''}" data-player="${p.id}">
       <td>${statusCell(p)}</td>
-      <td class="teamCol">▸ ${p.name}${p.meta.nickname ? ` <span class="muted">"${p.meta.nickname}"</span>` : ''}${p.meta.captain ? ' <b>(C)</b>' : ''}${p.meta.emergencyCallUp ? ' <span class="muted">(convocação de emergência)</span>' : ''} ${traitsHtml(p.meta)}</td>
+      <td class="teamCol">▸ ${p.name}${p.meta.nickname ? ` <span class="muted">"${p.meta.nickname}"</span>` : ''}${p.meta.captain ? ' <b>(C)</b>' : ''}${p.meta.emergencyCallUp ? ` <span class="muted">(${t('convocacaoEmergenciaBadge')})</span>` : ''} ${traitsHtml(p.meta)}</td>
       <td class="posCol">${p.position}</td>
       <td><b>${p.rating}</b></td>
       ${conditionCell(p.condition)}
@@ -873,18 +1222,18 @@ function renderRealSquad() {
   `;
   const headHtml = `
     <tr>
-      <th>Status</th><th class="teamCol">Jogador</th><th>Posição</th><th>Overall</th><th>Condição</th>
-      <th title="Técnico: ${SKILL_CATEGORIES.técnico.map(k => SKILL_LABELS[k]).join(', ')}">Técnico</th>
-      <th title="Mental: ${SKILL_CATEGORIES.mental.map(k => SKILL_LABELS[k]).join(', ')}">Mental</th>
-      <th title="Físico: ${SKILL_CATEGORIES.físico.map(k => SKILL_LABELS[k]).join(', ')}">Físico</th>
-      <th>Bio</th>
-      <th>Obs</th>
+      <th>${t('colStatus')}</th><th class="teamCol">${t('colJogador')}</th><th>${t('colPosicao')}</th><th>${t('colOverall')}</th><th>${t('colCondicao')}</th>
+      <th title="${t('colTecnico')}: ${SKILL_CATEGORIES.técnico.map(k => skillLabel(k)).join(', ')}">${t('colTecnico')}</th>
+      <th title="${t('colMental')}: ${SKILL_CATEGORIES.mental.map(k => skillLabel(k)).join(', ')}">${t('colMental')}</th>
+      <th title="${t('colFisico')}: ${SKILL_CATEGORIES.físico.map(k => skillLabel(k)).join(', ')}">${t('colFisico')}</th>
+      <th>${t('colBio')}</th>
+      <th>${t('colObs')}</th>
     </tr>
   `;
   const staff = getStaff(state.myTeamId);
   const staffHtml = staff ? `
     <div class="card">
-      <h3>Comissão técnica</h3>
+      <h3>${t('comissaoTecnica')}</h3>
       <table>
         <tbody>
           ${staff.map(s => `<tr><td class="teamCol">${s.role}</td><td class="teamCol"><b>${s.name}</b>${s.note ? ` <span class="muted">— ${s.note}</span>` : ''}</td></tr>`).join('')}
@@ -894,18 +1243,18 @@ function renderRealSquad() {
   ` : '';
 
   content.innerHTML = `
-    <h1>Elenco — ${myTeam.name}</h1>
-    ${renderFormationHtml(xv, bench, myTeam.color, 'Escalação titular atual')}
-    <p class="muted">Técnico, Mental e Físico são médias de categoria — clique num jogador pra ver os 22 atributos individuais, biometria e traits.</p>
-    <p class="muted">Pilares e hooker são especialistas de primeira línea: se faltarem, o clube precisa convocar às pressas um juvenil de 18 anos em vez de improvisar com outro jogador.</p>
-    <p class="muted">A condição cai após cada partida (mais para quem tem menos resistência) e se recupera com o tempo; jogadores muito desgastados rendem menos e correm mais risco de lesão.</p>
-    <p class="muted">O clube treina segunda, terça e quinta: fadiga leve a cada rodada, mas evolução gradual dos atributos ao longo da temporada. Jogadores com determinação ≥75 podem escolher treino individual intensivo (DIP) num atributo específico, clicando no jogador — evolui mais rápido ali, com mais desgaste físico.</p>
+    <h1>${t('elencoTitle', {team: myTeam.name})}</h1>
+    ${renderFormationHtml(xv, bench, myTeam.color, t('escalacaoAtual'))}
+    <p class="muted">${t('explicacaoCategorias')}</p>
+    <p class="muted">${t('explicacaoPrimeiraLinea')}</p>
+    <p class="muted">${t('explicacaoCondicao')}</p>
+    <p class="muted">${t('explicacaoTreino')}</p>
     <div class="card">
       <div class="squadHeaderRow">
-        <h3>Plantel completo <span class="muted">(${rows.length} jogadores — titulares em destaque)</span></h3>
+        <h3>${t('plantelCompleto', {n: rows.length})}</h3>
         <div class="sortToggle" id="squadSortToggle">
-          <button class="sortBtn" data-sort="overall">Por overall</button>
-          <button class="sortBtn" data-sort="position">Por posição</button>
+          <button class="sortBtn" data-sort="overall">${t('porOverall')}</button>
+          <button class="sortBtn" data-sort="position">${t('porPosicao')}</button>
         </div>
       </div>
       <div class="tableScroll"><table class="squadTable"><thead>${headHtml}</thead>
@@ -966,21 +1315,21 @@ function renderSquad() {
   `;
   const headHtml = `
     <tr>
-      <th>#</th><th class="teamCol">Jogador</th><th>Posição</th><th>Overall</th>
-      <th>Técnico</th><th>Mental</th><th>Físico</th><th>Bio</th>
+      <th>#</th><th class="teamCol">${t('colJogador')}</th><th>${t('colPosicao')}</th><th>${t('colOverall')}</th>
+      <th>${t('colTecnico')}</th><th>${t('colMental')}</th><th>${t('colFisico')}</th><th>${t('colBio')}</th>
     </tr>
   `;
   content.innerHTML = `
-    <h1>Elenco — ${myTeam.name}</h1>
-    ${renderFormationHtml(players, [], myTeam.color, 'Escalação titular')}
-    <p class="muted">Técnico, Mental e Físico são médias de categoria — clique num jogador pra ver os 22 atributos individuais.</p>
+    <h1>${t('elencoTitle', {team: myTeam.name})}</h1>
+    ${renderFormationHtml(players, [], myTeam.color, t('escalacaoSimples'))}
+    <p class="muted">${t('explicacaoCategorias')}</p>
     <div class="card">
-      <h3>Forwards <span class="muted">(overall ${teamOverall(players, 'forward')})</span></h3>
+      <h3>${t('forwardsTitle', {n: teamOverall(players, 'forward')})}</h3>
       <div class="tableScroll"><table class="squadTable"><thead>${headHtml}</thead>
       <tbody>${forwards.map(rowHtml).join('')}</tbody></table></div>
     </div>
     <div class="card">
-      <h3>Backs <span class="muted">(overall ${teamOverall(players, 'back')})</span></h3>
+      <h3>${t('backsTitle', {n: teamOverall(players, 'back')})}</h3>
       <div class="tableScroll"><table class="squadTable"><thead>${headHtml}</thead>
       <tbody>${backs.map(rowHtml).join('')}</tbody></table></div>
     </div>
@@ -1052,13 +1401,13 @@ function renderLineupEditorHtml(teamId, myOptions) {
   return `
     <div class="card">
       <div class="squadHeaderRow">
-        <h3>Escalar manualmente</h3>
+        <h3>${t('escalarManual')}</h3>
         <div class="sortToggle">
-          <button class="sortBtn" id="lineupAutoBtn">Auto-preencher</button>
-          <button class="sortBtn" id="lineupSaveABtn">Salvar Time A</button>
-          <button class="sortBtn" id="lineupLoadABtn">Usar Time A</button>
-          <button class="sortBtn" id="lineupSaveBBtn">Salvar Time B</button>
-          <button class="sortBtn" id="lineupLoadBBtn">Usar Time B</button>
+          <button class="sortBtn" id="lineupAutoBtn">${t('autoPreencher')}</button>
+          <button class="sortBtn" id="lineupSaveABtn">${t('salvarTimeA')}</button>
+          <button class="sortBtn" id="lineupLoadABtn">${t('usarTimeA')}</button>
+          <button class="sortBtn" id="lineupSaveBBtn">${t('salvarTimeB')}</button>
+          <button class="sortBtn" id="lineupLoadBBtn">${t('usarTimeB')}</button>
         </div>
       </div>
       <div class="lineupEditorGrid">
@@ -1071,7 +1420,7 @@ function renderLineupEditorHtml(teamId, myOptions) {
               return `
                 <div class="lineupSlot">
                   <label>#${idx + 1} ${POS_LABEL[posId]}</label>
-                  <select disabled><option>— Convocação de emergência (juvenil) —</option></select>
+                  <select disabled><option>${t('convocacaoEmergencia')}</option></select>
                 </div>
               `;
             }
@@ -1093,9 +1442,9 @@ function renderLineupEditorHtml(teamId, myOptions) {
             <div class="lineupSlot">
               <label>#${idx + 1} ${POS_LABEL[posId]}</label>
               <select data-slot="${idx}">
-                <optgroup label="Especialistas">${specialists.map(optHtml).join('')}</optgroup>
-                <optgroup label="Mesma linha">${sameGroup.map(optHtml).join('')}</optgroup>
-                <optgroup label="Outras posições">${rest.map(optHtml).join('')}</optgroup>
+                <optgroup label="${t('especialistas')}">${specialists.map(optHtml).join('')}</optgroup>
+                <optgroup label="${t('mesmaLinha')}">${sameGroup.map(optHtml).join('')}</optgroup>
+                <optgroup label="${t('outrasPosicoes')}">${rest.map(optHtml).join('')}</optgroup>
               </select>
             </div>
           `;
@@ -1142,25 +1491,25 @@ function renderMatchday() {
   const effectiveXV = manualXV || autoXV;
 
   const clashNote = excludedIds.size
-    ? '<p class="muted">⚠️ Alguns jogadores estão indisponíveis hoje: já entraram em campo na outra competição no mesmo dia, em local diferente.</p>'
-    : (doubleHeaderIds.size ? '<p class="muted">⚠️ Jogo duplo no mesmo dia e local: parte do time já jogou mais cedo e entra em campo mais desgastada.</p>' : '');
+    ? `<p class="muted">${t('excluidoHoje')}</p>`
+    : (doubleHeaderIds.size ? `<p class="muted">${t('jogoDuplo')}</p>` : '');
 
   content.innerHTML = `
-    <h1>Dia de jogo — ${competitionLabel(key)} — ${roundName}</h1>
+    <h1>${t('diaDeJogo', {comp: competitionLabel(key), round: roundName})}</h1>
     <div class="card">
-      <h3>${isHome ? `${myTeam.name} (casa) vs ${opp.name} (visitante)` : `${opp.name} (casa) vs ${myTeam.name} (visitante)`}</h3>
-      <p class="muted">Ataque ${opp.attack} · Defesa ${opp.defense} · Físico ${opp.stamina}</p>
-      ${c.stage === 'knockout' ? '<p class="muted">Mata-mata: em caso de empate, a partida vai para a prorrogação até sair um vencedor.</p>' : ''}
+      <h3>${isHome ? t('casaVs', {home: myTeam.name, away: opp.name}) : t('casaVs', {home: opp.name, away: myTeam.name})}</h3>
+      <p class="muted">${t('statsLine', {a: opp.attack, d: opp.defense, s: opp.stamina})}</p>
+      ${c.stage === 'knockout' ? `<p class="muted">${t('mataDesempate')}</p>` : ''}
       ${clashNote}
-      <h3>Escolha sua tática</h3>
+      <h3>${t('escolhaTatica')}</h3>
       <div class="tacticOptions" id="tacticOptions">
-        <button class="tacticBtn" data-t="agresivo"><b>Agresivo</b><span>+ataque, -defesa</span></button>
-        <button class="tacticBtn" data-t="equilibrado"><b>Equilibrado</b><span>sem alterações</span></button>
-        <button class="tacticBtn" data-t="defensivo"><b>Defensivo</b><span>+defesa, -ataque</span></button>
+        <button class="tacticBtn" data-t="agresivo"><b>${t('taticaAgresivo')}</b><span>${t('taticaAgresivoDesc')}</span></button>
+        <button class="tacticBtn" data-t="equilibrado"><b>${t('taticaEquilibrado')}</b><span>${t('taticaEquilibradoDesc')}</span></button>
+        <button class="tacticBtn" data-t="defensivo"><b>${t('taticaDefensivo')}</b><span>${t('taticaDefensivoDesc')}</span></button>
       </div>
-      <button class="playBtn" id="startMatchBtn">Começar partida</button>
+      <button class="playBtn" id="startMatchBtn">${t('comecarPartida')}</button>
     </div>
-    ${renderFormationHtml(effectiveXV, bench, myTeam.color, 'Escalação para hoje')}
+    ${renderFormationHtml(effectiveXV, bench, myTeam.color, t('escalacaoHoje'))}
     ${isRealRoster ? renderLineupEditorHtml(c.teamId, myOptions) : ''}
   `;
 
@@ -1197,23 +1546,23 @@ function renderMatchday() {
       state.lineupPresets[c.teamId] = state.lineupPresets[c.teamId] || {};
       state.lineupPresets[c.teamId].A = [...manualSlots];
       saveState();
-      alert('Escalação salva como Time A.');
+      alert(t('escalacaoSalvaA'));
     });
     document.getElementById('lineupSaveBBtn').addEventListener('click', () => {
       state.lineupPresets[c.teamId] = state.lineupPresets[c.teamId] || {};
       state.lineupPresets[c.teamId].B = [...manualSlots];
       saveState();
-      alert('Escalação salva como Time B.');
+      alert(t('escalacaoSalvaB'));
     });
     document.getElementById('lineupLoadABtn').addEventListener('click', () => {
       const preset = state.lineupPresets[c.teamId] && state.lineupPresets[c.teamId].A;
-      if (!preset) { alert('Time A ainda não foi salvo.'); return; }
+      if (!preset) { alert(t('timeANaoSalvo')); return; }
       manualSlots = [...preset];
       renderMatchday();
     });
     document.getElementById('lineupLoadBBtn').addEventListener('click', () => {
       const preset = state.lineupPresets[c.teamId] && state.lineupPresets[c.teamId].B;
-      if (!preset) { alert('Time B ainda não foi salvo.'); return; }
+      if (!preset) { alert(t('timeBNaoSalvo')); return; }
       manualSlots = [...preset];
       renderMatchday();
     });
@@ -1293,11 +1642,11 @@ function renderLive() {
       </div>
       <canvas id="pitch"></canvas>
       <div id="matchControls">
-        <button class="ctrlBtn active" id="playPauseBtn">⏸ Pausar</button>
+        <button class="ctrlBtn active" id="playPauseBtn">${t('pausar')}</button>
         <button class="ctrlBtn" data-speed="1">1x</button>
         <button class="ctrlBtn" data-speed="2">2x</button>
         <button class="ctrlBtn" data-speed="4">4x</button>
-        <button class="ctrlBtn" id="skipBtn">Adiantar até o final ⏭</button>
+        <button class="ctrlBtn" id="skipBtn">${t('adiantar')}</button>
       </div>
       <div id="ticker"></div>
     </div>
@@ -1384,7 +1733,7 @@ function renderLive() {
 
   document.getElementById('playPauseBtn').addEventListener('click', e => {
     playing = !playing;
-    e.target.textContent = playing ? '⏸ Pausar' : '▶ Continuar';
+    e.target.textContent = playing ? t('pausar') : t('continuarPlay');
   });
 
   Array.from(document.querySelectorAll('[data-speed]')).forEach(btn => {
@@ -1418,19 +1767,19 @@ function showSummary(result, isHome) {
   modal.className = 'summaryModal';
   const scorersHtml = list => list.length
     ? `<ul>${list.map(s => `<li>${s.minute}' - ${s.player}</li>`).join('')}</ul>`
-    : '<p class="muted">Sem tries.</p>';
+    : `<p class="muted">${t('semTries')}</p>`;
 
   modal.innerHTML = `
     <div class="summaryBox">
-      <h2>Fim de jogo</h2>
+      <h2>${t('fimDeJogo')}</h2>
       <div class="finalScore">${homeTeam.name} ${result.scoreA} - ${result.scoreB} ${awayTeam.name}</div>
-      ${result.wentToTiebreak ? '<p class="muted">Decidido na prorrogação — mata-mata não permite empate.</p>' : ''}
-      <h3>Tries ${homeTeam.name}</h3>
+      ${result.wentToTiebreak ? `<p class="muted">${t('decididoProrrogacao')}</p>` : ''}
+      <h3>${t('triesDe', {team: homeTeam.name})}</h3>
       ${scorersHtml(result.scorersA)}
-      <h3>Tries ${awayTeam.name}</h3>
+      <h3>${t('triesDe', {team: awayTeam.name})}</h3>
       ${scorersHtml(result.scorersB)}
-      ${result.motm ? `<p><b>Craque da partida:</b> ${result.motm}</p>` : ''}
-      <div class="center"><button class="playBtn" id="continueBtn">Continuar</button></div>
+      ${result.motm ? `<p><b>${t('craqueDaPartida')}</b> ${result.motm}</p>` : ''}
+      <div class="center"><button class="playBtn" id="continueBtn">${t('continuar')}</button></div>
     </div>
   `;
   document.body.appendChild(modal);
@@ -1497,7 +1846,7 @@ function finalizeRound() {
         }
       });
       if (fatigueInjuries.length) {
-        alert(`Lesão por fadiga: ${fatigueInjuries.join(', ')} não vai poder jogar por um tempo — o desgaste acumulado cobrou o preço.`);
+        alert(t('lesaoFadigaAlert', {names: fatigueInjuries.join(', ')}));
       }
     }
     state.lastMatch[key] = {ids: pendingMyXV.map(p => p.id), roundsElapsed: roundsElapsedAtPlay, venue};
