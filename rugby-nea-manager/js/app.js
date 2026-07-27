@@ -151,6 +151,7 @@ const topbarRight = document.getElementById('topbarRight');
 const myTeamBadge = document.getElementById('myTeamBadge');
 
 let currentView = 'dashboard';
+let squadSortMode = 'overall'; // 'overall' (padrão) ou 'position' (1-15 titulares por camisa, depois reservas por posto)
 
 document.getElementById('newGameBtn').addEventListener('click', resetGame);
 mainNav.addEventListener('click', e => {
@@ -682,9 +683,28 @@ function statusCell(p) {
   return '<span class="muted">Reserva</span>';
 }
 
+// Ordem de posto (forwards antes de backs, seguindo a numeração tradicional
+// 1-15) usada pra ordenar "por posição": titulares primeiro por número de
+// camisa (1 a 15), depois reservas agrupadas por posto e, dentro do mesmo
+// posto, do melhor pro pior.
+const POS_ORDER_INDEX = {PI: 0, HK: 1, SL: 2, AL: 3, N8: 4, MS: 5, AP: 6, WG: 7, CE: 8, FB: 9};
+
+function sortRowsByPosition(rows) {
+  return [...rows].sort((a, b) => {
+    if (a.number != null && b.number != null) return a.number - b.number;
+    if (a.number != null) return -1;
+    if (b.number != null) return 1;
+    const posA = POS_ORDER_INDEX[a.posId] ?? 99;
+    const posB = POS_ORDER_INDEX[b.posId] ?? 99;
+    if (posA !== posB) return posA - posB;
+    return b.rating - a.rating;
+  });
+}
+
 function renderRealSquad() {
   const myOptions = {conditionOf: currentConditionOf, metaOverrides: state.playerOverrides};
-  const rows = rosterWithStatus(state.myTeamId, myOptions);
+  let rows = rosterWithStatus(state.myTeamId, myOptions);
+  if (squadSortMode === 'position') rows = sortRowsByPosition(rows);
   const {xv, bench} = formationDataFor(state.myTeamId, myOptions);
   const myTeam = teamById[state.myTeamId];
   const rowHtml = p => `
@@ -711,7 +731,7 @@ function renderRealSquad() {
       <h3>Comissão técnica</h3>
       <table>
         <tbody>
-          ${staff.map(s => `<tr><td class="teamCol">${s.role}</td><td class="teamCol"><b>${s.name}</b></td></tr>`).join('')}
+          ${staff.map(s => `<tr><td class="teamCol">${s.role}</td><td class="teamCol"><b>${s.name}</b>${s.note ? ` <span class="muted">— ${s.note}</span>` : ''}</td></tr>`).join('')}
         </tbody>
       </table>
     </div>
@@ -724,12 +744,27 @@ function renderRealSquad() {
     <p class="muted">Pilares e hooker são especialistas de primeira línea: se faltarem, o clube precisa convocar às pressas um juvenil de 18 anos em vez de improvisar com outro jogador.</p>
     <p class="muted">A condição cai após cada partida (mais para quem tem menos resistência) e se recupera com o tempo; jogadores muito desgastados rendem menos e correm mais risco de lesão.</p>
     <div class="card">
-      <h3>Plantel completo <span class="muted">(${rows.length} jogadores — titulares em destaque)</span></h3>
+      <div class="squadHeaderRow">
+        <h3>Plantel completo <span class="muted">(${rows.length} jogadores — titulares em destaque)</span></h3>
+        <div class="sortToggle" id="squadSortToggle">
+          <button class="sortBtn" data-sort="overall">Por overall</button>
+          <button class="sortBtn" data-sort="position">Por posição</button>
+        </div>
+      </div>
       <div class="tableScroll"><table class="squadTable"><thead>${headHtml}</thead>
       <tbody>${rows.map(rowHtml).join('')}</tbody></table></div>
     </div>
     ${staffHtml}
   `;
+
+  const sortToggle = document.getElementById('squadSortToggle');
+  Array.from(sortToggle.children).forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.sort === squadSortMode);
+    btn.addEventListener('click', () => {
+      squadSortMode = btn.dataset.sort;
+      renderRealSquad();
+    });
+  });
 }
 
 function renderSquad() {

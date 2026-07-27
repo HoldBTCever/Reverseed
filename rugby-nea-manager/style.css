@@ -258,3 +258,11 @@ canvas#pitch {
   .shirt { width: 34px; height: 34px; font-size: 13px; }
   .shirtName { font-size: 11px; }
 }
+
+.squadHeaderRow { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.sortToggle { display: flex; gap: 6px; }
+.sortBtn {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 10px; font-size: 12px; color: var(--muted); cursor: pointer;
+}
+.sortBtn.selected { border-color: var(--accent); color: var(--text); background: rgba(46,204,113,0.1); }

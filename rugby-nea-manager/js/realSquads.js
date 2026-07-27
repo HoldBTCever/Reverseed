@@ -117,6 +117,7 @@ const CURDA_ROSTER = [
   mkPlayer('Jean Paul Clemont', 'AL', 70, {}, {nickname: 'JP', injuryWeeks: 43, injuryLabel: '10 meses'}),
   mkPlayer('Joaquín Alzueta', 'AL', 68, {}, {nickname: 'Joaco', age: 'jovem', note: 'joga também de centro'}),
   mkPlayer('Vic Torres', 'AL', 61, {}, {age: 'jovem', note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído'}),
+  mkPlayer('Gonza Alvarado', 'SL', 78, {jump: 91, lineoutThrow: 60}, {note: 'excelente no salto para o line-out, no estilo do Álvaro Allo'}),
 ];
 
 // Elenco real do San José, a partir das listas de convocados reais do clube
@@ -195,6 +196,7 @@ const CURDA_STAFF = [
   {role: 'Preparador Físico', name: 'Osorio'},
   {role: 'Nutricionista', name: 'Cibils'},
   {role: 'Fisioterapeuta', name: 'Juan Carmona'},
+  {role: 'Auxiliar Técnico', name: 'Sebas Bereta', note: 'assume o time B quando NEA e Paraguaio caem no mesmo dia em locais diferentes'},
 ];
 
 const STAFF = {

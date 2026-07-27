@@ -108,8 +108,10 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
   let pos = 50; // 0 = try-line de A (perigo p/ A), 100 = try-line de B (perigo p/ B)
   let scoreA = 0;
   let scoreB = 0;
-  let cardPenaltyA = 0; // ticks restantes de desvantagem por cartão
+  let cardPenaltyA = 0; // ticks restantes de desvantagem por cartão amarelo
   let cardPenaltyB = 0;
+  let redCardA = false; // expulso: desvantagem por todo o resto da partida
+  let redCardB = false;
 
   const ticks = [];
   const log = [];
@@ -138,10 +140,10 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     const fatigueA = inMatchFatigueFactor(tick, staminaAvgA);
     const fatigueB = inMatchFatigueFactor(tick, staminaAvgB);
 
-    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * fatigueA;
-    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * fatigueA;
-    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * fatigueB;
-    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * fatigueB;
+    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA;
+    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA;
+    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB;
+    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB;
 
     let push = ((effAttackA - effDefenseB) - (effAttackB - effDefenseA)) * 0.14;
     push += rand(-9, 9);
@@ -204,9 +206,24 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       const players = toA ? playersA : playersB;
       const player = pick(players.filter(p => p.group === 'forward'));
       if (toA) cardPenaltyA = 5; else cardPenaltyB = 5;
-      cards.push({minute, team: teamCard.name, player: player.name});
+      cards.push({minute, team: teamCard.name, player: player.name, type: 'yellow'});
       addLog(minute, `Tarjeta amarilla para ${player.name} (${teamCard.name}). 10 minutos afuera.`);
       eventHandled = true;
+    }
+
+    // Tarjeta roja (muy poco frecuente): expulsión por el resto del partido.
+    if (!eventHandled && Math.random() < 0.0025) {
+      const toA = Math.random() < 0.5;
+      const alreadyRed = toA ? redCardA : redCardB;
+      if (!alreadyRed) {
+        const teamCard = toA ? teamA : teamB;
+        const players = toA ? playersA : playersB;
+        const player = pick(players.filter(p => p.group === 'forward'));
+        if (toA) redCardA = true; else redCardB = true;
+        cards.push({minute, team: teamCard.name, player: player.name, type: 'red'});
+        addLog(minute, `¡Tarjeta roja para ${player.name} (${teamCard.name})! Jugará el resto del partido con un hombre menos.`);
+        eventHandled = true;
+      }
     }
 
     // Try
