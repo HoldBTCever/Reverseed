@@ -126,7 +126,7 @@ const CURDA_ROSTER = [
   mkPlayer('Juan King', 'WG', 80, {speed: 88, tackle: 82, stamina: 85}, {note: 'ótima disposição, velocidade e tackles'}),
   mkPlayer('Luis Giménez', 'CE', 80, {}, {nickname: 'Luismi', note: 'também joga de ponta', altPos: ['WG']}),
   mkPlayer('Franco Laterza', 'PI', 76, {}, {nationalTeam: 'seleção juvenil', note: 'também joga de hooker', altPos: ['HK']}),
-  mkPlayer('Sebas Benítez', 'SL', 64),
+  mkPlayer('Sebas Benítez', 'SL', 64, {}, {note: 'segunda línea da intermédia'}),
   mkPlayer('René Villar', 'SL', 64),
   mkPlayer('Elías Achon', 'AL', 76, {tackle: 86, stamina: 88, determination: 88}, {note: 'hooker ou 3ª línea, joga mais de 3ª; muito bom nos tackles e muita disposição física', altPos: ['HK']}),
   mkPlayer('Nico Allo', 'CE', 66),
@@ -145,6 +145,9 @@ const CURDA_ROSTER = [
   mkPlayer('Joaquín Alzueta', 'AL', 68, {}, {nickname: 'Joaco', age: 'jovem', note: 'joga também de centro', altPos: ['CE']}),
   mkPlayer('Vic Torres', 'AL', 61, {determination: 80}, {age: 'jovem', note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído', altPos: ['WG']}),
   mkPlayer('Gonza Alvarado', 'SL', 78, {jump: 91, lineoutThrow: 60}, {note: 'excelente no salto para o line-out, no estilo do Álvaro Allo', traits: ['lineoutSpecialist']}),
+  mkPlayer('Thanos', 'PI', 60, {}, {note: 'pilar reserva da intermédia'}),
+  mkPlayer('Samurai', 'PI', 62, {}, {note: 'pilar e também hooker reserva da intermédia', altPos: ['HK']}),
+  mkPlayer('Lewis', 'WG', 78, {}, {note: 'ponta titular da intermédia'}),
 ];
 
 // Elenco real do San José, a partir das listas de convocados reais do clube
