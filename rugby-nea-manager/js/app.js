@@ -5,7 +5,7 @@ import {generateFixture, initialStandings, applyResult, sortedStandings, firstKn
 import {NEA_SEED_MATCHES} from './seedNea.js';
 import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier} from './realSquads.js';
 
-const SAVE_KEY = 'rugbyNeaSave_v7';
+const SAVE_KEY = 'rugbyNeaSave_v8';
 
 const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 function crestCode(team) {
@@ -19,18 +19,26 @@ function squadOf(teamId, options) {
   return squadCache[teamId];
 }
 
+// Dia do calendário da temporada "de hoje": cada rodada finalizada (de
+// qualquer competição do clube) avança exatamente 7 dias — o intervalo real
+// entre uma partida e outra do MESMO time NO MESMO campeonato é sempre uma
+// rodada, logo sempre 7 dias, que é o tempo que os jogadores têm pra
+// recuperar a energia até o próximo jogo daquela competição.
+function currentCalendarDay() {
+  return state.calendarDay;
+}
+
 // Condição física atual do jogador (0-100), recuperada "sob demanda" a partir
 // da condição registrada logo após sua última partida (state.playerCondition)
-// e do tempo de jogo global (state.globalTick) que passou desde então — cada
-// rodada finalizada em QUALQUER competição do clube avança o relógio em 1.
+// e dos dias corridos desde então (7 dias = 1 rodada da mesma competição).
 // Jogadores com mais resistência/determinação se recuperam mais rápido.
 function currentConditionOf(player) {
   const rec = state.playerCondition[player.id];
   if (!rec) return 100;
-  const elapsed = state.globalTick - rec.atTick;
-  if (elapsed <= 0) return Math.max(0, Math.min(100, rec.condition));
-  const recoveryRate = 14 + player.skills.stamina * 0.14 + player.skills.determination * 0.08;
-  return Math.min(100, rec.condition + recoveryRate * elapsed);
+  const elapsedDays = currentCalendarDay() - rec.atDay;
+  if (elapsedDays <= 0) return Math.max(0, Math.min(100, rec.condition));
+  const recoveryPerWeek = 14 + player.skills.stamina * 0.14 + player.skills.determination * 0.08;
+  return Math.min(100, rec.condition + (recoveryPerWeek / 7) * elapsedDays);
 }
 
 // Local do jogo do ponto de vista do clube gerenciado: 'home' (seu próprio
@@ -130,8 +138,8 @@ function newGame(myTeamId) {
     competitions,
     activeCompetition: primary.league,
     tactic: 'equilibrado',
-    globalTick: 0, // relógio global (1 por rodada finalizada, em qualquer competição) usado pra recuperação de condição
-    playerCondition: {}, // {[playerId]: {condition, atTick}} — condição registrada logo após a última partida do jogador
+    calendarDay: 0, // dia do calendário da temporada — avança 7 (uma semana) a cada rodada finalizada, de qualquer competição
+    playerCondition: {}, // {[playerId]: {condition, atDay}} — condição registrada logo após a última partida do jogador (atDay = dia do calendário da temporada, ver currentCalendarDay)
     playerOverrides: {}, // {[playerId]: {injuryWeeks, injuryLabel, dynamicInjury}} — lesões dinâmicas por fadiga
     lastMatch: {}, // {[competitionKey]: {ids, roundsElapsed, venue}} — última escalação usada em cada competição, p/ detectar choque de agenda
     lineupPresets: {}, // {[teamId]: {A: [15 playerIds ou null], B: [...]}} — escalações salvas (Time A / Time B)
@@ -361,7 +369,7 @@ function tickTraining() {
       }
     }
     const current = currentConditionOf(p);
-    state.playerCondition[p.id] = {condition: Math.max(15, current - fatigue), atTick: state.globalTick};
+    state.playerCondition[p.id] = {condition: Math.max(15, current - fatigue), atDay: currentCalendarDay()};
   });
 }
 
@@ -1462,10 +1470,13 @@ function finalizeRound() {
     applyMatchToStandings(c, m, scoreHome, scoreAway);
   });
 
-  // O tempo passa globalmente (recuperação de condição e alta de lesões de
-  // todo o elenco) e registra o desgaste específico de quem entrou em campo
-  // nesta rodada.
-  state.globalTick++;
+  c.currentRoundIndex++;
+  c.roundsElapsed++;
+
+  // O calendário avança uma semana (7 dias): é o tempo que separa uma
+  // partida e outra do MESMO time NO MESMO campeonato, e é o que os
+  // jogadores têm pra recuperar a energia até a próxima rodada.
+  state.calendarDay += 7;
   tickInjuries();
   tickTraining();
   if (pendingMyXV && pendingMyXV.length) {
@@ -1478,7 +1489,7 @@ function finalizeRound() {
       pendingMyXV.forEach(p => {
         if (p.meta.emergencyCallUp) return; // convocação avulsa, não é jogador persistente do elenco
         const postMatch = declineAfterMatch(p, p.condition != null ? p.condition : 100);
-        state.playerCondition[p.id] = {condition: postMatch, atTick: state.globalTick};
+        state.playerCondition[p.id] = {condition: postMatch, atDay: currentCalendarDay()};
         const injury = rollFatigueInjury(p, postMatch);
         if (injury) {
           state.playerOverrides[p.id] = {...(state.playerOverrides[p.id] || {}), ...injury};
@@ -1492,8 +1503,6 @@ function finalizeRound() {
     state.lastMatch[key] = {ids: pendingMyXV.map(p => p.id), roundsElapsed: roundsElapsedAtPlay, venue};
   }
 
-  c.currentRoundIndex++;
-  c.roundsElapsed++;
   afterRoundAdvance(c);
   pendingMatchResult = null;
   pendingMyXV = null;
