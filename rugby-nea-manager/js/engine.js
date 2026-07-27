@@ -52,6 +52,17 @@ function breakChance(pace) {
   return Math.max(0.005, Math.min(0.09, 0.035 + (pace - 70) * 0.0018));
 }
 
+// Fator de cansaço dentro da própria partida: nos primeiros 40 minutos o time
+// joga em plena força; a partir daí perde intensidade progressivamente, mais
+// ou menos conforme a resistência média do time (staminaAvg). Times com pouca
+// resistência caem bem mais aos 70-80' do que aos 45-50'.
+function inMatchFatigueFactor(tick, staminaAvg) {
+  if (tick <= 20) return 1;
+  const fadeProgress = (tick - 20) / 20; // 0 no intervalo -> 1 aos 80'
+  const maxFade = 0.28 * (1 - staminaAvg / 130);
+  return 1 - Math.max(0, maxFade) * fadeProgress;
+}
+
 function teamStrength(team, players, tacticKey) {
   const tactic = TACTICS[tacticKey] || TACTICS.equilibrado;
   const forwardsAtk = teamOverall(players, 'forward');
@@ -91,6 +102,9 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
   const fastestBackA = bestByGroup(playersA, 'speed', 'back');
   const fastestBackB = bestByGroup(playersB, 'speed', 'back');
 
+  const staminaAvgA = teamSkillAvg(playersA, 'stamina');
+  const staminaAvgB = teamSkillAvg(playersB, 'stamina');
+
   let pos = 50; // 0 = try-line de A (perigo p/ A), 100 = try-line de B (perigo p/ B)
   let scoreA = 0;
   let scoreB = 0;
@@ -121,10 +135,13 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     if (cardPenaltyA > 0) cardPenaltyA--;
     if (cardPenaltyB > 0) cardPenaltyB--;
 
-    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1);
-    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1);
-    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1);
-    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1);
+    const fatigueA = inMatchFatigueFactor(tick, staminaAvgA);
+    const fatigueB = inMatchFatigueFactor(tick, staminaAvgB);
+
+    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * fatigueA;
+    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * fatigueA;
+    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * fatigueB;
+    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * fatigueB;
 
     let push = ((effAttackA - effDefenseB) - (effAttackB - effDefenseA)) * 0.14;
     push += rand(-9, 9);
@@ -142,13 +159,17 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       addLog(minute, `¡${fastestBackB.name} rompe la línea con velocidad y avanza para ${teamB.name}!`);
     }
 
-    // Error de manos: concentrado en el 9 y el 10, que son quienes más tocan la pelota.
-    if (!eventHandled && push > 0 && Math.random() < handlingErrorA) {
+    // Error de manos: concentrado en el 9 y el 10, que son quienes más tocan la
+    // pelota. El cansancio (fatigueA/B < 1 en el segundo tiempo) suma más
+    // errores de mano, reflejando peores decisiones con el cuerpo pesado.
+    const handlingErrorA_eff = handlingErrorA + (1 - fatigueA) * 0.20;
+    const handlingErrorB_eff = handlingErrorB + (1 - fatigueB) * 0.20;
+    if (!eventHandled && push > 0 && Math.random() < handlingErrorA_eff) {
       const culprit = pickHandlingCulprit(scrumHalfA, flyHalfA);
       addLog(minute, `Knock-on de ${teamA.name}: a ${culprit.name} se le escapa la pelota en el pase.`);
       push = -rand(4, 10);
       eventHandled = true;
-    } else if (!eventHandled && push < 0 && Math.random() < handlingErrorB) {
+    } else if (!eventHandled && push < 0 && Math.random() < handlingErrorB_eff) {
       const culprit = pickHandlingCulprit(scrumHalfB, flyHalfB);
       addLog(minute, `Knock-on de ${teamB.name}: a ${culprit.name} se le escapa la pelota en el pase.`);
       push = rand(4, 10);

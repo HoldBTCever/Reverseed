@@ -3,26 +3,46 @@ import {simulateMatch, TACTICS} from './engine.js';
 import {MatchRenderer} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
-import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getDualPartner} from './realSquads.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getDualPartner, conditionMultiplier} from './realSquads.js';
 
-const SAVE_KEY = 'rugbyNeaSave_v5';
+const SAVE_KEY = 'rugbyNeaSave_v6';
 
 const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 function crestCode(team) {
   return team.id.slice(-3);
 }
 const squadCache = {};
-function squadOf(teamId, fatiguedIds) {
+function squadOf(teamId, options) {
   const realRoster = getRealRoster(teamId);
-  if (realRoster) return pickStartingXV(realRoster, fatiguedIds);
+  if (realRoster) return pickStartingXV(realRoster, options);
   if (!squadCache[teamId]) squadCache[teamId] = generateSquad(teamById[teamId]);
   return squadCache[teamId];
+}
+
+// Condição física atual do jogador (0-100), recuperada "sob demanda" a partir
+// da condição registrada logo após sua última partida (state.playerCondition)
+// e do tempo de jogo global (state.globalTick) que passou desde então — cada
+// rodada finalizada em QUALQUER competição do clube avança o relógio em 1.
+// Jogadores com mais resistência/determinação se recuperam mais rápido.
+function currentConditionOf(player) {
+  const rec = state.playerCondition[player.id];
+  if (!rec) return 100;
+  const elapsed = state.globalTick - rec.atTick;
+  if (elapsed <= 0) return Math.max(0, Math.min(100, rec.condition));
+  const recoveryRate = 14 + player.skills.stamina * 0.14 + player.skills.determination * 0.08;
+  return Math.min(100, rec.condition + recoveryRate * elapsed);
+}
+
+// Local do jogo do ponto de vista do clube gerenciado: 'home' (seu próprio
+// estádio) ou o id do adversário (cada partida fora é numa cidade distinta).
+function venueOf(match, teamId) {
+  return match.home === teamId ? 'home' : match.home;
 }
 
 let state = null;
 let matchAnim = null; // controle da partida ao vivo em andamento
 let pendingMatchResult = null; // resultado já simulado/exibido da partida do usuário nesta rodada
-let pendingMyXVIds = null; // ids da escalação usada na partida em andamento (p/ rodízio por desgaste)
+let pendingMyXV = null; // escalação (jogadores inteiros) usada na partida em andamento
 
 function loadState() {
   try {
@@ -65,7 +85,7 @@ function buildLeagueCompetition(league, teamId) {
     currentRoundIndex = 7;
   }
 
-  return {teamId, league: league.id, stage: 'league', fixture, standings, currentRoundIndex, knockoutRounds: []};
+  return {teamId, league: league.id, stage: 'league', fixture, standings, currentRoundIndex, roundsElapsed: currentRoundIndex, knockoutRounds: []};
 }
 
 function buildGroupCompetition(league, teamId) {
@@ -81,7 +101,7 @@ function buildGroupCompetition(league, teamId) {
   return {
     teamId, league: league.id, stage: 'groups',
     groupOf, groupFixtures, groupStandings,
-    currentRoundIndex: 0, knockoutRounds: [],
+    currentRoundIndex: 0, roundsElapsed: 0, knockoutRounds: [],
   };
 }
 
@@ -108,7 +128,10 @@ function newGame(myTeamId) {
     competitions,
     activeCompetition: primary.league,
     tactic: 'equilibrado',
-    recentXV: {},
+    globalTick: 0, // relógio global (1 por rodada finalizada, em qualquer competição) usado pra recuperação de condição
+    playerCondition: {}, // {[playerId]: {condition, atTick}} — condição registrada logo após a última partida do jogador
+    playerOverrides: {}, // {[playerId]: {injuryWeeks, injuryLabel, dynamicInjury}} — lesões dinâmicas por fadiga
+    lastMatch: {}, // {[competitionKey]: {ids, roundsElapsed, venue}} — última escalação usada em cada competição, p/ detectar choque de agenda
   };
   saveState();
   render();
@@ -194,18 +217,86 @@ function otherCompetitionKey(key) {
   return Object.keys(state.competitions).find(k => k !== key) || null;
 }
 
-// Jogadores que acabaram de jogar a partida mais recente do clube na OUTRA
-// competição — sofrem penalidade leve na escalação, incentivando rodízio.
-function fatiguedIdsFor(key) {
+// Verifica se a partida que o clube está prestes a jogar em `key` cai na
+// MESMA rodada relativa ("mesma data") da última partida já disputada na
+// OUTRA competição. Se cair:
+//  - mesmo local (ambas em casa, no próprio estádio do clube): jogo duplo no
+//    mesmo dia é fisicamente possível, mas quem já jogou entra bem mais
+//    desgastado (doubleHeaderIds).
+//  - locais diferentes (pelo menos uma fora): fisicamente impossível estar
+//    nos dois lugares — quem já jogou fica indisponível (excludedIds), o que
+//    pode forçar até convocação de emergência do juvenil na primeira línea.
+function clashInfoFor(key, match) {
+  const c = comp(key);
   const otherKey = otherCompetitionKey(key);
-  if (!otherKey) return new Set();
-  return new Set(state.recentXV[otherKey] || []);
+  const empty = {excludedIds: new Set(), doubleHeaderIds: new Set()};
+  if (!otherKey) return empty;
+  const sibling = state.lastMatch[otherKey];
+  if (!sibling || sibling.roundsElapsed !== c.roundsElapsed) return empty;
+  const thisVenue = venueOf(match, c.teamId);
+  if (thisVenue === sibling.venue) {
+    return {excludedIds: new Set(), doubleHeaderIds: new Set(sibling.ids)};
+  }
+  return {excludedIds: new Set(sibling.ids), doubleHeaderIds: new Set()};
 }
 
-function allRecentXVIds() {
-  const ids = [];
-  Object.values(state.recentXV || {}).forEach(arr => { if (arr) ids.push(...arr); });
-  return new Set(ids);
+// Condição efetiva usada numa partida específica: igual à condição atual do
+// jogador, exceto para quem está fazendo um "jogo duplo" no mesmo dia (mesmo
+// local), que entra em campo com uma penalidade extra de desgaste.
+function buildMatchConditionOf(doubleHeaderIds) {
+  return player => {
+    const base = currentConditionOf(player);
+    return doubleHeaderIds.has(player.id) ? Math.max(5, base - 25) : base;
+  };
+}
+
+// Piora na condição de um jogador ao final de uma partida cheia, a partir da
+// condição com que ele ENTROU em campo. Resistência e determinação altas
+// amortecem bastante a queda (jogadores "de garra" seguram melhor os 80').
+function declineAfterMatch(player, preMatchCondition) {
+  const stamina = player.skills.stamina;
+  const determination = player.skills.determination;
+  const decline = 40 * (1.5 - stamina / 100) * (0.9 - determination / 500);
+  return Math.max(8, preMatchCondition - decline);
+}
+
+// Risco de lesão por fadiga: só entra em jogo quando o jogador termina a
+// partida muito desgastado; determinação alta reduz o risco (jogadores mais
+// durões se cuidam/se seguram melhor mesmo cansados).
+function rollFatigueInjury(player, postMatchCondition) {
+  if (postMatchCondition >= 35) return null;
+  const risk = Math.max(0.02, 0.10 - player.skills.determination * 0.0008);
+  if (Math.random() >= risk) return null;
+  const weeks = 1 + Math.floor(Math.random() * 4);
+  return {injuryWeeks: weeks, injuryLabel: weeksLabel(weeks), dynamicInjury: true};
+}
+
+function weeksLabel(weeks) {
+  if (weeks >= 8) {
+    const months = Math.round(weeks / 4.33);
+    return `${months} ${months > 1 ? 'meses' : 'mês'}`;
+  }
+  return `${weeks} semana${weeks > 1 ? 's' : ''}`;
+}
+
+// Passa 1 semana pra qualquer lesão em andamento do elenco do clube
+// gerenciado (tanto as lesões estáticas do elenco curado quanto as dinâmicas
+// por fadiga), dando alta assim que chega a zero. Chamada uma vez por
+// rodada finalizada (mesmo relógio global usado pra recuperação de condição).
+function tickInjuries() {
+  const roster = getRealRoster(state.myTeamId);
+  if (!roster) return;
+  roster.forEach(p => {
+    const override = state.playerOverrides[p.id];
+    const effectiveWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
+    if (!effectiveWeeks) return;
+    const remaining = Math.max(0, effectiveWeeks - 1);
+    state.playerOverrides[p.id] = {
+      ...(override || {}),
+      injuryWeeks: remaining,
+      injuryLabel: remaining > 0 ? weeksLabel(remaining) : undefined,
+    };
+  });
 }
 
 // ---- Transições de estágio e mata-mata ------------------------------------
@@ -559,10 +650,19 @@ const SKILL_KEYS = Object.keys(SKILL_LABELS);
 const SKILL_SHORT = {
   pass: 'PAS', reception: 'REC', lineoutThrow: 'LAT', jump: 'SAL',
   tackle: 'TAC', kicking: 'CHU', speed: 'VEL', strength: 'FOR',
+  stamina: 'RES', determination: 'DET',
 };
 
 function skillCell(value) {
   return `<td title="${value}"><span class="ratingBar"><span style="width:${value}%"></span></span>${value}</td>`;
+}
+
+function conditionCell(value) {
+  const v = Math.round(value);
+  let cls = '';
+  if (v < 40) cls = 'conditionCritical';
+  else if (v < 70) cls = 'conditionLow';
+  return `<td class="${cls}" title="Condição física: ${v}%"><span class="ratingBar"><span style="width:${v}%"></span></span>${v}%</td>`;
 }
 
 function metaBadges(meta) {
@@ -570,31 +670,34 @@ function metaBadges(meta) {
   if (meta.nationalTeam) parts.push(meta.nationalTeam);
   if (meta.age) parts.push(`${meta.age} anos`);
   if (meta.potential) parts.push(`potencial ${meta.potential}`);
+  if (meta.dynamicInjury) parts.push('lesão por fadiga');
   if (meta.note) parts.push(meta.note);
   return parts.join(' · ');
 }
 
 function statusCell(p) {
   if (p.status === 'lesionado') return `<span style="color:var(--accent-2)">Lesionado (${p.meta.injuryLabel})</span>`;
+  if (p.status === 'indisponivel') return '<span style="color:var(--accent-2)">Indisponível (compromisso simultâneo)</span>';
   if (p.status === 'titular') return `<b>Titular #${p.number}</b>`;
   return '<span class="muted">Reserva</span>';
 }
 
 function renderRealSquad() {
-  const rows = rosterWithStatus(state.myTeamId, allRecentXVIds());
+  const rows = rosterWithStatus(state.myTeamId, {conditionOf: currentConditionOf, metaOverrides: state.playerOverrides});
   const rowHtml = p => `
     <tr class="${p.status === 'lesionado' ? 'injuredRow' : ''}">
       <td>${statusCell(p)}</td>
-      <td class="teamCol">${p.name}${p.meta.nickname ? ` <span class="muted">"${p.meta.nickname}"</span>` : ''}${p.meta.captain ? ' <b>(C)</b>' : ''}${p.meta.emergencyCallUp ? ' <span class="muted">(convocação de emergência)</span>' : ''}${p.fatigued ? ' <span class="muted">(jogou recentemente)</span>' : ''}</td>
+      <td class="teamCol">${p.name}${p.meta.nickname ? ` <span class="muted">"${p.meta.nickname}"</span>` : ''}${p.meta.captain ? ' <b>(C)</b>' : ''}${p.meta.emergencyCallUp ? ' <span class="muted">(convocação de emergência)</span>' : ''}</td>
       <td class="posCol">${p.position}</td>
       <td><b>${p.rating}</b></td>
+      ${conditionCell(p.condition)}
       ${SKILL_KEYS.map(k => skillCell(p.skills[k])).join('')}
       <td class="posCol">${metaBadges(p.meta)}</td>
     </tr>
   `;
   const headHtml = `
     <tr>
-      <th>Status</th><th class="teamCol">Jogador</th><th>Posição</th><th>Overall</th>
+      <th>Status</th><th class="teamCol">Jogador</th><th>Posição</th><th>Overall</th><th>Condição</th>
       ${SKILL_KEYS.map(k => `<th title="${SKILL_LABELS[k]}">${SKILL_SHORT[k]}</th>`).join('')}
       <th>Obs</th>
     </tr>
@@ -613,8 +716,9 @@ function renderRealSquad() {
 
   content.innerHTML = `
     <h1>Elenco — ${teamById[state.myTeamId].name}</h1>
-    <p class="muted">PAS Passe · REC Recepção · LAT Lançamento lateral · SAL Salto · TAC Tackle · CHU Chute · VEL Velocidade · FOR Força</p>
+    <p class="muted">PAS Passe · REC Recepção · LAT Lançamento lateral · SAL Salto · TAC Tackle · CHU Chute · VEL Velocidade · FOR Força · RES Resistência · DET Determinação</p>
     <p class="muted">Pilares e hooker são especialistas de primeira línea: se faltarem, o clube precisa convocar às pressas um juvenil de 18 anos em vez de improvisar com outro jogador.</p>
+    <p class="muted">A condição cai após cada partida (mais para quem tem menos resistência) e se recupera com o tempo; jogadores muito desgastados rendem menos e correm mais risco de lesão.</p>
     <div class="card">
       <h3>Plantel completo <span class="muted">(${rows.length} jogadores — titulares em destaque)</span></h3>
       <div class="tableScroll"><table class="squadTable"><thead>${headHtml}</thead>
@@ -725,12 +829,20 @@ function renderLive() {
   const tacticHome = isHome ? myTactic : oppTactic;
   const tacticAway = isHome ? oppTactic : myTactic;
 
-  // Time do clube gerenciado entra com rodízio: quem jogou há pouco na outra
-  // competição sofre penalidade de escalação, abrindo espaço para o banco.
-  const fatigued = fatiguedIdsFor(key);
-  const homeSquad = homeId === c.teamId ? squadOf(homeId, fatigued) : squadOf(homeId);
-  const awaySquad = awayId === c.teamId ? squadOf(awayId, fatigued) : squadOf(awayId);
-  pendingMyXVIds = (homeId === c.teamId ? homeSquad : awaySquad).map(p => p.id);
+  // Time do clube gerenciado entra com condição física real: jogadores mais
+  // desgastados rendem menos (e a escalação prefere quem está mais fresco).
+  // Se a partida cair no mesmo dia da última partida já disputada na outra
+  // competição, aplica o choque de agenda: mesmo local permite escalar com
+  // penalidade extra, locais diferentes tornam quem já jogou indisponível.
+  const {excludedIds, doubleHeaderIds} = clashInfoFor(key, match);
+  const myOptions = {
+    conditionOf: buildMatchConditionOf(doubleHeaderIds),
+    excludedIds,
+    metaOverrides: state.playerOverrides,
+  };
+  const homeSquad = homeId === c.teamId ? squadOf(homeId, myOptions) : squadOf(homeId);
+  const awaySquad = awayId === c.teamId ? squadOf(awayId, myOptions) : squadOf(awayId);
+  pendingMyXV = homeId === c.teamId ? homeSquad : awaySquad;
 
   const result = simulateMatch(
     homeTeam, homeSquad, tacticHome,
@@ -915,6 +1027,9 @@ function finalizeRound() {
   const key = state.activeCompetition;
   const c = comp(key);
   const matches = activeRoundMatches(c);
+  const myMatch = matches.find(m => m.home === c.teamId || m.away === c.teamId);
+  const roundsElapsedAtPlay = c.roundsElapsed;
+
   matches.forEach(m => {
     if (m.played) return;
     let scoreHome, scoreAway;
@@ -937,13 +1052,41 @@ function finalizeRound() {
     m.scoreAway = scoreAway;
     applyMatchToStandings(c, m, scoreHome, scoreAway);
   });
-  c.currentRoundIndex++;
-  afterRoundAdvance(c);
-  if (pendingMyXVIds) {
-    state.recentXV[key] = pendingMyXVIds;
+
+  // O tempo passa globalmente (recuperação de condição e alta de lesões de
+  // todo o elenco) e registra o desgaste específico de quem entrou em campo
+  // nesta rodada.
+  state.globalTick++;
+  tickInjuries();
+  if (pendingMyXV && pendingMyXV.length) {
+    const venue = myMatch ? venueOf(myMatch, c.teamId) : 'home';
+    // Condição/lesão por fadiga só existem pra elencos reais (curados): times
+    // procedurais não têm banco pra revezar nem identidade persistente digna
+    // de rastrear partida a partida.
+    if (getRealRoster(c.teamId)) {
+      const fatigueInjuries = [];
+      pendingMyXV.forEach(p => {
+        if (p.meta.emergencyCallUp) return; // convocação avulsa, não é jogador persistente do elenco
+        const postMatch = declineAfterMatch(p, p.condition != null ? p.condition : 100);
+        state.playerCondition[p.id] = {condition: postMatch, atTick: state.globalTick};
+        const injury = rollFatigueInjury(p, postMatch);
+        if (injury) {
+          state.playerOverrides[p.id] = {...(state.playerOverrides[p.id] || {}), ...injury};
+          fatigueInjuries.push(p.name);
+        }
+      });
+      if (fatigueInjuries.length) {
+        alert(`Lesão por fadiga: ${fatigueInjuries.join(', ')} não vai poder jogar por um tempo — o desgaste acumulado cobrou o preço.`);
+      }
+    }
+    state.lastMatch[key] = {ids: pendingMyXV.map(p => p.id), roundsElapsed: roundsElapsedAtPlay, venue};
   }
+
+  c.currentRoundIndex++;
+  c.roundsElapsed++;
+  afterRoundAdvance(c);
   pendingMatchResult = null;
-  pendingMyXVIds = null;
+  pendingMyXV = null;
   currentView = 'dashboard';
   saveState();
   render();

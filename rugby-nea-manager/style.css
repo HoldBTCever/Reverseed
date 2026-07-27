@@ -179,6 +179,8 @@ canvas#pitch {
 .injuredRow { opacity: 0.55; }
 .ratingBar { display: inline-block; width: 30px; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; vertical-align: middle; margin-right: 4px; }
 .ratingBar > span { display: block; height: 100%; background: var(--accent); }
+.conditionLow .ratingBar > span { background: #d4a017; }
+.conditionCritical .ratingBar > span { background: var(--accent-2); }
 
 .muted { color: var(--muted); }
 .center { text-align: center; }

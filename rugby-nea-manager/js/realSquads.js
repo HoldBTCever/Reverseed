@@ -76,11 +76,11 @@ const CURDA_ROSTER = [
   mkPlayer('Facundo Navas', 'WG', 88, {speed: 92}, {nationalTeam: 'seleção', note: 'um dos melhores jogadores do Curda'}),
   mkPlayer('Gianfranco Parodi', 'WG', 82, {}, {nationalTeam: 'seleção'}),
   mkPlayer('Horacio Agüero', 'FB', 78, {kicking: 84, reception: 85}, {note: 'ótima leitura de jogo e bons chutes'}),
-  mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado'}, 97),
+  mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 92}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado'}, 97),
   mkPlayer('Joaquim Mussi', 'FB', 90, {}, {nationalTeam: 'seleção', note: 'melhor fullback do time; também joga de apertura'}),
   mkPlayer('Martín Ayala', 'PI', 58, {}, {note: 'por vezes usado no time intermédio'}),
   mkPlayer('Lautaro', 'N8', 76, {pass: 85}, {note: 'ótima visão de jogo'}),
-  mkPlayer('Mariano Garcete', 'SL', 91, {jump: 90, strength: 88}, {nationalTeam: 'ex-capitão da seleção do Paraguai'}),
+  mkPlayer('Mariano Garcete', 'SL', 91, {jump: 90, strength: 88, determination: 90}, {nationalTeam: 'ex-capitão da seleção do Paraguai'}),
   mkPlayer('Matías Ballasch', 'PI', 70, {}, {note: 'também joga de hooker'}),
   mkPlayer('Estefano Aranda', 'PI', 84, {}, {nationalTeam: 'seleção'}),
   mkPlayer('Martín Sitjar', 'PI', 74, {strength: 92}, {note: 'o jogador mais pesado do time'}),
@@ -94,19 +94,19 @@ const CURDA_ROSTER = [
   mkPlayer('Ignacio Murdoch', 'MS', 72),
   mkPlayer('Luciano Marsal', 'MS', 70),
   mkPlayer('Tiago Riveros', 'PI', 66, {}, {age: 'jovem', potential: 'alto'}),
-  mkPlayer('Fábio Silva', 'HK', 60, {speed: 80}, {note: 'o mais velho do elenco, mais dedicado porém com menor conhecimento; joga também de ponta por ser rápido'}),
+  mkPlayer('Fábio Silva', 'HK', 60, {speed: 80, determination: 85, stamina: 70}, {note: 'o mais velho do elenco, mais dedicado porém com menor conhecimento; joga também de ponta por ser rápido'}),
   mkPlayer('Piacentini', 'PI', 56, {}, {note: 'pilar mediano'}),
-  mkPlayer('Juan King', 'WG', 80, {speed: 88, tackle: 82}, {note: 'ótima disposição, velocidade e tackles'}),
+  mkPlayer('Juan King', 'WG', 80, {speed: 88, tackle: 82, stamina: 85}, {note: 'ótima disposição, velocidade e tackles'}),
   mkPlayer('Luis Giménez', 'CE', 80, {}, {nickname: 'Luismi', note: 'também joga de ponta'}),
   mkPlayer('Franco Laterza', 'PI', 76, {}, {nationalTeam: 'seleção juvenil', note: 'também joga de hooker'}),
   mkPlayer('Sebas Benítez', 'SL', 64),
   mkPlayer('René Villar', 'SL', 64),
-  mkPlayer('Elías Achon', 'AL', 76, {tackle: 86}, {note: 'hooker ou 3ª línea, joga mais de 3ª; muito bom nos tackles e muita disposição física'}),
+  mkPlayer('Elías Achon', 'AL', 76, {tackle: 86, stamina: 88}, {note: 'hooker ou 3ª línea, joga mais de 3ª; muito bom nos tackles e muita disposição física'}),
   mkPlayer('Nico Allo', 'CE', 66),
   mkPlayer('Diego Argaña', 'CE', 66),
   mkPlayer('Fernando Gracía', 'PI', 58, {}, {nickname: 'England', note: 'pilar mediano'}),
   mkPlayer('Maxi Doldan', 'SL', 64, {}, {age: 18, note: 'juvenil'}),
-  mkPlayer('Elías Rodríguez', 'SL', 74, {strength: 82, speed: 76}, {note: 'muita garra, muito bom em quebrar tackles'}),
+  mkPlayer('Elías Rodríguez', 'SL', 74, {strength: 82, speed: 76, determination: 88}, {note: 'muita garra, muito bom em quebrar tackles'}),
   mkPlayer('Nico Fenocchi', 'SL', 64),
   mkPlayer('Christian Daniel', 'WG', 64, {}, {nickname: 'Inge'}),
   mkPlayer('Marcelo Villaroel', 'CE', 66, {}, {nickname: 'Negro'}),
@@ -159,15 +159,14 @@ export function getDualPartner(teamId) {
   return DUAL_CLUBS[teamId] || null;
 }
 
-const FATIGUE_PENALTY = 12;
-
 // Primeira línea (pilares e hooker) são especialistas: ao contrário das
 // demais posições, ninguém "improvisa" ali quando falta gente.
 const FRONT_ROW = new Set(['PI', 'HK']);
 
 // Convocação de emergência do juvenil: usada só quando um clube não tem mais
-// nenhum especialista de primeira línea disponível (lesões/fadiga esgotaram
-// o plantel). Jogador de 18 anos, recém-saído das categorias de base.
+// nenhum especialista de primeira línea disponível (lesões/condição esgotada
+// pelo cansaço/choque de agenda). Jogador de 18 anos, recém-saído das
+// categorias de base.
 function emergencyYouthPlayer(posId) {
   const player = mkPlayer(
     `Juvenil convocado (${POS_INFO[posId].label})`,
@@ -179,15 +178,33 @@ function emergencyYouthPlayer(posId) {
   return player;
 }
 
+// Converte a condição física (0-100) num multiplicador de desempenho.
+// Acima de ~85 o jogador rende praticamente no talento cheio; abaixo disso a
+// queda física começa a custar caro nas decisões e na execução técnica.
+export function conditionMultiplier(condition) {
+  const c = Math.max(0, Math.min(100, condition == null ? 100 : condition));
+  return 0.72 + 0.28 * (c / 100);
+}
+
 // Escolhe os 15 titulares (melhor jogador disponível por posição, excluindo
-// lesionados), numerados na convenção tradicional 1-15. fatiguedIds (Set de
-// ids) representa jogadores que acabaram de jogar no outro torneio do clube
-// há pouco tempo: sofrem uma penalidade só para fins de escalação, o que
-// incentiva rodízio de elenco em vez de escalar sempre os 15 melhores.
-export function pickStartingXV(roster, fatiguedIds) {
-  const fatigued = fatiguedIds || new Set();
-  const effRating = p => p.rating - (fatigued.has(p.id) ? FATIGUE_PENALTY : 0);
-  const available = roster.filter(p => !p.meta.injuryWeeks);
+// lesionados e indisponíveis), numerados na convenção tradicional 1-15.
+//   options.conditionOf(player) -> condição física 0-100 (default 100):
+//     penaliza a nota efetiva usada na escalação, sem impedir a escalação em
+//     si. Recebe o jogador inteiro (não só o id) para poder considerar
+//     resistência/determinação na recuperação, se o chamador quiser.
+//   options.excludedIds -> Set de ids indisponíveis (ex.: já escalados na
+//     partida simultânea do outro torneio, em local diferente no mesmo dia):
+//     exclusão dura, o jogador nem entra no pool.
+//   options.metaOverrides -> {[id]: {injuryWeeks, injuryLabel, ...}} lesões
+//     dinâmicas (por fadiga) que sobrescrevem o meta estático do jogador.
+export function pickStartingXV(roster, options = {}) {
+  const conditionOf = options.conditionOf || (() => 100);
+  const excludedIds = options.excludedIds || new Set();
+  const metaOverrides = options.metaOverrides || {};
+  const effRating = p => p.rating * conditionMultiplier(conditionOf(p));
+
+  const withMeta = roster.map(p => (metaOverrides[p.id] ? {...p, meta: {...p.meta, ...metaOverrides[p.id]}} : p));
+  const available = withMeta.filter(p => !p.meta.injuryWeeks && !excludedIds.has(p.id));
   const used = new Set();
 
   return XV_SLOTS.map((posId, idx) => {
@@ -198,7 +215,7 @@ export function pickStartingXV(roster, fatiguedIds) {
       // jogador de outra posição, convoca um juvenil de emergência.
       const emergency = emergencyYouthPlayer(posId);
       used.add(emergency.id);
-      return {...emergency, number: idx + 1, fatigued: false};
+      return {...emergency, number: idx + 1, condition: 100};
     }
     // Salvaguarda: se faltar alguém na posição exata (fora da primeira
     // línea), prefere alguém da mesma linha (forward/back) antes de pegar
@@ -207,24 +224,34 @@ export function pickStartingXV(roster, fatiguedIds) {
     if (!pool.length) pool = available.filter(p => !used.has(p.id));
     const pick = pool.reduce((best, p) => (effRating(p) > effRating(best) ? p : best), pool[0]);
     used.add(pick.id);
-    return {...pick, number: idx + 1, fatigued: fatigued.has(pick.id)};
+    return {...pick, number: idx + 1, condition: conditionOf(pick)};
   });
 }
 
-// Plantel completo com status (titular/reserva/lesionado), para a tela de Elenco.
-export function rosterWithStatus(teamId, fatiguedIds) {
+// Plantel completo com status (titular/reserva/lesionado/indisponível) e
+// condição física, para a tela de Elenco. Mesmas opções de pickStartingXV.
+export function rosterWithStatus(teamId, options = {}) {
   const roster = getRealRoster(teamId);
   if (!roster) return null;
-  const xv = pickStartingXV(roster, fatiguedIds);
+  const conditionOf = options.conditionOf || (() => 100);
+  const metaOverrides = options.metaOverrides || {};
+  const xv = pickStartingXV(roster, options);
   const numberById = Object.fromEntries(xv.map(p => [p.id, p.number]));
-  const fatigued = fatiguedIds || new Set();
+  const excludedIds = options.excludedIds || new Set();
 
   return [...roster]
+    .map(p => (metaOverrides[p.id] ? {...p, meta: {...p.meta, ...metaOverrides[p.id]}} : p))
     .sort((a, b) => b.rating - a.rating)
-    .map(p => ({
-      ...p,
-      number: numberById[p.id] || null,
-      status: p.meta.injuryWeeks ? 'lesionado' : (numberById[p.id] ? 'titular' : 'reserva'),
-      fatigued: fatigued.has(p.id),
-    }));
+    .map(p => {
+      let status = 'reserva';
+      if (p.meta.injuryWeeks) status = 'lesionado';
+      else if (numberById[p.id]) status = 'titular';
+      else if (excludedIds.has(p.id)) status = 'indisponivel';
+      return {
+        ...p,
+        number: numberById[p.id] || null,
+        status,
+        condition: conditionOf(p),
+      };
+    });
 }
