@@ -103,7 +103,7 @@ const CURDA_ROSTER = [
   mkPlayer('Facundo Paiva', 'WG', 91, {speed: 92}, {nationalTeam: 'seleção', note: 'um dos melhores jogadores do Curda'}),
   mkPlayer('Gianfranco Parodi', 'WG', 85, {}, {nationalTeam: 'seleção'}),
   mkPlayer('Horacio Agüero', 'FB', 78, {kicking: 84, reception: 85}, {note: 'ótima leitura de jogo e bons chutes'}),
-  mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 96}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado'}, 97),
+  mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 96}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado; recusa convocações da seleção pra se manter fiel só ao Curda', refusesNationalTeam: true}, 97),
   mkPlayer('Joaquim Mussi', 'FB', 93, {}, {nationalTeam: 'seleção', note: 'melhor fullback do time; também joga de apertura', altPos: ['AP']}),
   mkPlayer('Martín Ayala', 'PI', 58, {}, {note: 'por vezes usado no time intermédio'}),
   mkPlayer('Lautaro', 'N8', 76, {pass: 85}, {note: 'ótima visão de jogo'}),
@@ -280,6 +280,7 @@ const REAL_SQUADS = {
 };
 
 const CURDA_STAFF = [
+  {role: 'Presidente do Clube', name: 'Tío Nacho'},
   {role: 'Treinador Principal (Head Coach)', name: 'Lito Molina'},
   {role: 'Treinador Geral', name: 'Alexis Cibils'},
   {role: 'Preparador Físico', name: 'Osorio'},
@@ -470,4 +471,29 @@ export function rosterWithStatus(teamId, options = {}) {
         condition: conditionOf(p),
       };
     });
+}
+
+// ---- Seleção do Paraguai (Los Yacarés) -------------------------------------
+// Escalada com os melhores jogadores disponíveis do Curda e do San José — os
+// dois clubes mais fortes do país — respeitando a posição de cada um.
+// Ignacio "Nacho" Cuevas (Curda) é a exceção: recusa convocações pra se
+// manter fiel só ao clube (meta.refusesNationalTeam), então nunca entra no
+// pool de seleção mesmo sendo o melhor jogador do país.
+export function getParaguaySquad() {
+  const curdaTagged = CURDA_ROSTER
+    .filter(p => !p.meta.refusesNationalTeam)
+    .map(p => ({...p, meta: {...p.meta, clubOrigin: 'Curda'}}));
+  const sanjoseTagged = SANJOSE_ROSTER
+    .map(p => ({...p, meta: {...p.meta, clubOrigin: 'San José'}}));
+  const pool = [...curdaTagged, ...sanjoseTagged];
+
+  const xv = pickStartingXV(pool).map(p => ({...p, condition: 100}));
+  const usedIds = new Set(xv.map(p => p.id));
+  const bench = pool
+    .filter(p => !usedIds.has(p.id) && !p.meta.injuryWeeks)
+    .sort((a, b) => b.rating - a.rating)
+    .slice(0, 8)
+    .map(p => ({...p, condition: 100, status: 'reserva'}));
+
+  return {xv, bench, pool};
 }

@@ -3,9 +3,26 @@ import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES
 import {MatchRenderer, renderFormationHtml} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
-import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier} from './realSquads.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad} from './realSquads.js';
 
-const SAVE_KEY = 'rugbyNeaSave_v11';
+// ---- Seleção Paraguay (Los Yacarés) ---------------------------------------
+// Time "virtual" pra amistosos e torneios aleatórios: não disputa nenhuma
+// competição de clubes, é escalado sob demanda com getParaguaySquad() (melhor
+// XV do Curda + San José, exceto o Nacho — ver realSquads.js).
+const PARAGUAY_TEAM = {id: 'SEL-PAR', name: 'Selección Paraguay', color: '#D32F2F', attack: 90, defense: 88, stamina: 85};
+// Adversários fictícios pros amistosos/torneios, com força relativa
+// aproximada do rugby sul-americano real (Argentina bem forte, Uruguai/Chile
+// no meio, Brasil/Peru/Colômbia mais fracos).
+const NATIONAL_TEAMS = [
+  {id: 'NT-ARG', name: 'Argentina XV', color: '#75AADB', attack: 94, defense: 92, stamina: 90},
+  {id: 'NT-URU', name: 'Uruguay', color: '#0038A8', attack: 85, defense: 84, stamina: 82},
+  {id: 'NT-CHI', name: 'Chile', color: '#D52B1E', attack: 83, defense: 82, stamina: 81},
+  {id: 'NT-BRA', name: 'Brasil', color: '#009739', attack: 74, defense: 73, stamina: 76},
+  {id: 'NT-PER', name: 'Perú', color: '#D91023', attack: 68, defense: 66, stamina: 70},
+  {id: 'NT-COL', name: 'Colombia', color: '#FCD116', attack: 65, defense: 64, stamina: 68},
+];
+
+const SAVE_KEY = 'rugbyNeaSave_v12';
 
 // Plano de jogo padrão do Curda, extraído dos documentos táticos reais do
 // clube: "Tablero de Mando Territorial" (zonas/códigos), "Plan de Juego
@@ -124,6 +141,28 @@ const I18N = {
     pdfTipoInvalido: 'Ese archivo no es un PDF.',
     pdfErroSalvar: 'No se pudo guardar el PDF en este navegador.',
     pdfNaoEncontrado: 'No se encontró el archivo guardado.',
+    navSelecao: 'Selección',
+    selecaoTitle: 'Selección Paraguay',
+    selecaoHelp: 'Convocatoria armada con los mejores jugadores disponibles de Curda y San José, respetando la posición de cada uno.',
+    selecaoNachoNote: '⚠️ Ignacio "Nacho" Cuevas (Curda) es el mejor jugador del país, pero rechaza las convocatorias de la selección para mantenerse fiel solo al Curda — nunca aparece acá.',
+    selecaoEscalacao: 'Formación titular',
+    selecaoConvocados: 'Convocados',
+    selecaoColClube: 'Club',
+    selecaoAcoesTitle: 'Amistosos y torneos',
+    gerarAmistoso: 'Amistoso aleatorio',
+    gerarTorneio: 'Torneo aleatorio (4 selecciones)',
+    selecaoHistoricoTitle: 'Historial',
+    selecaoSemHistorico: 'Todavía no se jugó ningún partido de la selección.',
+    selecaoColPartida: 'Partido',
+    selecaoColResultado: 'Resultado',
+    selecaoColTipo: 'Tipo',
+    selecaoTorneioLinha: 'Torneo aleatorio',
+    selecaoAmistosoLabel: 'Amistoso',
+    selecaoTorneioResumo: 'Campeón: {champion}',
+    selecaoVoltar: 'Volver a la Selección',
+    selecaoTorneioTitle: '🏆 Resultado del torneo',
+    selecaoSemifinal: 'Semifinal',
+    selecaoFinal: 'Final',
     biometria: 'Biometría',
     altura: 'Altura',
     peso: 'Peso',
@@ -295,6 +334,28 @@ const I18N = {
     pdfTipoInvalido: 'Esse arquivo não é um PDF.',
     pdfErroSalvar: 'Não foi possível salvar o PDF neste navegador.',
     pdfNaoEncontrado: 'Arquivo salvo não encontrado.',
+    navSelecao: 'Seleção',
+    selecaoTitle: 'Seleção Paraguay',
+    selecaoHelp: 'Convocação montada com os melhores jogadores disponíveis do Curda e do San José, respeitando a posição de cada um.',
+    selecaoNachoNote: '⚠️ Ignacio "Nacho" Cuevas (Curda) é o melhor jogador do país, mas recusa convocações da seleção pra se manter fiel só ao Curda — nunca aparece aqui.',
+    selecaoEscalacao: 'Formação titular',
+    selecaoConvocados: 'Convocados',
+    selecaoColClube: 'Clube',
+    selecaoAcoesTitle: 'Amistosos e torneios',
+    gerarAmistoso: 'Amistoso aleatório',
+    gerarTorneio: 'Torneio aleatório (4 seleções)',
+    selecaoHistoricoTitle: 'Histórico',
+    selecaoSemHistorico: 'Ainda não rolou nenhuma partida da seleção.',
+    selecaoColPartida: 'Partida',
+    selecaoColResultado: 'Resultado',
+    selecaoColTipo: 'Tipo',
+    selecaoTorneioLinha: 'Torneio aleatório',
+    selecaoAmistosoLabel: 'Amistoso',
+    selecaoTorneioResumo: 'Campeão: {champion}',
+    selecaoVoltar: 'Voltar pra Seleção',
+    selecaoTorneioTitle: '🏆 Resultado do torneio',
+    selecaoSemifinal: 'Semifinal',
+    selecaoFinal: 'Final',
     biometria: 'Biometria',
     altura: 'Altura',
     peso: 'Peso',
@@ -453,11 +514,13 @@ function applyStaticTranslations() {
   const fixtureBtn = mainNav.querySelector('[data-view="fixture"]');
   const squadBtn = mainNav.querySelector('[data-view="squad"]');
   const tacticsBtn = mainNav.querySelector('[data-view="tactics"]');
+  const selectionBtn = mainNav.querySelector('[data-view="selection"]');
   if (dashboardBtn) dashboardBtn.textContent = t('navPainel');
   if (standingsBtn) standingsBtn.textContent = t('navTabela');
   if (fixtureBtn) fixtureBtn.textContent = t('navFixture');
   if (squadBtn) squadBtn.textContent = t('navElenco');
   if (tacticsBtn) tacticsBtn.textContent = t('navTatica');
+  if (selectionBtn) selectionBtn.textContent = t('navSelecao');
   const newGameBtnEl = document.getElementById('newGameBtn');
   newGameBtnEl.textContent = t('newGameBtn');
   newGameBtnEl.title = t('newGameBtnTitle');
@@ -657,6 +720,7 @@ function newGame(myTeamId) {
     trainingFocus: {seg: null, ter: null, qui: null}, // skillKey ou null ("livre") escolhido pelo técnico pra cada dia de treino do clube
     gamePlan: (myTeamId === 'ARG-CUR' || myTeamId === 'PAR-CUR') ? curdaDefaultGamePlan() : defaultGamePlan(), // plano de jogo por zona de campo (ver tela de Tática)
     gamePlanPdfs: [], // [{id, name, size, uploadedAt}] — metadados dos PDFs táticos enviados (conteúdo binário fica no IndexedDB, ver pdfStore)
+    nationalTeamMatches: [], // histórico de amistosos/torneios da Seleção Paraguay (ver renderSelection)
   };
   saveState();
   render();
@@ -1046,6 +1110,7 @@ function render() {
   else if (currentView === 'fixture') renderFixture();
   else if (currentView === 'squad') renderSquad();
   else if (currentView === 'tactics') renderTactics();
+  else if (currentView === 'selection') renderSelection();
   else if (currentView === 'matchday') renderMatchday();
   else if (currentView === 'live') renderLive();
 }
@@ -1847,6 +1912,287 @@ function renderTactics() {
       saveState();
       renderTactics();
     });
+  });
+}
+
+// ---- Tela de Seleção: elenco do Paraguay + amistosos/torneios aleatórios --
+function renderSelection() {
+  state.nationalTeamMatches = state.nationalTeamMatches || [];
+  const {xv, bench} = getParaguaySquad();
+  const history = state.nationalTeamMatches.slice().reverse().slice(0, 12);
+
+  const rosterRows = [
+    ...xv.map(p => ({...p, status: 'titular'})),
+    ...bench,
+  ];
+
+  content.innerHTML = `
+    <h1>${t('selecaoTitle')}</h1>
+    <p class="muted">${t('selecaoHelp')}</p>
+    <p class="muted">${t('selecaoNachoNote')}</p>
+    ${renderFormationHtml(xv, bench, PARAGUAY_TEAM.color, t('selecaoEscalacao'))}
+    <div class="card">
+      <h3>${t('selecaoConvocados')}</h3>
+      <div class="tableScroll"><table class="squadTable">
+        <thead><tr>
+          <th>${t('colStatus')}</th>
+          <th class="teamCol">${t('colJogador')}</th>
+          <th>${t('colPosicao')}</th>
+          <th>${t('colOverall')}</th>
+          <th>${t('selecaoColClube')}</th>
+        </tr></thead>
+        <tbody>
+          ${rosterRows.map(p => `
+            <tr>
+              <td>${p.status === 'titular' ? '#' + p.number : t('reserva')}</td>
+              <td class="teamCol">${escapeHtmlAttr(p.name)}${p.meta.nickname ? ` "${escapeHtmlAttr(p.meta.nickname)}"` : ''}</td>
+              <td class="posCol">${p.position}</td>
+              <td>${p.rating}</td>
+              <td class="muted">${escapeHtmlAttr(p.meta.clubOrigin || '')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h3>${t('selecaoAcoesTitle')}</h3>
+      <div class="tacticaBtnRow">
+        <button class="playBtn" id="randomFriendlyBtn">${t('gerarAmistoso')}</button>
+        <button class="playBtn" id="randomTournamentBtn">${t('gerarTorneio')}</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>${t('selecaoHistoricoTitle')}</h3>
+      ${history.length === 0 ? `<p class="muted">${t('selecaoSemHistorico')}</p>` : `
+        <div class="tableScroll"><table>
+          <thead><tr><th class="teamCol">${t('selecaoColPartida')}</th><th>${t('selecaoColResultado')}</th><th>${t('selecaoColTipo')}</th></tr></thead>
+          <tbody>
+            ${history.map(m => `
+              <tr>
+                <td class="teamCol">${m.isTournament ? t('selecaoTorneioLinha') : `${PARAGUAY_TEAM.name} vs ${escapeHtmlAttr(m.opponent)}`}</td>
+                <td>${m.isTournament ? '🏆' : `${m.scorePY} - ${m.scoreOpp}`}</td>
+                <td class="muted">${escapeHtmlAttr(m.label)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table></div>
+      `}
+    </div>
+  `;
+
+  document.getElementById('randomFriendlyBtn').addEventListener('click', () => {
+    const opponent = NATIONAL_TEAMS[Math.floor(Math.random() * NATIONAL_TEAMS.length)];
+    renderNationalFriendlyLive(opponent);
+  });
+  document.getElementById('randomTournamentBtn').addEventListener('click', runRandomTournament);
+}
+
+// Amistoso ao vivo da Seleção, com a mesma animação 2D usada nas partidas de
+// clube — mas autocontido (não mexe em currentView/competições).
+function renderNationalFriendlyLive(opponent) {
+  const {xv: paraguaySquad} = getParaguaySquad();
+  const opponentSquad = generateSquad(opponent);
+  const result = simulateMatch(PARAGUAY_TEAM, paraguaySquad, 'equilibrado', opponent, opponentSquad, 'equilibrado');
+
+  content.innerHTML = `
+    <div id="matchWrap">
+      <div id="scoreboard">
+        <div class="side"><span class="crestSmall" style="background:${PARAGUAY_TEAM.color}">${crestCode(PARAGUAY_TEAM)}</span>${PARAGUAY_TEAM.name}</div>
+        <div class="center">
+          <div class="clock" id="clockEl">0'</div>
+          <div class="scoreNum"><span id="scoreHomeEl">0</span> - <span id="scoreAwayEl">0</span></div>
+        </div>
+        <div class="side">${opponent.name}<span class="crestSmall" style="background:${opponent.color}">${crestCode(opponent)}</span></div>
+      </div>
+      <canvas id="pitch"></canvas>
+      <div id="matchControls">
+        <button class="ctrlBtn active" id="playPauseBtn">${t('pausar')}</button>
+        <button class="ctrlBtn" data-speed="1">1x</button>
+        <button class="ctrlBtn" data-speed="2">2x</button>
+        <button class="ctrlBtn" data-speed="4">4x</button>
+        <button class="ctrlBtn" id="skipBtn">${t('adiantar')}</button>
+      </div>
+      <div id="ticker"></div>
+      <div id="nationalFriendlyDone" class="card" style="display:none">
+        <h3>${t('fimDeJogo')}</h3>
+        <p class="finalScoreSmall"></p>
+        <button class="playBtn" id="backToSelectionBtn">${t('selecaoVoltar')}</button>
+      </div>
+    </div>
+  `;
+
+  const canvas = document.getElementById('pitch');
+  const renderer = new MatchRenderer(canvas, PARAGUAY_TEAM, opponent);
+  renderer.resize();
+  window.addEventListener('resize', () => renderer.resize());
+
+  const ticker = document.getElementById('ticker');
+  const clockEl = document.getElementById('clockEl');
+  const scoreHomeEl = document.getElementById('scoreHomeEl');
+  const scoreAwayEl = document.getElementById('scoreAwayEl');
+
+  const ticks = result.ticks;
+  const logByMinute = {};
+  result.log.forEach(l => {
+    if (!logByMinute[l.minute]) logByMinute[l.minute] = [];
+    logByMinute[l.minute].push(l.text);
+  });
+
+  let tickIndex = 0;
+  let playing = true;
+  let speed = 1;
+  const baseMsPerTick = 650;
+  let lastTime = performance.now();
+  let accum = 0;
+
+  function pushLog(minute, text) {
+    const line = document.createElement('div');
+    line.className = 'tickerLine';
+    line.innerHTML = `<span class="min">${minute}'</span>${text}`;
+    ticker.prepend(line);
+  }
+
+  function applyMinute(minute) {
+    if (logByMinute[minute]) logByMinute[minute].forEach(txt => pushLog(minute, txt));
+  }
+
+  applyMinute(0);
+
+  function finish() {
+    playing = false;
+    matchAnim = null;
+    state.nationalTeamMatches = state.nationalTeamMatches || [];
+    state.nationalTeamMatches.push({
+      opponent: opponent.name,
+      scorePY: result.scoreA,
+      scoreOpp: result.scoreB,
+      label: t('selecaoAmistosoLabel'),
+    });
+    saveState();
+    const doneCard = document.getElementById('nationalFriendlyDone');
+    doneCard.style.display = '';
+    doneCard.querySelector('.finalScoreSmall').textContent = `${PARAGUAY_TEAM.name} ${result.scoreA} - ${result.scoreB} ${opponent.name}`;
+    document.getElementById('backToSelectionBtn').addEventListener('click', renderSelection);
+  }
+
+  function step(now) {
+    if (!matchAnim || matchAnim.stopped) return;
+    const dt = now - lastTime;
+    lastTime = now;
+    if (playing) {
+      accum += dt * speed;
+      const msPerTick = baseMsPerTick;
+      while (accum >= msPerTick && tickIndex < ticks.length) {
+        accum -= msPerTick;
+        tickIndex++;
+        const tk = ticks[tickIndex - 1];
+        applyMinute(tk.minute);
+        scoreHomeEl.textContent = tk.scoreA;
+        scoreAwayEl.textContent = tk.scoreB;
+        clockEl.textContent = tk.minute + "'";
+      }
+      const curr = ticks[Math.min(tickIndex, ticks.length - 1)] || {pos: 50};
+      const prev = ticks[Math.max(tickIndex - 1, 0)] || {pos: 50};
+      const frac = Math.min(1, accum / baseMsPerTick);
+      const interpPos = prev.pos + (curr.pos - prev.pos) * frac;
+      renderer.draw(interpPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent);
+      if (tickIndex >= ticks.length) {
+        finish();
+        return;
+      }
+    } else {
+      renderer.draw(renderer.currentPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent);
+    }
+    matchAnim.raf = requestAnimationFrame(step);
+  }
+
+  matchAnim = {stopped: false, raf: null};
+  matchAnim.raf = requestAnimationFrame(step);
+
+  document.getElementById('playPauseBtn').addEventListener('click', e => {
+    playing = !playing;
+    e.target.textContent = playing ? t('pausar') : t('continuarPlay');
+  });
+
+  Array.from(document.querySelectorAll('[data-speed]')).forEach(btn => {
+    btn.addEventListener('click', () => {
+      speed = Number(btn.dataset.speed);
+      Array.from(document.querySelectorAll('[data-speed]')).forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+
+  document.getElementById('skipBtn').addEventListener('click', () => {
+    while (tickIndex < ticks.length) {
+      tickIndex++;
+      const tk = ticks[tickIndex - 1];
+      applyMinute(tk.minute);
+    }
+    scoreHomeEl.textContent = result.scoreA;
+    scoreAwayEl.textContent = result.scoreB;
+    clockEl.textContent = "80'";
+    renderer.draw(50, result.scoreA, result.scoreB, "80'");
+    if (matchAnim) { matchAnim.stopped = true; cancelAnimationFrame(matchAnim.raf); }
+    finish();
+  });
+}
+
+// Torneio aleatório: Paraguay + 3 seleções sorteadas, mata-mata instantâneo
+// (semis + final, sem animação ao vivo — só o resultado de cada jogo).
+function runRandomTournament() {
+  const shuffled = [...NATIONAL_TEAMS].sort(() => Math.random() - 0.5).slice(0, 3);
+  const teams = [PARAGUAY_TEAM, ...shuffled].sort(() => Math.random() - 0.5);
+  const {xv: paraguaySquad} = getParaguaySquad();
+  const squadCacheLocal = {};
+  const squadFor = team => {
+    if (team.id === PARAGUAY_TEAM.id) return paraguaySquad;
+    if (!squadCacheLocal[team.id]) squadCacheLocal[team.id] = generateSquad(team);
+    return squadCacheLocal[team.id];
+  };
+
+  function playInstant(teamA, teamB) {
+    const r = simulateMatch(teamA, squadFor(teamA), 'equilibrado', teamB, squadFor(teamB), 'equilibrado');
+    let scoreA = r.scoreA;
+    let scoreB = r.scoreB;
+    if (scoreA === scoreB) {
+      const [a, b] = breakTie(scoreA, scoreB);
+      scoreA = a; scoreB = b;
+    }
+    return {teamA, teamB, scoreA, scoreB, winner: scoreA > scoreB ? teamA : teamB};
+  }
+
+  const semi1 = playInstant(teams[0], teams[1]);
+  const semi2 = playInstant(teams[2], teams[3]);
+  const final = playInstant(semi1.winner, semi2.winner);
+
+  state.nationalTeamMatches = state.nationalTeamMatches || [];
+  state.nationalTeamMatches.push({
+    isTournament: true,
+    label: t('selecaoTorneioResumo', {champion: final.winner.name}),
+    bracket: {semi1, semi2, final},
+  });
+  saveState();
+
+  showTournamentSummary({semi1, semi2, final});
+}
+
+function showTournamentSummary(bracket) {
+  const matchLine = m => `${m.teamA.name} ${m.scoreA} - ${m.scoreB} ${m.teamB.name}`;
+  const modal = document.createElement('div');
+  modal.className = 'summaryModal';
+  modal.innerHTML = `
+    <div class="summaryBox">
+      <h2>${t('selecaoTorneioTitle')}</h2>
+      <p><b>${t('selecaoSemifinal')} 1:</b> ${matchLine(bracket.semi1)}</p>
+      <p><b>${t('selecaoSemifinal')} 2:</b> ${matchLine(bracket.semi2)}</p>
+      <p><b>${t('selecaoFinal')}:</b> ${matchLine(bracket.final)}</p>
+      <p class="finalScore">🏆 ${escapeHtmlAttr(bracket.final.winner.name)}</p>
+      <button class="playBtn" id="closeTournamentBtn">${t('continuar')}</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  document.getElementById('closeTournamentBtn').addEventListener('click', () => {
+    modal.remove();
+    renderSelection();
   });
 }
 
