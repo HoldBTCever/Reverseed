@@ -625,13 +625,18 @@ function crestCode(team) {
   return team.id.slice(-3);
 }
 
-// Identidade de clube (cores duplas, mascote, apelido — ver TEAM_IDENTITY em
-// data.js): crest de duas cores em diagonal via CSS puro (sem imagem/arte
-// nova) e mascote em emoji no lugar do código de 3 letras quando existe.
+// Identidade de clube (cores duplas ou triplas, mascote, apelido — ver
+// TEAM_IDENTITY em data.js): crest em faixas diagonais via CSS puro (sem
+// imagem/arte nova) e mascote em emoji no lugar do código de 3 letras quando
+// existe.
 function crestStyle(team) {
   const identity = teamIdentity(team.id);
   if (!identity) return `background:${team.color}`;
-  return `background:linear-gradient(135deg, ${identity.colors[0]} 50%, ${identity.colors[1]} 50%)`;
+  const colors = identity.colors;
+  if (colors.length === 1) return `background:${colors[0]}`;
+  const step = 100 / colors.length;
+  const stops = colors.map((c, i) => `${c} ${Math.round(i * step)}%, ${c} ${Math.round((i + 1) * step)}%`).join(', ');
+  return `background:linear-gradient(135deg, ${stops})`;
 }
 function crestContent(team) {
   const identity = teamIdentity(team.id);

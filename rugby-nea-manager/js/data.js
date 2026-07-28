@@ -129,16 +129,16 @@ export const LEAGUES = [
       // plantel — por isso usam o mesmo ataque/defesa/físico nas duas ligas
       // em que jogam (não faria sentido o mesmo time/jogadores render mais
       // ou menos força só por trocar de campeonato).
-      team('ARG-TAR', 'Taraguy', '#2E7D32', 86, 84, 86),
-      team('ARG-ARA', 'Aranduroga', '#C62828', 83, 81, 83),
+      team('ARG-TAR', 'Taraguy', '#1A1A1A', 86, 84, 86),
+      team('ARG-ARA', 'Aranduroga', '#1A1A1A', 83, 81, 83),
       team('ARG-REG', 'Regatas', '#1565C0', 67, 66, 69),
       team('ARG-CUR', 'Curda', '#F9A825', 82, 81, 80),
       team('ARG-SNJ', 'San José', '#0D47A1', 80, 79, 78),
-      team('ARG-SIX', 'Sixty', '#37474F', 64, 63, 66),
-      team('ARG-CAP', 'Capri', '#EF6C00', 55, 54, 58),
-      team('ARG-CNE', 'Curne', '#00838F', 82, 81, 81),
+      team('ARG-SIX', 'Sixty', '#4FC3F7', 64, 63, 66),
+      team('ARG-CAP', 'Capri', '#C62828', 55, 54, 58),
+      team('ARG-CNE', 'Curne', '#FFEB3B', 82, 81, 81),
       team('ARG-AGU', 'Aguará', '#283593', 61, 60, 63),
-      team('ARG-SNP', 'San Patricio', '#AD1457', 79, 78, 80),
+      team('ARG-SNP', 'San Patricio', '#B71C1C', 79, 78, 80),
     ],
   },
   {
@@ -161,9 +161,9 @@ export const LEAGUES = [
       team('PAR-STC', 'Santa Clara', '#1976D2', 79, 77, 78),
       team('PAR-LUQ', 'Luque', '#FBC02D', 79, 77, 78),
       team('PAR-ASU', 'Asunción', '#6D4C29', 71, 70, 73),
-      team('PAR-VHA', 'Villa Hayes', '#455A64', 66, 64, 70),
+      team('PAR-VHA', 'Villa Hayes', '#2E7D32', 66, 64, 70),
       team('PAR-CRI', 'Cristo Rey', '#1B5E20', 71, 70, 73),
-      team('PAR-FDM', 'Fernando de la Mora', '#C2185B', 65, 63, 69),
+      team('PAR-FDM', 'Fernando de la Mora', '#D32F2F', 65, 63, 69),
     ],
   },
   {
@@ -175,7 +175,7 @@ export const LEAGUES = [
     // com o MESMO plantel — mesmo ataque/defesa/físico usado no NEA, sendo
     // ainda assim o favorito aqui por ser um campeonato mais fraco.
     teams: [
-      team('INT-CNE', 'Curne', '#00838F', 82, 81, 81),
+      team('INT-CNE', 'Curne', '#FFEB3B', 82, 81, 81),
       team('INT-MER', 'Mercedes RC', '#2E7D32', 78, 76, 77),
       team('INT-GOY', 'Goya RC', '#C62828', 77, 75, 76),
       team('INT-STM', 'Santo Tomé RC', '#1565C0', 70, 69, 72),
@@ -211,6 +211,15 @@ export const TEAM_IDENTITY = {
   'PAR-CRI': {colors: ['#1B5E20', '#1A1A1A']},
   'PAR-STC': {colors: ['#1976D2', '#1A1A1A']},
   'PAR-LUQ': {colors: ['#FBC02D', '#6D4C29']},
+  'ARG-TAR': {colors: ['#1A1A1A', '#FFFFFF'], mascotEmoji: '🐊', mascotName: {es: 'El Yacaré', pt: 'O Jacaré'}},
+  'ARG-ARA': {colors: ['#1A1A1A', '#FFFFFF'], mascotEmoji: '🦓', mascotName: {es: 'La Cebra', pt: 'A Zebra'}},
+  'ARG-SIX': {colors: ['#4FC3F7', '#FFFFFF'], mascotEmoji: '🦌', mascotName: {es: 'El Ciervo', pt: 'O Veado'}},
+  'ARG-CAP': {colors: ['#C62828', '#FFFFFF']},
+  'ARG-CNE': {colors: ['#FFEB3B', '#FFFFFF']},
+  'INT-CNE': {colors: ['#FFEB3B', '#FFFFFF']},
+  'ARG-SNP': {colors: ['#B71C1C', '#1A1A1A']},
+  'PAR-FDM': {colors: ['#D32F2F', '#F9A825', '#1A1A1A'], mascotEmoji: '🐃', mascotName: {es: 'El Búfalo', pt: 'O Búfalo'}},
+  'PAR-VHA': {colors: ['#2E7D32', '#FFFFFF']},
 };
 
 export function teamIdentity(teamId) {
