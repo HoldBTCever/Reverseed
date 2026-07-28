@@ -53,6 +53,23 @@ body {
 
 button {
   font-family: inherit;
+  transition: transform 0.08s ease-out, filter 0.08s ease-out;
+}
+/* Feedback visual simples de clique: qualquer botão do jogo encolhe e
+   escurece um instante ao ser clicado, pra deixar claro que o clique
+   registrou (antes não tinha nenhuma resposta visual imediata). */
+button:active:not(:disabled) {
+  transform: scale(0.94);
+  filter: brightness(0.88);
+}
+
+/* Mesmo feedback pros elementos clicáveis que não são <button> (linha do
+   plantel, badge de jogo na agenda) — o card de time tem sua própria regra
+   de :active logo depois do :hover dele, mais abaixo neste arquivo. */
+.squadRow:active,
+.agendaMatchBadge.pending[data-goto-comp]:active {
+  transform: scale(0.97);
+  filter: brightness(0.92);
 }
 
 #newGameBtn {
@@ -105,6 +122,7 @@ h1, h2, h3 { margin-top: 0; }
   transition: transform 0.12s, border-color 0.12s;
 }
 .teamCard:hover { transform: translateY(-3px); border-color: var(--accent); }
+.teamCard:active { transform: scale(0.97); filter: brightness(0.92); }
 .teamCrest {
   width: 56px; height: 56px; border-radius: 50%;
   margin: 0 auto 10px;
@@ -329,21 +347,41 @@ canvas#pitch {
   padding: 7px 10px; font-size: 13px; color: var(--text); cursor: pointer; text-align: left;
 }
 .lineupPickBtn:hover { border-color: var(--accent); }
+
+/* Lista de "quem entra" ancorada logo abaixo do titular escolhido pra sair
+   (ver renderSubsPanel) — recuada e com borda de destaque à esquerda pra
+   deixar claro que pertence àquele jogador específico, não ao painel todo. */
+.subsInlinePicker {
+  margin: 4px 0 8px 14px;
+  padding: 8px 0 8px 10px;
+  border-left: 2px solid var(--accent);
+}
+.subsInlinePicker .lineupPickGroupLabel:first-child { margin-top: 0; }
 .lineupPickBtn.selected { border-color: var(--accent); background: rgba(46,204,113,0.1); }
 
 .trainingFocusGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 14px;
 }
 .trainingFocusDayCol {
   background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px;
 }
 .trainingFocusDayLabel { font-weight: 700; margin-bottom: 8px; font-size: 13px; }
-.trainingFocusCatLabel { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 8px 0 3px; }
-.trainingFocusOption { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 0; cursor: pointer; }
-.trainingFocusOption input:disabled { cursor: not-allowed; }
-.trainingFocusOption input:disabled ~ * { color: var(--muted); }
+
+/* Cartão de tipo de treino (rádio único por dia — ver TRAINING_TYPES em
+   data.js): nome do tipo em cima, atributos que ele evolui embaixo. */
+.trainingTypeOption {
+  position: relative;
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 6px 8px; margin-bottom: 3px; border-radius: 6px;
+  border: 1px solid transparent; cursor: pointer;
+}
+.trainingTypeOption:hover { background: var(--panel); }
+.trainingTypeOption.selected { border-color: var(--accent); background: rgba(46,204,113,0.1); }
+.trainingTypeOption input { position: absolute; opacity: 0; pointer-events: none; }
+.trainingTypeName { font-size: 12px; font-weight: 600; }
+.trainingTypeSkills { font-size: 10.5px; }
 
 .dipSelect {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border);

@@ -1,6 +1,7 @@
 // Motor de simulação de partida de rugby (15 a side, 80 minutos).
 
 import {teamOverall, teamSkillAvg} from './data.js';
+import {conditionMultiplier} from './realSquads.js';
 
 const TACTICS = {
   agresivo: {attackMod: 1.12, defenseMod: 0.90, label: 'Agresivo'},
@@ -140,6 +141,62 @@ function isLineoutSpecialist(player) {
   return !!(player.meta && player.meta.traits && player.meta.traits.includes('lineoutSpecialist'));
 }
 
+// Lesão recente no ombro (ver app.js/tickInjuries): mesmo já recuperado,
+// atrapalha por umas semanas o lançamento, o salto e o levante — tudo que
+// depende de força/mobilidade de ombro. Pequena penalidade, não zera o jogador.
+function shoulderPenalty(player) {
+  return player.meta && player.meta.recentInjuryBodyPart === 'shoulder' ? 1 : 0;
+}
+
+function avgOf(players, fn) {
+  return players.length ? players.reduce((s, p) => s + fn(p), 0) / players.length : 0;
+}
+
+// Escolhe o trio que decide o lineout: o hooker que lança, o segunda-línea
+// que mais salta, e os dois forwards mais fortes disponíveis (fora esses
+// dois) pra levantar — como não temos "posição de levantador" cadastrada,
+// os dois de maior força fazem esse papel, que é o real critério físico.
+function pickLineoutUnit(players) {
+  const thrower = bestBy(players, 'lineoutThrow', 'HK');
+  const jumper = bestBy(players, 'jump', 'SL');
+  const rest = players
+    .filter(p => p.group === 'forward' && p.id !== thrower.id && p.id !== jumper.id)
+    .sort((a, b) => b.skills.strength - a.skills.strength);
+  return {thrower, jumper, lifters: rest.slice(0, 2)};
+}
+
+// Qualidade do saltador: impulsão (skill "salto") ajustada pela altura (mais
+// alto alcança mais alto no ar) e pelo peso (mais pesado é mais lento pra
+// subir), mais condição física e o desconto de ombro machucado.
+function lineoutJumperScore(jumper) {
+  const heightEdge = ((jumper.heightCm || 198) - 198) * 0.35;
+  const weightDrag = Math.max(0, (jumper.weightKg || 112) - 112) * 0.12;
+  const fitness = conditionMultiplier(jumper.condition);
+  return (jumper.skills.jump * 0.9 + heightEdge - weightDrag) * fitness - shoulderPenalty(jumper) * 6;
+}
+
+// Qualidade dos dois levantadores: força (principal), altura (mais alcance
+// pra erguer) e condição física — sem uma skill dedicada de "técnica de
+// levante", a força já concentra a maior parte disso no perfil de forward.
+function lineoutLifterScore(lifters) {
+  if (!lifters.length) return 55;
+  const strength = avgOf(lifters, p => p.skills.strength);
+  const heightEdge = (avgOf(lifters, p => p.heightCm || 185) - 185) * 0.2;
+  const fitness = avgOf(lifters, p => conditionMultiplier(p.condition));
+  const shoulder = lifters.reduce((s, p) => s + shoulderPenalty(p), 0) * 4;
+  return (strength * 0.85 + heightEdge) * fitness - shoulder;
+}
+
+// Qualidade do lançamento: técnica de lateral (lineoutThrow) e controle
+// mental (compostura) — jogando fora de casa pesa bem mais a cabeça fria,
+// já que o ambiente/pressão do visitante exige mais controle emocional pra
+// acertar o mesmo lançamento que sairia natural em casa.
+function lineoutThrowerScore(thrower, isAway, bonus) {
+  const composureWeight = isAway ? 0.32 : 0.16;
+  return thrower.skills.lineoutThrow * (1 - composureWeight) + thrower.skills.composure * composureWeight
+    + bonus - shoulderPenalty(thrower) * 6;
+}
+
 // Chute efetivo pra conversões/penais: combina técnica de chute com
 // compostura, que pesa mais nos minutos finais (momento de pressão).
 function kickEffective(player, tick) {
@@ -181,6 +238,35 @@ function teamStrength(team, players, tacticKey) {
   };
 }
 
+// Disputa de scrum: além da técnica de cada forward (skill "scrum"), entra o
+// peso do pack PRÓPRIO comparado ao do RIVAL (não só o peso absoluto), a
+// altura dos segundas-línea (mais alavanca no empuxo), a coordenação do
+// empurre (proxy: disciplina do pack + líder de pack), a qualidade do
+// lançamento do 9 (passe/posicionamento), o hookeio e a liderança do hooker
+// (skill "scrum" dele + liderança — é ele quem avisa o 9 quando o scrum tá
+// estável pra soltar a bola) e a leitura dos alas (liderança/disciplina — são
+// eles que avisam quando é hora de empurrar mais forte, logo que a bola
+// entra). Retorna só a parte ESTÁTICA (sem fadiga, que entra tick a tick).
+function scrumTeamBaseScore(players, rivalAvgWeight) {
+  const forwards = players.filter(p => p.group === 'forward');
+  const locks = players.filter(p => p.posId === 'SL');
+  const hooker = players.find(p => p.posId === 'HK');
+  const scrumHalf = players.find(p => p.posId === 'MS');
+  const flankers = players.filter(p => p.posId === 'AL');
+
+  const scrumTechAvg = avgOf(forwards, p => p.skills.scrum);
+  const avgWeight = avgOf(forwards, p => p.weightKg || 108);
+  const weightEdge = clamp((avgWeight - rivalAvgWeight) * 0.55, -10, 10);
+  const locksHeightEdge = locks.length ? (avgOf(locks, p => p.heightCm || 198) - 198) * 0.22 : 0;
+  const coordination = avgOf(forwards, p => p.skills.discipline) * 0.15 + (hasTrait(forwards, 'packLeader') ? 4 : 0);
+  const hookQuality = hooker ? hooker.skills.scrum * 0.35 + hooker.skills.leadership * 0.12 : 0;
+  const feedQuality = scrumHalf ? scrumHalf.skills.pass * 0.10 + scrumHalf.skills.positioning * 0.08 : 0;
+  const flankerCall = flankers.length ? (avgOf(flankers, p => p.skills.leadership) * 0.08 + avgOf(flankers, p => p.skills.discipline) * 0.08) : 0;
+  const shoulderHit = forwards.reduce((s, p) => s + shoulderPenalty(p), 0) * 2;
+
+  return scrumTechAvg * 0.75 + weightEdge + locksHeightEdge + coordination + hookQuality + feedQuality + flankerCall - shoulderHit;
+}
+
 // resumeState (opcional): retoma a simulação de um ponto no meio da partida
 // em vez de começar do zero (0-0, bola no meio) — usado pra recalcular o
 // "futuro" da partida depois de uma substituição ao vivo, sem redigitar o que
@@ -195,10 +281,21 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
   const kickerA = bestBy(playersA, 'kicking', 'AP');
   const kickerB = bestBy(playersB, 'kicking', 'AP');
-  const hookerA = bestBy(playersA, 'lineoutThrow', 'HK');
-  const hookerB = bestBy(playersB, 'lineoutThrow', 'HK');
-  const jumperA = bestBy(playersA, 'jump', 'SL');
-  const jumperB = bestBy(playersB, 'jump', 'SL');
+  const lineoutA = pickLineoutUnit(playersA);
+  const lineoutB = pickLineoutUnit(playersB);
+  const hookerA = lineoutA.thrower;
+  const hookerB = lineoutB.thrower;
+  const jumperA = lineoutA.jumper;
+  const jumperB = lineoutB.jumper;
+
+  // Peso médio do pack de cada time, pra comparar com o RIVAL na disputa de
+  // scrum (não só o peso absoluto — ver scrumTeamBaseScore).
+  const forwardsA = playersA.filter(p => p.group === 'forward');
+  const forwardsB = playersB.filter(p => p.group === 'forward');
+  const avgWeightA = avgOf(forwardsA, p => p.weightKg || 108);
+  const avgWeightB = avgOf(forwardsB, p => p.weightKg || 108);
+  const scrumBaseA = scrumTeamBaseScore(playersA, avgWeightB);
+  const scrumBaseB = scrumTeamBaseScore(playersB, avgWeightA);
 
   const scrumHalfA = playersA.find(p => p.posId === 'MS');
   const scrumHalfB = playersB.find(p => p.posId === 'MS');
@@ -369,23 +466,65 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       eventHandled = true;
     }
 
-    // Line-out disputado (lanzamiento vs salto). Especialistas em lineout
-    // (trait) dão um pequeno bônus extra pra quem lança ou pra quem salta.
+    // Line-out disputado: o time que lança combina a técnica+compostura do
+    // hooker (mais peso na compostura se estiver jogando fora, ver
+    // lineoutThrowerScore) com o salto do seu próprio jumper (altura, peso e
+    // condição física) e o levante dos seus dois forwards mais fortes;
+    // quem defende contesta só com o salto+levante do lado rival. Lesão
+    // recente no ombro pesa nos três papéis (thrower, jumper, levantadores).
     if (!eventHandled && Math.random() < 0.05) {
       const throwingA = Math.random() < 0.5;
-      const thrower = throwingA ? hookerA : hookerB;
-      const rivalJumper = throwingA ? jumperB : jumperA;
+      const throwUnit = throwingA ? lineoutA : lineoutB;
+      const rivalUnit = throwingA ? lineoutB : lineoutA;
       const throwTeam = throwingA ? teamA : teamB;
       const rivalTeam = throwingA ? teamB : teamA;
-      const throwerBonus = isLineoutSpecialist(thrower) ? 8 : 0;
-      const jumperBonus = isLineoutSpecialist(rivalJumper) ? 8 : 0;
-      const success = rand(0, 100) < (thrower.skills.lineoutThrow * 0.75 + throwerBonus - (rivalJumper.skills.jump * 0.25 + jumperBonus) + 55);
+      const throwerBonus = isLineoutSpecialist(throwUnit.thrower) ? 8 : 0;
+      const jumperBonus = isLineoutSpecialist(rivalUnit.jumper) ? 8 : 0;
+
+      const throwQuality = lineoutThrowerScore(throwUnit.thrower, !throwingA, throwerBonus) * 0.5
+        + lineoutJumperScore(throwUnit.jumper) * 0.35
+        + lineoutLifterScore(throwUnit.lifters) * 0.15;
+      const contestQuality = (lineoutJumperScore(rivalUnit.jumper) + jumperBonus) * 0.75
+        + lineoutLifterScore(rivalUnit.lifters) * 0.25;
+
+      const success = rand(0, 100) < clamp(76 + (throwQuality - contestQuality) * 0.45, 12, 97);
       if (success) {
-        addLog(minute, `Line-out limpio para ${throwTeam.name}: lanzamiento preciso de ${thrower.name}.`);
+        addLog(minute, `Line-out limpio para ${throwTeam.name}: lanzamiento preciso de ${throwUnit.thrower.name}, bien sostenido en el aire.`);
         push += throwingA ? rand(5, 12) : -rand(5, 12);
       } else {
-        addLog(minute, `${rivalTeam.name} roba el line-out con el salto de ${rivalJumper.name}.`);
+        addLog(minute, `${rivalTeam.name} roba el line-out con el salto de ${rivalUnit.jumper.name}.`);
         push += throwingA ? -rand(5, 12) : rand(5, 12);
+      }
+      eventHandled = true;
+    }
+
+    // Scrum disputado: técnica de scrum de cada forward, peso do pack PRÓPRIO
+    // vs o do RIVAL, altura dos segundas-línea, coordenação do empurre,
+    // hookeio+liderança do hooker, qualidade do lançamento do 9 e a leitura
+    // dos alas (ver scrumTeamBaseScore) — tudo multiplicado pela fadiga atual
+    // do pack, igual o resto do jogo.
+    if (!eventHandled && Math.random() < 0.045) {
+      const feedA = Math.random() < 0.5;
+      const scrumScoreA = scrumBaseA * fatigueA;
+      const scrumScoreB = scrumBaseB * fatigueB;
+      const ownScore = feedA ? scrumScoreA : scrumScoreB;
+      const rivalScore = feedA ? scrumScoreB : scrumScoreA;
+      const feedTeam = feedA ? teamA : teamB;
+      const rivalTeam = feedA ? teamB : teamA;
+      const diff = ownScore - rivalScore;
+      if (diff > 10) {
+        push += (feedA ? 1 : -1) * rand(8, 16);
+        addLog(minute, `¡Scrum dominante de ${feedTeam.name}! El pack avanza con autoridad.`);
+      } else if (diff < -10) {
+        push += (feedA ? -1 : 1) * rand(8, 16);
+        if (Math.random() < 0.3) {
+          addLog(minute, `Scrum inestable de ${feedTeam.name}: penal para ${rivalTeam.name}.`);
+        } else {
+          addLog(minute, `Scrum inestable de ${feedTeam.name}: ${rivalTeam.name} gana terreno en el empuje.`);
+        }
+      } else {
+        push += (feedA ? 1 : -1) * rand(1, 5);
+        addLog(minute, `Scrum estable, salida limpia para ${feedTeam.name}.`);
       }
       eventHandled = true;
     }

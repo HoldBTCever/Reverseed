@@ -1,4 +1,4 @@
-import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS, teamIdentity} from './data.js';
+import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS, teamIdentity, TRAINING_TYPES} from './data.js';
 import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, zoneForPos, defaultGamePlan} from './engine.js';
 import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
@@ -136,7 +136,8 @@ const I18N = {
     noneClubTraining: 'Ninguno (solo entrenamiento de club)',
     dipHelp: 'Determinación ≥75 habilita entrenamiento individual intensivo: mejora garantizada en el atributo elegido, más rápido que el entrenamiento de club, a costa de mucho más desgaste físico.',
     trainingFocusTitle: 'Foco de entrenamiento de la semana',
-    trainingFocusHelp: 'Elegí hasta 3 atributos por día de entrenamiento — el entrenamiento pasivo del plantel prioriza esos atributos (siempre respetando la posición de cada jugador). Sin nada marcado, vuelve al sorteo automático.',
+    trainingFocusHelp: 'Elegí un tipo de entrenamiento por día — cada tipo trabaja varios atributos relacionados a la vez (ej.: "Duelo" mejora decisión, pase, recepción y aceleración juntos), siempre respetando la posición de cada jugador. Sin nada elegido, vuelve al sorteo automático.',
+    trainingAutomatico: 'Automático',
     trainSeg: 'Lunes',
     trainTer: 'Martes',
     trainQui: 'Jueves',
@@ -362,7 +363,8 @@ const I18N = {
     noneClubTraining: 'Nenhum (só treino de clube)',
     dipHelp: 'Determinação ≥75 libera treino individual intensivo: evolui garantido no atributo escolhido, mais rápido que o treino de clube, à custa de bem mais desgaste físico.',
     trainingFocusTitle: 'Foco de treino da semana',
-    trainingFocusHelp: 'Escolha até 3 atributos por dia de treino — o treino passivo do plantel prioriza esses atributos (ainda respeitando a posição de cada jogador). Sem nada marcado, volta pro sorteio automático.',
+    trainingFocusHelp: 'Escolha um tipo de treino por dia — cada tipo trabalha vários atributos relacionados ao mesmo tempo (ex.: "Duelo" evolui decisão, passe, recepção e aceleração juntos), sempre respeitando a posição de cada jogador. Sem nada escolhido, volta pro sorteio automático.',
+    trainingAutomatico: 'Automático',
     trainSeg: 'Segunda',
     trainTer: 'Terça',
     trainQui: 'Quinta',
@@ -585,6 +587,30 @@ const SKILL_LABELS_ES = {
 
 function skillLabel(key) {
   return lang === 'es' ? (SKILL_LABELS_ES[key] || SKILL_LABELS[key]) : SKILL_LABELS[key];
+}
+
+const TRAINING_TYPES_ES = {
+  duelo: 'Duelo',
+  tocata: 'Tocata',
+  contato: 'Contacto',
+  formacao: 'Formación (scrum/maul)',
+  touch: 'Touch (line-out)',
+  pique: 'Pique',
+  chuteAGol: 'Pateo a los palos',
+  quebraDeLinha: 'Quiebre de línea',
+  lideranca: 'Liderazgo',
+  recuperacao: 'Recuperación',
+};
+
+function trainingTypeLabel(key) {
+  const def = TRAINING_TYPES[key];
+  if (!def) return key;
+  return lang === 'es' ? (TRAINING_TYPES_ES[key] || def.label) : def.label;
+}
+
+function trainingTypeSkillsLabel(key) {
+  const def = TRAINING_TYPES[key];
+  return def ? def.skills.map(skillLabel).join(', ') : '';
 }
 
 const TRAITS_ES = {
@@ -873,7 +899,7 @@ function newGame(myTeamId) {
     lineupPresets: {}, // {[teamId]: {A: [15 playerIds ou null], B: [...]}} — escalações salvas (Time A / Time B)
     skillGrowth: {}, // {[playerId]: {skillKey: novoValorAbsoluto}} — evolução de atributos por treino (ver tickTraining)
     dipTraining: {}, // {[playerId]: skillKey} — foco de treino individual intensivo (DIP) escolhido pelo manager
-    trainingFocus: {seg: [], ter: [], qui: []}, // até 3 skillKeys escolhidos pelo técnico pra cada dia de treino do clube
+    trainingFocus: {seg: null, ter: null, qui: null}, // tipo de treino (ver TRAINING_TYPES) escolhido pelo técnico pra cada dia, ou null = automático
     gamePlan: (myTeamId === 'ARG-CUR' || myTeamId === 'PAR-CUR') ? curdaDefaultGamePlan() : defaultGamePlan(), // plano de jogo por zona de campo (ver tela de Tática)
     gamePlanPdfs: [], // [{id, name, size, uploadedAt}] — metadados dos PDFs táticos enviados (conteúdo binário fica no IndexedDB, ver pdfStore)
     nationalTeamMatches: [], // histórico de amistosos/torneios da Seleção Paraguay (ver renderSelection)
@@ -1030,6 +1056,21 @@ function declineAfterMatch(player, preMatchCondition) {
   return Math.max(8, preMatchCondition - decline);
 }
 
+// Partes do corpo possíveis numa lesão dinâmica por fadiga — chave interna
+// em inglês (não aparece pra o usuário), só o "shoulder" tem efeito mecânico
+// específico hoje (lineout/scrum em engine.js, ver shoulderPenalty); as
+// outras só entram no rótulo exibido da lesão, via INJURY_BODY_PART_LABEL.
+const INJURY_BODY_PARTS = ['shoulder', 'knee', 'ankle', 'rib', 'thigh'];
+const INJURY_BODY_PART_LABEL = {
+  es: {shoulder: 'hombro', knee: 'rodilla', ankle: 'tobillo', rib: 'costilla', thigh: 'muslo'},
+  pt: {shoulder: 'ombro', knee: 'joelho', ankle: 'tornozelo', rib: 'costela', thigh: 'coxa'},
+};
+
+// Semanas em que uma lesão de ombro já recuperada ainda pesa (mais leve) no
+// lineout/scrum — ver shoulderPenalty em engine.js, alimentado por
+// meta.recentInjuryBodyPart, ligado abaixo em tickInjuries.
+const SHOULDER_RECOVERY_WEEKS = 4;
+
 // Risco de lesão por fadiga: só entra em jogo quando o jogador termina a
 // partida muito desgastado; determinação alta reduz o risco (jogadores mais
 // durões se cuidam/se seguram melhor mesmo cansados).
@@ -1039,7 +1080,8 @@ function rollFatigueInjury(player, postMatchCondition) {
   if (player.meta && player.meta.traits && player.meta.traits.includes('injuryProne')) risk *= 1.8;
   if (Math.random() >= risk) return null;
   const weeks = 1 + Math.floor(Math.random() * 4);
-  return {injuryWeeks: weeks, injuryLabel: weeksLabel(weeks), dynamicInjury: true};
+  const bodyPart = INJURY_BODY_PARTS[Math.floor(Math.random() * INJURY_BODY_PARTS.length)];
+  return {injuryWeeks: weeks, injuryLabel: injuryLabelWithBodyPart(weeks, bodyPart), dynamicInjury: true, bodyPart};
 }
 
 function weeksLabel(weeks) {
@@ -1050,23 +1092,49 @@ function weeksLabel(weeks) {
   return t(weeks > 1 ? 'semanaN' : 'semana1', {n: weeks});
 }
 
+function injuryLabelWithBodyPart(weeks, bodyPart) {
+  const base = weeksLabel(weeks);
+  const partLabel = bodyPart && INJURY_BODY_PART_LABEL[lang][bodyPart];
+  return partLabel ? `${base} (${partLabel})` : base;
+}
+
 // Passa 1 semana pra qualquer lesão em andamento do elenco do clube
 // gerenciado (tanto as lesões estáticas do elenco curado quanto as dinâmicas
 // por fadiga), dando alta assim que chega a zero. Chamada uma vez por
 // rodada finalizada (mesmo relógio global usado pra recuperação de condição).
+// Ao curar uma lesão de ombro, mantém uma penalidade residual leve por mais
+// algumas semanas (recentInjuryBodyPart), que o motor usa no lineout/scrum
+// (ver shoulderPenalty em engine.js) — mesmo recuperado, o ombro ainda não
+// está 100%.
 function tickInjuries() {
   const roster = getRealRoster(state.myTeamId);
   if (!roster) return;
   roster.forEach(p => {
     const override = state.playerOverrides[p.id];
     const effectiveWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
-    if (!effectiveWeeks) return;
-    const remaining = Math.max(0, effectiveWeeks - 1);
-    state.playerOverrides[p.id] = {
-      ...(override || {}),
-      injuryWeeks: remaining,
-      injuryLabel: remaining > 0 ? weeksLabel(remaining) : undefined,
-    };
+
+    if (effectiveWeeks) {
+      const remaining = Math.max(0, effectiveWeeks - 1);
+      const bodyPart = (override && override.bodyPart) || p.meta.bodyPart;
+      const justHealed = remaining === 0;
+      state.playerOverrides[p.id] = {
+        ...(override || {}),
+        injuryWeeks: remaining,
+        injuryLabel: remaining > 0 ? injuryLabelWithBodyPart(remaining, bodyPart) : undefined,
+        ...(justHealed && bodyPart === 'shoulder' ? {recentInjuryBodyPart: 'shoulder', recentInjuryWeeksLeft: SHOULDER_RECOVERY_WEEKS} : {}),
+      };
+      return;
+    }
+
+    const recentWeeksLeft = override && override.recentInjuryWeeksLeft;
+    if (recentWeeksLeft) {
+      const remaining = Math.max(0, recentWeeksLeft - 1);
+      state.playerOverrides[p.id] = {
+        ...override,
+        recentInjuryWeeksLeft: remaining > 0 ? remaining : undefined,
+        recentInjuryBodyPart: remaining > 0 ? override.recentInjuryBodyPart : undefined,
+      };
+    }
   });
 }
 
@@ -1112,11 +1180,15 @@ function tickTraining() {
   const roster = getRealRoster(state.myTeamId);
   if (!roster) return;
   const quality = getStaffQuality(state.myTeamId);
-  // Foco de treino da semana escolhido pelo técnico pra segunda/terça/quinta
-  // (até 3 atributos por dia — ver renderTrainingFocusHtml). Dias sem foco
-  // definido não entram no pool, então o treino passivo cai pro sorteio livre
-  // de sempre se o técnico não escolheu nada específico pra nenhum dos três dias.
-  const focusPool = Object.values(state.trainingFocus || {}).flat().filter(Boolean);
+  // Foco de treino da semana: o técnico escolhe um TIPO de treino (ver
+  // TRAINING_TYPES em data.js) pra segunda/terça/quinta, não atributos
+  // soltos — cada tipo já junta vários atributos relacionados (ex.: "Duelo"
+  // evolui decisão, passe, recepção e aceleração juntos). O pool da semana
+  // é a união dos atributos de todos os tipos escolhidos nos três dias; dia
+  // sem tipo escolhido não entra, e sem nada escolhido em nenhum dos três
+  // cai pro sorteio livre de sempre (ver weightedRandomSkill).
+  const focusTypes = Object.values(state.trainingFocus || {}).filter(k => typeof k === 'string' && TRAINING_TYPES[k]);
+  const focusPool = [...new Set(focusTypes.flatMap(k => TRAINING_TYPES[k].skills))];
   roster.forEach(p => {
     const override = state.playerOverrides[p.id];
     const injuryWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
@@ -1629,8 +1701,9 @@ const TRAINING_DAY_KEY = {0: 'seg', 1: 'ter', 3: 'qui'};
 
 function trainingFocusForWeekday(d) {
   const key = TRAINING_DAY_KEY[d];
-  if (!key) return [];
-  return (state.trainingFocus && state.trainingFocus[key]) || [];
+  if (!key) return null;
+  const val = state.trainingFocus && state.trainingFocus[key];
+  return typeof val === 'string' && TRAINING_TYPES[val] ? val : null;
 }
 
 // Quantas rodadas dessa competição já são conhecidas (fixture gerado por
@@ -1682,8 +1755,8 @@ function renderAgenda() {
       const role = WEEKDAY_ROLE[d];
       let extraHtml = '';
       if (role === 'treino') {
-        const focus = trainingFocusForWeekday(d);
-        extraHtml = `<div class="agendaTrainingBadge">${t('agendaTreino')}${focus.length ? `: ${focus.map(k => skillLabel(k)).join(', ')}` : ''}</div>`;
+        const focusType = trainingFocusForWeekday(d);
+        extraHtml = `<div class="agendaTrainingBadge">${t('agendaTreino')}${focusType ? `: ${trainingTypeLabel(focusType)}` : ''}</div>`;
       } else if (role === 'jogo') {
         competitionsForCalendar.forEach(([key, c]) => {
           if (w >= totalRoundsKnown(c)) return;
@@ -2043,28 +2116,33 @@ function sortRowsByPosition(rows) {
 }
 
 // Foco de treino do clube pra segunda/terça/quinta, escolhido pelo técnico:
-// cada dia pode ficar sem nenhum foco (sorteio automático, comportamento
-// padrão) ou travado em até 3 atributos, deixando o treino passivo do
-// plantel (fora do DIP individual) mais direcionado — ver tickTraining.
+// em vez de marcar atributos soltos, ele escolhe UM TIPO de treino por dia
+// (ver TRAINING_TYPES em data.js — cada tipo já evolui vários atributos
+// relacionados ao mesmo tempo, ex.: "Duelo" trabalha decisão+passe+recepção+
+// aceleração juntos). Dia sem tipo escolhido volta pro sorteio automático
+// (ver tickTraining).
 function renderTrainingFocusHtml() {
-  const focus = state.trainingFocus || {seg: [], ter: [], qui: []};
+  const focus = state.trainingFocus || {seg: null, ter: null, qui: null};
   const dayLabel = {seg: t('trainSeg'), ter: t('trainTer'), qui: t('trainQui')};
   const dayColumnHtml = day => {
-    const selected = focus[day] || [];
-    const optionsHtml = Object.keys(SKILL_CATEGORIES).map(cat => `
-      <div class="trainingFocusCatLabel">${cat[0].toUpperCase()}${cat.slice(1)}</div>
-      ${SKILL_CATEGORIES[cat].map(k => `
-        <label class="trainingFocusOption">
-          <input type="checkbox" class="trainingFocusCheck" data-day="${day}" value="${k}"
-            ${selected.includes(k) ? 'checked' : ''}
-            ${!selected.includes(k) && selected.length >= 3 ? 'disabled' : ''} />
-          ${skillLabel(k)}
-        </label>
-      `).join('')}
+    const rawSelected = focus[day];
+    const selected = typeof rawSelected === 'string' && TRAINING_TYPES[rawSelected] ? rawSelected : null;
+    const optionsHtml = Object.keys(TRAINING_TYPES).map(k => `
+      <label class="trainingFocusOption trainingTypeOption ${selected === k ? 'selected' : ''}">
+        <input type="radio" class="trainingFocusRadio" name="trainingFocus-${day}" data-day="${day}" value="${k}"
+          ${selected === k ? 'checked' : ''} />
+        <span class="trainingTypeName">${trainingTypeLabel(k)}</span>
+        <span class="muted trainingTypeSkills">${trainingTypeSkillsLabel(k)}</span>
+      </label>
     `).join('');
     return `
       <div class="trainingFocusDayCol">
-        <div class="trainingFocusDayLabel">${dayLabel[day]} <span class="muted">(${selected.length}/3)</span></div>
+        <div class="trainingFocusDayLabel">${dayLabel[day]}</div>
+        <label class="trainingFocusOption trainingTypeOption ${selected === null ? 'selected' : ''}">
+          <input type="radio" class="trainingFocusRadio" name="trainingFocus-${day}" data-day="${day}" value=""
+            ${selected === null ? 'checked' : ''} />
+          <span class="trainingTypeName">${t('trainingAutomatico')}</span>
+        </label>
         ${optionsHtml}
       </div>
     `;
@@ -2177,17 +2255,11 @@ function renderRealSquad() {
     });
   });
 
-  Array.from(document.querySelectorAll('.trainingFocusCheck')).forEach(cb => {
-    cb.addEventListener('change', () => {
-      state.trainingFocus = state.trainingFocus || {seg: [], ter: [], qui: []};
-      const day = cb.dataset.day;
-      const arr = state.trainingFocus[day] || [];
-      if (cb.checked) {
-        if (arr.length >= 3) { cb.checked = false; return; }
-        state.trainingFocus[day] = [...arr, cb.value];
-      } else {
-        state.trainingFocus[day] = arr.filter(k => k !== cb.value);
-      }
+  Array.from(document.querySelectorAll('.trainingFocusRadio')).forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      state.trainingFocus = state.trainingFocus || {seg: null, ter: null, qui: null};
+      state.trainingFocus[radio.dataset.day] = radio.value || null;
       saveState();
       renderRealSquad();
     });
@@ -3552,32 +3624,38 @@ function renderLive() {
     if (!subsOpen) { subsPanelEl.innerHTML = ''; return; }
 
     const availableBench = myBench.filter(p => !subbedOffIds.has(p.id) && !mySquad.some(m => m.id === p.id));
+
+    const benchRow = (p, posId) => `
+      <button type="button" class="lineupPickBtn" data-in="${p.id}">
+        <span>${escapeHtmlAttr(p.name)}${p.posId !== posId ? ' ⇄' : ''}</span>
+        <span class="muted">${effectiveOverallAt(p, posId)} · ${Math.round(p.condition)}%</span>
+      </button>
+    `;
+
+    // Lista de quem pode entrar, renderizada logo ABAIXO do botão do jogador
+    // escolhido pra sair (em vez de sempre lá embaixo do painel) — assim fica
+    // óbvio pra qual titular aquela lista se refere.
+    const pickerHtmlFor = outPlayer => {
+      const posId = outPlayer.posId;
+      const specialists = availableBench.filter(p => canPlay(p, posId));
+      const outros = FRONT_ROW_POS.has(posId) ? [] : availableBench.filter(p => !canPlay(p, posId));
+      return `
+        <div class="subsInlinePicker">
+          <div class="lineupPickGroupLabel">${t('subsPickIn', {name: outPlayer.name})}</div>
+          ${!specialists.length && !outros.length ? `<p class="muted">${t('subsBankEmpty')}</p>` : ''}
+          ${specialists.length ? `<div class="lineupPickList">${specialists.map(p => benchRow(p, posId)).join('')}</div>` : ''}
+          ${outros.length ? `<div class="lineupPickGroupLabel">${t('outrasPosicoes')}</div><div class="lineupPickList">${outros.map(p => benchRow(p, posId)).join('')}</div>` : ''}
+        </div>
+      `;
+    };
+
     const onFieldRows = mySquad.map(p => `
       <button type="button" class="lineupPickBtn ${subOutSelected === p.id ? 'selected' : ''}" data-out="${p.id}">
         <span>#${p.number} ${escapeHtmlAttr(p.name)}</span>
         <span class="muted">${p.position} · ${Math.round(p.condition)}%</span>
       </button>
+      ${subOutSelected === p.id ? pickerHtmlFor(p) : ''}
     `).join('');
-
-    let pickInHtml = '';
-    if (subOutSelected) {
-      const outPlayer = mySquad.find(p => p.id === subOutSelected);
-      const posId = outPlayer.posId;
-      const specialists = availableBench.filter(p => canPlay(p, posId));
-      const outros = FRONT_ROW_POS.has(posId) ? [] : availableBench.filter(p => !canPlay(p, posId));
-      const benchRow = p => `
-        <button type="button" class="lineupPickBtn" data-in="${p.id}">
-          <span>${escapeHtmlAttr(p.name)}${p.posId !== posId ? ' ⇄' : ''}</span>
-          <span class="muted">${effectiveOverallAt(p, posId)} · ${Math.round(p.condition)}%</span>
-        </button>
-      `;
-      pickInHtml = `
-        <div class="lineupPickGroupLabel">${t('subsPickIn', {name: outPlayer.name})}</div>
-        ${!specialists.length && !outros.length ? `<p class="muted">${t('subsBankEmpty')}</p>` : ''}
-        ${specialists.length ? `<div class="lineupPickList">${specialists.map(benchRow).join('')}</div>` : ''}
-        ${outros.length ? `<div class="lineupPickGroupLabel">${t('outrasPosicoes')}</div><div class="lineupPickList">${outros.map(benchRow).join('')}</div>` : ''}
-      `;
-    }
 
     subsPanelEl.innerHTML = `
       <div class="lineupPicker">
@@ -3586,7 +3664,6 @@ function renderLive() {
           <div class="lineupPickGroupLabel">${t('subsPickOut')}</div>
           <div class="lineupPickList">${onFieldRows}</div>
         `}
-        ${pickInHtml}
         <button type="button" class="ctrlBtn" id="closeSubsBtn">${t('fecharSeletor')}</button>
       </div>
     `;

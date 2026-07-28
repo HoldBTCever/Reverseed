@@ -89,6 +89,24 @@ export const SKILL_CATEGORIES = {
   físico: ['speed', 'strength', 'stamina', 'agility', 'recovery'],
 };
 
+// Tipos de treino (exercícios reais de clube), cada um trabalhando um
+// conjunto de atributos relacionados ao mesmo tempo — em vez do técnico
+// escolher atributos soltos, ele escolhe QUE TIPO de treino roda em cada dia
+// (ver renderTrainingFocusHtml/tickTraining em app.js). Todo atributo
+// aparece em pelo menos um tipo.
+export const TRAINING_TYPES = {
+  duelo: {label: 'Duelo', skills: ['vision', 'pass', 'reception', 'speed']},
+  tocata: {label: 'Tocata', skills: ['stamina', 'positioning', 'vision', 'pass']},
+  contato: {label: 'Contato', skills: ['tackle', 'ruck', 'turnover', 'strength']},
+  formacao: {label: 'Formação (scrum/maul)', skills: ['scrum', 'strength', 'discipline', 'positioning']},
+  touch: {label: 'Touch (line-out)', skills: ['lineoutThrow', 'jump', 'strength', 'positioning']},
+  pique: {label: 'Pique', skills: ['speed', 'agility', 'stamina', 'recovery']},
+  chuteAGol: {label: 'Chute a gol', skills: ['kicking', 'dropGoal', 'composure', 'positioning']},
+  quebraDeLinha: {label: 'Quebra de linha', skills: ['sidestep', 'agility', 'speed', 'vision']},
+  lideranca: {label: 'Liderança', skills: ['leadership', 'discipline', 'composure', 'determination']},
+  recuperacao: {label: 'Recuperação', skills: ['recovery', 'stamina', 'discipline']},
+};
+
 // Traits ocultos: sorteados na geração do jogador, dão personalidade e têm
 // efeito mecânico real (ver engine.js / app.js).
 export const TRAITS = {
