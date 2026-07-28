@@ -3,7 +3,7 @@ import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES
 import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
-import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, createInitialYouthAcademy, advanceYouthAcademy} from './realSquads.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, YOUTH_CATEGORY_TOTAL_SIZE, createInitialYouthAcademy, advanceYouthAcademy} from './realSquads.js';
 
 // ---- Seleção Paraguay (Los Yacarés) ---------------------------------------
 // Time "virtual" pra amistosos e torneios aleatórios: não disputa nenhuma
@@ -175,7 +175,7 @@ const I18N = {
     captacaoAceitou: '¡{name} aceptó la invitación y se sumó al Curda!',
     captacaoRecusou: '{name} rechazó la invitación — prefirió seguir en el {club}.',
     baseTitle: 'Categorías de base (Dante Legui)',
-    baseHelp: 'M14, M15, M16 y M18: cada tanto toda la base sube una categoría — quien estaba en M18 se gradúa y se suma directo al plantel principal.',
+    baseHelp: 'M14, M15, M16 y M18: cada tanto toda la base sube una categoría — quien estaba en M18 se gradúa y se suma directo al plantel principal. Cada categoría tiene al menos 23 jugadores; acá se muestran solo los más destacados.',
     baseFormados: '¡Se graduaron de las categorías de base y se sumaron al plantel principal: {names}!',
     agendaBloqueado: 'Jugá primero el partido pendiente de {comp} — las dos competencias siguen la misma agenda semanal.',
     agendaIrPara: 'Ir a {comp}',
@@ -386,7 +386,7 @@ const I18N = {
     captacaoAceitou: '{name} aceitou o convite e se juntou ao Curda!',
     captacaoRecusou: '{name} recusou o convite — preferiu continuar no {club}.',
     baseTitle: 'Categorias de base (Dante Legui)',
-    baseHelp: 'M14, M15, M16 e M18: de vez em quando toda a base sobe uma categoria — quem estava na M18 se forma e vai direto pro plantel principal.',
+    baseHelp: 'M14, M15, M16 e M18: de vez em quando toda a base sobe uma categoria — quem estava na M18 se forma e vai direto pro plantel principal. Cada categoria tem pelo menos 23 jogadores; aqui mostramos só os mais destacados.',
     baseFormados: 'Se formaram nas categorias de base e se juntaram ao plantel principal: {names}!',
     agendaBloqueado: 'Jogue primeiro a partida pendente do {comp} — as duas competições seguem a mesma agenda semanal.',
     agendaIrPara: 'Ir pro {comp}',
@@ -1156,7 +1156,7 @@ function renderYouthAcademyHtml() {
       <div class="youthGrid">
         ${YOUTH_CATEGORIES.map(cat => `
           <div class="youthCategoryCol">
-            <div class="youthCategoryLabel">${cat}</div>
+            <div class="youthCategoryLabel">${cat} <span class="muted">(${academy[cat].length} de ${YOUTH_CATEGORY_TOTAL_SIZE}+)</span></div>
             ${academy[cat].map(p => `
               <div class="youthPlayerRow" title="${escapeHtmlAttr(p.name)} — ${p.position}">
                 <span class="youthPlayerName">${escapeHtmlAttr(p.name)}</span>

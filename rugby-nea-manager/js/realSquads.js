@@ -386,9 +386,21 @@ function emergencyYouthPlayer(posId) {
 // na M18 se forma e é promovido ao plantel principal do Curda, e entra uma
 // nova leva de garotos de 14 na base da pirâmide.
 export const YOUTH_CATEGORIES = ['M14', 'M15', 'M16', 'M18'];
+// Cada categoria tem um plantel de verdade bem maior (pelo menos 23
+// jogadores, como qualquer time juvenil de clube), mas só mostramos os
+// destaques (YOUTH_SQUAD_SIZE) — o resto do plantel existe narrativamente,
+// sem precisar gerar/guardar 23 registros individuais por categoria.
+export const YOUTH_CATEGORY_TOTAL_SIZE = 23;
 const YOUTH_SQUAD_SIZE = 6;
 const YOUTH_BASE_RANGE = {M14: [28, 40], M15: [34, 46], M16: [42, 56], M18: [50, 66]};
 const YOUTH_POTENTIALS = ['limitado', 'médio', 'alto', 'altíssimo'];
+
+// Nomes que nunca devem ser sorteados pra base — evita repetir jogadores que
+// o manager já pediu pra tirar do plantel.
+const BANNED_YOUTH_NAMES = new Set([
+  'Gonzalo Melgarejo', 'Bautista Díaz', 'Mateo Aguirre',
+  'Benjamín Leguizamón', 'Nicolás Gómez', 'Bruno Vallejos',
+]);
 
 function generateYouthPlayer(category, usedNames) {
   const posIds = Object.keys(POS_INFO);
@@ -409,10 +421,18 @@ function generateYouthPlayer(category, usedNames) {
 // Plantel inicial das 4 categorias, chamado uma vez ao começar um jogo novo
 // como o Curda.
 export function createInitialYouthAcademy() {
-  const usedNames = new Set();
+  const usedNames = new Set(BANNED_YOUTH_NAMES);
   const academy = {};
   YOUTH_CATEGORIES.forEach(cat => {
     academy[cat] = Array.from({length: YOUTH_SQUAD_SIZE}, () => generateYouthPlayer(cat, usedNames));
+  });
+  // Nacho Lopes: hooker destaque da M18, excelente determinação e ótimo
+  // lançamento de lineout.
+  academy.M18[0] = mkPlayer('Nacho Lopes', 'HK', 60, {determination: 88, lineoutThrow: 85}, {
+    age: 'M18',
+    potential: 'alto',
+    note: 'Categoria M18 do Curda, sob comando de Dante Legui — ótimo lançamento de lineout e excelente determinação',
+    youthCategory: 'M18',
   });
   return academy;
 }
@@ -422,7 +442,7 @@ export function createInitialYouthAcademy() {
 // pronto pra ser promovido ao plantel principal (quem chama decide o que
 // fazer com eles — ver tickYouthAcademy em app.js).
 export function advanceYouthAcademy(academy) {
-  const usedNames = new Set();
+  const usedNames = new Set(BANNED_YOUTH_NAMES);
   const graduates = (academy.M18 || []).map(p => ({
     ...p,
     meta: {...p.meta, age: 'jovem', potential: p.meta.potential, youthCategory: undefined, note: `Formado nas categorias de base do Curda sob comando de Dante Legui; promovido ao plantel principal`},
