@@ -1,6 +1,6 @@
 import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS} from './data.js';
 import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, zoneForPos, defaultGamePlan} from './engine.js';
-import {MatchRenderer, renderFormationHtml} from './render.js';
+import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
 import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad} from './realSquads.js';
@@ -212,6 +212,8 @@ const I18N = {
     especialistas: 'Especialistas',
     mesmaLinha: 'Misma línea',
     outrasPosicoes: 'Otras posiciones',
+    lineupClickHelp: 'Hacé clic en una camiseta del campo para elegir quién juega ahí. Pilar y hooker solo muestran especialistas de esa posición exacta (sin improvisar); las demás posiciones muestran primero quien juega ahí, y abajo el resto del plantel disponible.',
+    fecharSeletor: 'Cerrar selector',
     diaDeJogo: 'Día de partido — {comp} — {round}',
     casaVs: '{home} (local) vs {away} (visitante)',
     mataDesempate: 'Playoffs: en caso de empate, el partido va a tiempo suplementario hasta que salga un ganador.',
@@ -405,6 +407,8 @@ const I18N = {
     especialistas: 'Especialistas',
     mesmaLinha: 'Mesma linha',
     outrasPosicoes: 'Outras posições',
+    lineupClickHelp: 'Clique numa camisa do campo pra escolher quem joga ali. Pilar e hooker só mostram especialistas daquela posição exata (sem improviso); as demais posições mostram primeiro quem joga ali, e embaixo o resto do plantel disponível.',
+    fecharSeletor: 'Fechar seletor',
     diaDeJogo: 'Dia de jogo — {comp} — {round}',
     casaVs: '{home} (casa) vs {away} (visitante)',
     mataDesempate: 'Mata-mata: em caso de empate, a partida vai para a prorrogação até sair um vencedor.',
@@ -574,6 +578,7 @@ let pendingMatchResult = null; // resultado já simulado/exibido da partida do u
 let pendingMyXV = null; // escalação (jogadores inteiros) usada na partida em andamento
 let manualSlots = null; // array de 15 playerIds (ou null nalguma posição = automático) em edição na tela de Dia de Jogo
 let manualSlotsSignature = null; // identifica pra qual partida o manualSlots atual pertence, pra resetar ao mudar de jogo
+let openLineupSlot = null; // índice (0-14) do slot com o seletor de jogador aberto no campo clicável, ou null se fechado
 
 function loadState() {
   try {
@@ -1697,10 +1702,71 @@ function matchSignature(key, c, match) {
   return `${key}|${c.stage}|${c.currentRoundIndex}|${match.home}|${match.away}`;
 }
 
-function renderLineupEditorHtml(teamId, myOptions) {
+function shortPlayerName(name) {
+  const parts = name.trim().split(/\s+/);
+  return parts.length > 1 ? parts[parts.length - 1] : name;
+}
+
+// Editor de escalação clicável: um mapa do campo (mesmo layout visual da
+// formação estática) onde cada camisa é um botão. Clicar numa camisa abre,
+// logo abaixo, a lista de jogadores elegíveis pra aquela posição — primeira
+// línea (pilar/hooker) só mostra especialistas daquele posto específico (sem
+// improviso); as demais posições mostram primeiro quem joga ali (posto
+// natural ou alternativo) e, em seguida, todo o resto do elenco disponível.
+function renderLineupEditorHtml(teamId, myOptions, teamColor, bench) {
   const eligible = manualEligiblePlayers(teamId, myOptions);
+  const byId = Object.fromEntries(eligible.map(p => [p.id, p]));
+
+  const shirts = POSITIONS.map((slot, idx) => {
+    const posId = slot.id;
+    const currentId = manualSlots ? manualSlots[idx] : null;
+    const player = currentId ? byId[currentId] : null;
+    const pos = FORMATION_POSITIONS[idx + 1] || {top: '50%', left: '50%'};
+    const cond = player ? Math.round(player.condition) : 100;
+    const label = player ? shortPlayerName(player.name) : '🆘';
+    const openClass = openLineupSlot === idx ? ' slotOpen' : '';
+    const titleAttr = `#${idx + 1} ${POS_LABEL[posId]}${player ? ' — ' + player.name : ''}`;
+    return `
+      <button type="button" class="shirtSlot lineupShirtBtn${openClass}" data-slot="${idx}" style="top:${pos.top}; left:${pos.left};" title="${escapeHtmlAttr(titleAttr)}">
+        <span class="shirt" style="background:${teamColor}">${idx + 1}</span>
+        <span class="shirtName">${escapeHtmlAttr(label)}</span>
+        <span class="ratingBar shirtCond"><span style="width:${cond}%"></span></span>
+      </button>
+    `;
+  }).join('');
+
+  let pickerHtml = '';
+  if (openLineupSlot != null) {
+    const idx = openLineupSlot;
+    const slot = POSITIONS[idx];
+    const posId = slot.id;
+    const currentId = manualSlots ? manualSlots[idx] : null;
+    const specialists = eligible.filter(p => canPlay(p, posId));
+    const outros = FRONT_ROW_POS.has(posId) ? [] : eligible.filter(p => !canPlay(p, posId));
+    const playerRow = p => `
+      <button type="button" class="lineupPickBtn ${p.id === currentId ? 'selected' : ''}" data-pick="${p.id}">
+        <span>${escapeHtmlAttr(p.name)}${p.posId !== posId ? ' ⇄' : ''}</span>
+        <span class="muted">${p.rating} · ${Math.round(p.condition)}%</span>
+      </button>
+    `;
+    pickerHtml = `
+      <div class="lineupPicker">
+        <h4>#${idx + 1} ${POS_LABEL[posId]}</h4>
+        ${!specialists.length ? `<p class="muted">${t('convocacaoEmergencia')}</p>` : `
+          <div class="lineupPickGroupLabel">${t('especialistas')}</div>
+          <div class="lineupPickList">${specialists.map(playerRow).join('')}</div>
+        `}
+        ${outros.length ? `
+          <div class="lineupPickGroupLabel">${t('outrasPosicoes')}</div>
+          <div class="lineupPickList">${outros.map(playerRow).join('')}</div>
+        ` : ''}
+        <button type="button" class="ctrlBtn" id="closeLineupPickerBtn">${t('fecharSeletor')}</button>
+      </div>
+    `;
+  }
+
   return `
-    <div class="card">
+    <div class="card formationCard">
       <div class="squadHeaderRow">
         <h3>${t('escalarManual')}</h3>
         <div class="sortToggle">
@@ -1711,47 +1777,17 @@ function renderLineupEditorHtml(teamId, myOptions) {
           <button class="sortBtn" id="lineupLoadBBtn">${t('usarTimeB')}</button>
         </div>
       </div>
-      <div class="lineupEditorGrid">
-        ${POSITIONS.map((slot, idx) => {
-          const posId = slot.id;
-          const currentId = manualSlots ? manualSlots[idx] : null;
-          const altMark = p => (p.posId === posId ? '' : ' ⇄');
-          if (FRONT_ROW_POS.has(posId)) {
-            const specialists = eligible.filter(p => canPlay(p, posId));
-            if (!specialists.length) {
-              return `
-                <div class="lineupSlot">
-                  <label>#${idx + 1} ${POS_LABEL[posId]}</label>
-                  <select disabled><option>${t('convocacaoEmergencia')}</option></select>
-                </div>
-              `;
-            }
-            return `
-              <div class="lineupSlot">
-                <label>#${idx + 1} ${POS_LABEL[posId]}</label>
-                <select data-slot="${idx}">
-                  ${specialists.map(p => `<option value="${p.id}" ${p.id === currentId ? 'selected' : ''}>${p.name} (${p.rating}, ${Math.round(p.condition)}%)${altMark(p)}</option>`).join('')}
-                </select>
-              </div>
-            `;
-          }
-          const group = slot.group;
-          const specialists = eligible.filter(p => canPlay(p, posId));
-          const sameGroup = eligible.filter(p => !canPlay(p, posId) && p.group === group);
-          const rest = eligible.filter(p => !canPlay(p, posId) && p.group !== group);
-          const optHtml = p => `<option value="${p.id}" ${p.id === currentId ? 'selected' : ''}>${p.name} (${p.rating}, ${Math.round(p.condition)}%)${altMark(p)}</option>`;
-          return `
-            <div class="lineupSlot">
-              <label>#${idx + 1} ${POS_LABEL[posId]}</label>
-              <select data-slot="${idx}">
-                <optgroup label="${t('especialistas')}">${specialists.map(optHtml).join('')}</optgroup>
-                <optgroup label="${t('mesmaLinha')}">${sameGroup.map(optHtml).join('')}</optgroup>
-                <optgroup label="${t('outrasPosicoes')}">${rest.map(optHtml).join('')}</optgroup>
-              </select>
-            </div>
-          `;
-        }).join('')}
+      <p class="muted">${t('lineupClickHelp')}</p>
+      <div class="pitchOuter">
+        <div class="pitchLine" style="top:0"></div>
+        <div class="pitchLine" style="top:22%"></div>
+        <div class="pitchLine solid" style="top:50%"></div>
+        <div class="pitchLine" style="top:78%"></div>
+        <div class="pitchLine" style="top:100%"></div>
+        ${shirts}
       </div>
+      ${pickerHtml}
+      ${renderBenchSectionHtml(bench, teamColor)}
     </div>
   `;
 }
@@ -2224,6 +2260,7 @@ function renderMatchday() {
   if (manualSlotsSignature !== sig) {
     manualSlots = null;
     manualSlotsSignature = sig;
+    openLineupSlot = null;
   }
 
   const isRealRoster = !!getRealRoster(c.teamId);
@@ -2251,8 +2288,8 @@ function renderMatchday() {
       </div>
       <button class="playBtn" id="startMatchBtn">${t('comecarPartida')}</button>
     </div>
-    ${renderFormationHtml(effectiveXV, bench, myTeam.color, t('escalacaoHoje'))}
-    ${isRealRoster ? renderLineupEditorHtml(c.teamId, myOptions) : ''}
+    ${isRealRoster ? '' : renderFormationHtml(effectiveXV, bench, myTeam.color, t('escalacaoHoje'))}
+    ${isRealRoster ? renderLineupEditorHtml(c.teamId, myOptions, myTeam.color, bench) : ''}
   `;
 
   const opts = document.getElementById('tacticOptions');
@@ -2270,18 +2307,34 @@ function renderMatchday() {
   });
 
   if (isRealRoster) {
-    Array.from(document.querySelectorAll('.lineupEditorGrid select[data-slot]')).forEach(select => {
-      select.addEventListener('change', () => {
-        const idx = Number(select.dataset.slot);
-        const newId = select.value;
-        const dupIdx = manualSlots.findIndex((pid, i) => pid === newId && i !== idx);
-        if (dupIdx !== -1) manualSlots[dupIdx] = manualSlots[idx];
-        manualSlots[idx] = newId;
+    Array.from(document.querySelectorAll('.lineupShirtBtn')).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.slot);
+        openLineupSlot = openLineupSlot === idx ? null : idx;
         renderMatchday();
       });
     });
+    Array.from(document.querySelectorAll('.lineupPickBtn')).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = openLineupSlot;
+        const newId = btn.dataset.pick;
+        const dupIdx = manualSlots.findIndex((pid, i) => pid === newId && i !== idx);
+        if (dupIdx !== -1) manualSlots[dupIdx] = manualSlots[idx];
+        manualSlots[idx] = newId;
+        openLineupSlot = null;
+        renderMatchday();
+      });
+    });
+    const closePickerBtn = document.getElementById('closeLineupPickerBtn');
+    if (closePickerBtn) {
+      closePickerBtn.addEventListener('click', () => {
+        openLineupSlot = null;
+        renderMatchday();
+      });
+    }
     document.getElementById('lineupAutoBtn').addEventListener('click', () => {
       manualSlots = slotsFromXV(autoXV);
+      openLineupSlot = null;
       renderMatchday();
     });
     document.getElementById('lineupSaveABtn').addEventListener('click', () => {

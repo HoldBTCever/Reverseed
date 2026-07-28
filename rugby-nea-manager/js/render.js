@@ -358,7 +358,7 @@ export class MatchRenderer {
 // 1-2-3 na frente, 4-5 atrás, 6-8-7 na terceira linha, 9 e 10 no meio, 12-13
 // no meio-campo, 11 e 14 bem abertos e 15 solto atrás. 100% responsivo: é só
 // percentual dentro de um container com aspect-ratio fixo.
-const FORMATION_POSITIONS = {
+export const FORMATION_POSITIONS = {
   1: {top: '6%', left: '30%'},
   2: {top: '6%', left: '50%'},
   3: {top: '6%', left: '70%'},
@@ -421,16 +421,22 @@ function benchCardHtml(p, teamColor) {
   `;
 }
 
-// xv: até 15 jogadores titulares (com .number 1-15 já atribuído).
-// bench: reservas (opcional — times procedurais não têm banco).
-export function renderFormationHtml(xv, bench, teamColor, title) {
-  const shirts = xv.filter(p => FORMATION_POSITIONS[p.number]).map(p => shirtHtml(p, teamColor)).join('');
-  const benchHtml = bench && bench.length ? `
+// Reaproveitado tanto pela formação estática quanto pelo editor clicável de
+// escalação em app.js.
+export function renderBenchSectionHtml(bench, teamColor) {
+  return bench && bench.length ? `
     <div class="benchSection">
       <div class="benchTitle">Reservas</div>
       <div class="benchRow">${bench.map(p => benchCardHtml(p, teamColor)).join('')}</div>
     </div>
   ` : '';
+}
+
+// xv: até 15 jogadores titulares (com .number 1-15 já atribuído).
+// bench: reservas (opcional — times procedurais não têm banco).
+export function renderFormationHtml(xv, bench, teamColor, title) {
+  const shirts = xv.filter(p => FORMATION_POSITIONS[p.number]).map(p => shirtHtml(p, teamColor)).join('');
+  const benchHtml = renderBenchSectionHtml(bench, teamColor);
 
   return `
     <div class="card formationCard">

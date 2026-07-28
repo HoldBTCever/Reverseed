@@ -303,6 +303,29 @@ canvas#pitch {
 }
 .lineupSlot select:disabled { color: var(--muted); font-style: italic; }
 
+/* Editor de escalação clicável (campo com camisas clicáveis) */
+.lineupShirtBtn {
+  background: none; border: none; padding: 0; font: inherit; color: inherit;
+  cursor: pointer;
+}
+.lineupShirtBtn .shirt { transition: transform 0.1s, box-shadow 0.1s; }
+.lineupShirtBtn:hover .shirt { transform: scale(1.08); }
+.lineupShirtBtn.slotOpen .shirt { box-shadow: 0 0 0 3px var(--accent); }
+.lineupPicker {
+  margin-top: 14px; padding: 12px; background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.lineupPicker h4 { margin: 0 0 8px; }
+.lineupPickGroupLabel { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 10px 0 4px; }
+.lineupPickList { display: flex; flex-direction: column; gap: 4px; }
+.lineupPickBtn {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 10px; font-size: 13px; color: var(--text); cursor: pointer; text-align: left;
+}
+.lineupPickBtn:hover { border-color: var(--accent); }
+.lineupPickBtn.selected { border-color: var(--accent); background: rgba(46,204,113,0.1); }
+
 .dipSelect {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 5px; font-size: 12px; max-width: 220px;
