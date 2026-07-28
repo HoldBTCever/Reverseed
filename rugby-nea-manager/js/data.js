@@ -176,13 +176,13 @@ export const LEAGUES = [
     // ainda assim o favorito aqui por ser um campeonato mais fraco.
     teams: [
       team('INT-CNE', 'Curne', '#FFEB3B', 82, 81, 81),
-      team('INT-MER', 'Mercedes RC', '#2E7D32', 78, 76, 77),
-      team('INT-GOY', 'Goya RC', '#C62828', 77, 75, 76),
+      team('INT-MER', 'Mercedes RC', '#FDD835', 78, 76, 77),
+      team('INT-GOY', 'Goya RC', '#1B4332', 77, 75, 76),
       team('INT-STM', 'Santo Tomé RC', '#1565C0', 70, 69, 72),
       team('INT-PLB', 'Paso de los Libres RC', '#6A1B9A', 69, 68, 71),
-      team('INT-BVI', 'Bella Vista RC', '#EF6C00', 62, 61, 65),
-      team('INT-ITZ', 'Ituzaingó RC', '#37474F', 61, 60, 64),
-      team('INT-CCT', 'Curuzú Cuatiá RC', '#AD1457', 58, 57, 62),
+      team('INT-BVI', 'Bella Vista RC', '#0D3B66', 62, 61, 65),
+      team('INT-ITZ', 'Ituzaingó RC', '#2E7D32', 61, 60, 64),
+      team('INT-CCT', 'Curuzú Cuatiá RC', '#1A1A1A', 58, 57, 62),
     ],
   },
 ];
@@ -223,6 +223,11 @@ export const TEAM_IDENTITY = {
   'PAR-FDM': {colors: ['#D32F2F', '#F9A825', '#1A1A1A'], mascotEmoji: '🐃', mascotName: {es: 'El Búfalo', pt: 'O Búfalo'}},
   'PAR-VHA': {colors: ['#2E7D32', '#FFFFFF']},
   'ARG-REG': {colors: ['#E53935', '#FFFFFF'], initials: 'CRR'},
+  'INT-MER': {colors: ['#FDD835', '#D32F2F'], mascotEmoji: '👑', mascotName: {es: 'La Corona', pt: 'A Coroa'}},
+  'INT-GOY': {colors: ['#1B4332', '#FFFFFF', '#1A1A1A']},
+  'INT-ITZ': {colors: ['#2E7D32', '#1565C0', '#FBC02D'], mascotEmoji: '🌳', mascotName: {es: 'El Árbol', pt: 'A Árvore'}},
+  'INT-CCT': {colors: ['#FFFFFF', '#81D4FA', '#1A1A1A'], mascotEmoji: '🍃', mascotName: {es: 'La Hoja', pt: 'A Folha'}},
+  'INT-BVI': {colors: ['#0D3B66', '#FBC02D'], initials: 'CRBV'},
 };
 
 export function teamIdentity(teamId) {
