@@ -364,8 +364,9 @@ canvas#pitch {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 14px;
 }
-.trainingFocusDayCol {
+.trainingFocusDayCol, .lineoutGroupRoleCol {
   background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+  max-height: 320px; overflow-y: auto;
 }
 .trainingFocusDayLabel { font-weight: 700; margin-bottom: 8px; font-size: 13px; }
 

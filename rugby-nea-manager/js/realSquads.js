@@ -552,12 +552,23 @@ export function effectiveOverallAt(p, posId) {
   return Math.round(computeOverall(p.skills, SKILL_PROFILES[posId]) * 0.96);
 }
 
+// Fator de condição SÓ pra decidir quem escala (mais rígido que o
+// conditionMultiplier geral usado pra força em partida): acima de 90% não
+// tem penalidade nenhuma, e cada ponto abaixo disso custa caro — a
+// escalação automática prioriza quem está fresco (>90%) em vez de sempre
+// puxar o "nome" mais talentoso mesmo desgastado.
+function selectionConditionFactor(condition) {
+  const c = condition == null ? 100 : condition;
+  if (c >= 90) return 1;
+  return Math.max(0.55, 1 - (90 - c) * 0.006);
+}
+
 export function pickStartingXV(roster, options = {}) {
   const conditionOf = options.conditionOf || (() => 100);
   const excludedIds = options.excludedIds || new Set();
   const metaOverrides = options.metaOverrides || {};
   const skillOverrides = options.skillOverrides || {};
-  const effRatingAt = (p, posId) => effectiveOverallAt(p, posId) * conditionMultiplier(conditionOf(p));
+  const effRatingAt = (p, posId) => effectiveOverallAt(p, posId) * selectionConditionFactor(conditionOf(p));
 
   const withMeta = roster.map(p => applyOverrides(p, metaOverrides, skillOverrides));
   const available = withMeta.filter(p => !p.meta.injuryWeeks && !excludedIds.has(p.id));

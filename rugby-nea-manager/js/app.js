@@ -142,13 +142,11 @@ const I18N = {
     trainingFocusHelp: 'Elegí un tipo de entrenamiento por día — cada tipo trabaja varios atributos relacionados a la vez (ej.: "Duelo" mejora decisión, pase, recepción y aceleración juntos), siempre respetando la posición de cada jugador. Sin nada elegido, vuelve al sorteo automático.',
     trainingAutomatico: 'Automático',
     lineoutGroupTitle: 'Grupo de entrenamiento: line-out',
-    lineoutGroupHelp: 'Elegí el lanzador, el saltador y los dos levantadores que van a entrenar juntos: cada uno mejora la skill de su rol (lanzamiento, salto, fuerza) y el grupo gana entrosamiento entre sí, lo que mejora el timing del line-out en los partidos. Rinde según la determinación y el físico de cada uno, igual que el DIP.',
-    lineoutGroupHooker: 'Lanzador (hooker)',
-    lineoutGroupJumper: 'Saltador',
-    lineoutGroupLifter1: 'Levantador 1',
-    lineoutGroupLifter2: 'Levantador 2',
+    lineoutGroupHelp: 'Elegí los lanzadores, saltadores y levantadores que van a entrenar juntos — cualquier cantidad, incluidos los juveniles M16/M18 (16+ años) de la base. Cada uno mejora la skill de su rol (lanzamiento, salto, fuerza) y el grupo entero gana entrosamiento entre sí, lo que mejora el timing del line-out en los partidos. Rinde según la determinación y el físico de cada uno, igual que el DIP.',
+    lineoutGroupHooker: 'Lanzadores',
+    lineoutGroupJumper: 'Saltadores',
+    lineoutGroupLifter: 'Levantadores',
     lineoutGroupActivate: 'Activar entrenamiento de grupo esta semana',
-    ningunoSeleccionado: 'Ninguno',
     trainSeg: 'Lunes',
     trainTer: 'Martes',
     trainQui: 'Jueves',
@@ -380,13 +378,11 @@ const I18N = {
     trainingFocusHelp: 'Escolha um tipo de treino por dia — cada tipo trabalha vários atributos relacionados ao mesmo tempo (ex.: "Duelo" evolui decisão, passe, recepção e aceleração juntos), sempre respeitando a posição de cada jogador. Sem nada escolhido, volta pro sorteio automático.',
     trainingAutomatico: 'Automático',
     lineoutGroupTitle: 'Grupo de treino: line-out',
-    lineoutGroupHelp: 'Escolha o lançador, o saltador e os dois levantadores que vão treinar juntos: cada um evolui a skill do seu papel (lançamento, salto, força) e o grupo ganha entrosamento entre si, o que melhora o timing do line-out nas partidas. Rende conforme a determinação e o físico de cada um, igual o DIP.',
-    lineoutGroupHooker: 'Lançador (hooker)',
-    lineoutGroupJumper: 'Saltador',
-    lineoutGroupLifter1: 'Levantador 1',
-    lineoutGroupLifter2: 'Levantador 2',
+    lineoutGroupHelp: 'Escolha os lançadores, saltadores e levantadores que vão treinar juntos — quantos quiser, incluindo os juvenis M16/M18 (16+ anos) da base. Cada um evolui a skill do seu papel (lançamento, salto, força) e o grupo inteiro ganha entrosamento entre si, o que melhora o timing do line-out nas partidas. Rende conforme a determinação e o físico de cada um, igual o DIP.',
+    lineoutGroupHooker: 'Lançadores',
+    lineoutGroupJumper: 'Saltadores',
+    lineoutGroupLifter: 'Levantadores',
     lineoutGroupActivate: 'Ativar treino de grupo essa semana',
-    ningunoSeleccionado: 'Nenhum',
     trainSeg: 'Segunda',
     trainTer: 'Terça',
     trainQui: 'Quinta',
@@ -925,7 +921,7 @@ function newGame(myTeamId) {
     dipTraining: {}, // {[playerId]: skillKey} — foco de treino individual intensivo (DIP) escolhido pelo manager
     trainingFocus: {seg: null, ter: null, qui: null}, // tipo de treino (ver TRAINING_TYPES) escolhido pelo técnico pra cada dia, ou null = automático
     chemistry: {}, // {"idA|idB": 0-100} — entrosamento entre pares de jogadores, cresce jogando junto ou treinando em grupo (ver bumpChemistry)
-    trainingGroups: {lineout: {hookerId: null, jumperId: null, lifter1Id: null, lifter2Id: null, active: false}}, // grupos de treino conjunto (ver tickGroupTraining)
+    trainingGroups: {lineout: {throwerIds: [], jumperIds: [], lifterIds: [], active: false}}, // grupos de treino conjunto — listas, não vaga única (ver tickGroupTraining)
     gamePlan: (myTeamId === 'ARG-CUR' || myTeamId === 'PAR-CUR') ? curdaDefaultGamePlan() : defaultGamePlan(), // plano de jogo por zona de campo (ver tela de Tática)
     gamePlanPdfs: [], // [{id, name, size, uploadedAt}] — metadados dos PDFs táticos enviados (conteúdo binário fica no IndexedDB, ver pdfStore)
     nationalTeamMatches: [], // histórico de amistosos/torneios da Seleção Paraguay (ver renderSelection)
@@ -1048,13 +1044,22 @@ function competitionBlockedReason(key) {
 //  - locais diferentes (pelo menos uma fora): fisicamente impossível estar
 //    nos dois lugares — quem já jogou fica indisponível (excludedIds), o que
 //    pode forçar até convocação de emergência do juvenil na primeira línea.
+// "Mesma rodada" tem que comparar o AVANÇO desde o próprio baseline de cada
+// competição (ver roundsElapsedBaseline/progress em competitionBlockedReason),
+// não o roundsElapsed bruto — senão nunca bate quando as duas competições
+// começam de baselines diferentes (ex.: NEA já entra na 7ª rodada com
+// resultados históricos, a Apertura começa do zero), e o choque de agenda
+// nunca dispara mesmo estando na mesma "semana" real.
+function progressOf(x) {
+  return x.roundsElapsed - (x.roundsElapsedBaseline || 0);
+}
 function clashInfoFor(key, match) {
   const c = comp(key);
   const otherKey = otherCompetitionKey(key);
   const empty = {excludedIds: new Set(), doubleHeaderIds: new Set()};
   if (!otherKey) return empty;
   const sibling = state.lastMatch[otherKey];
-  if (!sibling || sibling.roundsElapsed !== c.roundsElapsed) return empty;
+  if (!sibling || sibling.progress !== progressOf(c)) return empty;
   const thisVenue = venueOf(match, c.teamId);
   if (thisVenue === sibling.venue) {
     return {excludedIds: new Set(), doubleHeaderIds: new Set(sibling.ids)};
@@ -1314,35 +1319,58 @@ function tickTraining() {
   });
 }
 
-// Papel de cada vaga do grupo de line-out -> skill que evolui nele: o
-// lançador melhora a técnica de lançamento, o saltador a técnica/impulsão
-// de salto, e os dois levantadores a força — exatamente as skills que
-// entram na conta do lineout em engine.js (lineoutThrowerScore/
-// lineoutJumperScore/lineoutLifterScore).
-const LINEOUT_GROUP_ROLE_SKILL = {hookerId: 'lineoutThrow', jumperId: 'jump', lifter1Id: 'strength', lifter2Id: 'strength'};
+// Papel de cada lista do grupo de line-out -> skill que evolui em quem tá
+// nela: lançadores melhoram a técnica de lançamento, saltadores a técnica/
+// impulsão de salto, levantadores a força — exatamente as skills que entram
+// na conta do lineout em engine.js (lineoutThrowerScore/lineoutJumperScore/
+// lineoutLifterScore). Cada lista aceita qualquer número de jogadores.
+const LINEOUT_GROUP_ROLE_SKILL = {throwerIds: 'lineoutThrow', jumperIds: 'jump', lifterIds: 'strength'};
 
-// Treino em grupo: além de cada um evoluir sua skill principal do papel que
-// treina (sempre escalado pelo mesmo cap de determinação/físico do DIP —
-// ver trainingIntensityCap, é o mesmo motivo que impede alguém com pouca
+// Acha um jogador treinável pelo id: primeiro no plantel principal, depois
+// nas categorias de base M16/M18 (16+ anos) — a base mais nova (M14/M15)
+// fica de fora, ainda não tem maturidade física pra treinar com o time
+// principal. Jogador da base treinado aqui já acumula a evolução (ver
+// growSkill/state.skillGrowth) que "acorda" sozinha quando ele for
+// promovido ao plantel principal.
+function findTrainablePlayer(id) {
+  const roster = getRealRoster(state.myTeamId);
+  const fromRoster = roster && roster.find(p => p.id === id);
+  if (fromRoster) return fromRoster;
+  const academy = state.youthAcademy || {};
+  for (const cat of ['M16', 'M18']) {
+    const found = (academy[cat] || []).find(p => p.id === id);
+    if (found) return found;
+  }
+  return null;
+}
+
+// Treino em grupo: além de cada um evoluir a skill do papel que treina
+// (sempre escalado pelo mesmo cap de determinação/físico do DIP — ver
+// trainingIntensityCap, é o mesmo motivo que impede alguém com pouca
 // determinação de "treinar DIP vários dias"), o grupo inteiro ganha
 // entrosamento entre si, mais rápido que o entrosamento passivo de só jogar
-// junto (ver bumpChemistryForXV) — só que travado pelo elo mais fraco: se
-// um dos quatro está com determinação/físico ruins aquela semana, o
-// entrosamento do grupo rende menos, não só a skill dele.
+// junto (ver bumpChemistryForXV) — só que cada PAR trava no elo mais fraco
+// dos dois. Um jogador pode estar em mais de uma lista (ex.: treina como
+// saltador E como levantador) — divide o ganho entre os papéis, pra não
+// inflar demais.
 function tickGroupTraining() {
-  const roster = getRealRoster(state.myTeamId);
-  if (!roster) return;
+  if (!getRealRoster(state.myTeamId)) return;
   const group = state.trainingGroups && state.trainingGroups.lineout;
   if (!group || !group.active) return;
   const quality = getStaffQuality(state.myTeamId);
 
-  const members = Object.keys(LINEOUT_GROUP_ROLE_SKILL)
-    .map(role => ({role, player: group[role] ? roster.find(p => p.id === group[role]) : null}))
-    .filter(m => m.player);
-  if (members.length < 2) return; // precisa de pelo menos 2 pra fazer sentido treinar em grupo
+  const skillsById = {};
+  Object.entries(LINEOUT_GROUP_ROLE_SKILL).forEach(([role, skillKey]) => {
+    (group[role] || []).forEach(id => {
+      if (!skillsById[id]) skillsById[id] = new Set();
+      skillsById[id].add(skillKey);
+    });
+  });
+  const players = Object.keys(skillsById).map(findTrainablePlayer).filter(Boolean);
+  if (players.length < 2) return; // precisa de pelo menos 2 pra fazer sentido treinar em grupo
 
   const capOf = {};
-  members.forEach(({role, player: p}) => {
+  players.forEach(p => {
     const override = state.playerOverrides[p.id];
     const injuryWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
     if (injuryWeeks) { capOf[p.id] = 0; return; }
@@ -1351,15 +1379,17 @@ function tickGroupTraining() {
     capOf[p.id] = days;
     if (days > 0) {
       const frac = days / MAX_INTENSIVE_DAYS_PER_WEEK;
-      growSkill(p.id, p.skills, LINEOUT_GROUP_ROLE_SKILL[role], 1.6 * quality * frac);
+      const skills = skillsById[p.id];
+      const growthEach = (1.6 * quality * frac) / skills.size;
+      skills.forEach(skillKey => growSkill(p.id, p.skills, skillKey, growthEach));
       const fatigue = (8 + Math.random() * 6) * frac;
       state.playerCondition[p.id] = {condition: Math.max(15, current - fatigue), atDay: currentCalendarDay()};
     }
   });
 
-  for (let i = 0; i < members.length; i++) {
-    for (let j = i + 1; j < members.length; j++) {
-      const a = members[i].player, b = members[j].player;
+  for (let i = 0; i < players.length; i++) {
+    for (let j = i + 1; j < players.length; j++) {
+      const a = players[i], b = players[j];
       const weakest = Math.min(capOf[a.id], capOf[b.id]);
       if (weakest <= 0) continue;
       bumpChemistry(a.id, b.id, 4 * (weakest / MAX_INTENSIVE_DAYS_PER_WEEK));
@@ -2307,32 +2337,46 @@ function renderTrainingFocusHtml() {
 // (ver LINEOUT_GROUP_ROLE_SKILL/tickGroupTraining) e o quarteto ganha
 // entrosamento entre si, que entra no timing do lineout nas partidas (ver
 // computeChemistryBonuses/engine.js).
+// Pool selecionável pro grupo de line-out: todo o plantel principal (forwards,
+// não lesionados) + os forwards das categorias de base M16/M18 (16+ anos) —
+// M14/M15 fica de fora, cedo demais pra treinar com o time principal (ver
+// findTrainablePlayer). Qualquer papel aceita quantos jogadores o técnico
+// quiser (mais de um lançador, vários saltadores etc.).
+function lineoutTrainablePool() {
+  const roster = getRealRoster(state.myTeamId) || [];
+  const fromRoster = roster.filter(p => !p.meta.injuryWeeks && p.group === 'forward');
+  const academy = state.youthAcademy || {};
+  const fromYouth = ['M16', 'M18'].flatMap(cat => (academy[cat] || []).filter(p => p.group === 'forward'));
+  return [...fromRoster, ...fromYouth];
+}
+
 function renderLineoutGroupHtml() {
-  const roster = getRealRoster(state.myTeamId);
-  if (!roster) return '';
-  const group = (state.trainingGroups && state.trainingGroups.lineout) || {hookerId: null, jumperId: null, lifter1Id: null, lifter2Id: null, active: false};
-  const available = roster.filter(p => !p.meta.injuryWeeks);
-  const optionsFor = (filterFn, selectedId) => available
-    .filter(filterFn)
-    .map(p => `<option value="${p.id}" ${selectedId === p.id ? 'selected' : ''}>${escapeHtmlAttr(p.name)}</option>`)
-    .join('');
-  const roleSelect = (role, label, filterFn) => `
-    <div class="skillDetailRow">
-      <span class="skillDetailLabel">${label}</span>
-      <select class="lineoutGroupSelect" data-role="${role}">
-        <option value="">${t('ningunoSeleccionado')}</option>
-        ${optionsFor(filterFn, group[role])}
-      </select>
-    </div>
-  `;
+  if (!getRealRoster(state.myTeamId)) return '';
+  const group = (state.trainingGroups && state.trainingGroups.lineout) || {throwerIds: [], jumperIds: [], lifterIds: [], active: false};
+  const pool = lineoutTrainablePool();
+  const roleChecklist = (role, label) => {
+    const selected = group[role] || [];
+    return `
+      <div class="lineoutGroupRoleCol">
+        <div class="trainingFocusDayLabel">${label} <span class="muted">(${selected.length})</span></div>
+        ${pool.map(p => `
+          <label class="trainingFocusOption trainingTypeOption ${selected.includes(p.id) ? 'selected' : ''}">
+            <input type="checkbox" class="lineoutGroupCheck" data-role="${role}" value="${p.id}" ${selected.includes(p.id) ? 'checked' : ''} />
+            <span class="trainingTypeName">${escapeHtmlAttr(p.name)}${p.meta.youthCategory ? ` <span class="muted">(${p.meta.youthCategory})</span>` : ''}</span>
+          </label>
+        `).join('')}
+      </div>
+    `;
+  };
   return `
     <div class="card">
       <h3>${t('lineoutGroupTitle')}</h3>
       <p class="muted">${t('lineoutGroupHelp')}</p>
-      ${roleSelect('hookerId', t('lineoutGroupHooker'), p => p.posId === 'HK' || canPlay(p, 'HK'))}
-      ${roleSelect('jumperId', t('lineoutGroupJumper'), p => p.posId === 'SL' || canPlay(p, 'SL'))}
-      ${roleSelect('lifter1Id', t('lineoutGroupLifter1'), p => p.group === 'forward')}
-      ${roleSelect('lifter2Id', t('lineoutGroupLifter2'), p => p.group === 'forward')}
+      <div class="trainingFocusGrid">
+        ${roleChecklist('throwerIds', t('lineoutGroupHooker'))}
+        ${roleChecklist('jumperIds', t('lineoutGroupJumper'))}
+        ${roleChecklist('lifterIds', t('lineoutGroupLifter'))}
+      </div>
       <label class="trainingFocusOption trainingTypeOption ${group.active ? 'selected' : ''}" style="margin-top:6px">
         <input type="checkbox" id="lineoutGroupActive" ${group.active ? 'checked' : ''} />
         <span class="trainingTypeName">${t('lineoutGroupActivate')}</span>
@@ -2490,19 +2534,25 @@ function renderTraining() {
     });
   });
 
-  Array.from(document.querySelectorAll('.lineoutGroupSelect')).forEach(sel => {
-    sel.addEventListener('change', () => {
-      state.trainingGroups = state.trainingGroups || {lineout: {hookerId: null, jumperId: null, lifter1Id: null, lifter2Id: null, active: false}};
-      state.trainingGroups.lineout = state.trainingGroups.lineout || {hookerId: null, jumperId: null, lifter1Id: null, lifter2Id: null, active: false};
-      state.trainingGroups.lineout[sel.dataset.role] = sel.value || null;
+  const emptyLineoutGroup = () => ({throwerIds: [], jumperIds: [], lifterIds: [], active: false});
+  Array.from(document.querySelectorAll('.lineoutGroupCheck')).forEach(cb => {
+    cb.addEventListener('change', () => {
+      state.trainingGroups = state.trainingGroups || {lineout: emptyLineoutGroup()};
+      state.trainingGroups.lineout = state.trainingGroups.lineout || emptyLineoutGroup();
+      const role = cb.dataset.role;
+      const arr = state.trainingGroups.lineout[role] || [];
+      state.trainingGroups.lineout[role] = cb.checked
+        ? [...arr, cb.value]
+        : arr.filter(id => id !== cb.value);
       saveState();
+      renderTraining();
     });
   });
   const lineoutActiveCb = document.getElementById('lineoutGroupActive');
   if (lineoutActiveCb) {
     lineoutActiveCb.addEventListener('change', () => {
-      state.trainingGroups = state.trainingGroups || {lineout: {hookerId: null, jumperId: null, lifter1Id: null, lifter2Id: null, active: false}};
-      state.trainingGroups.lineout = state.trainingGroups.lineout || {hookerId: null, jumperId: null, lifter1Id: null, lifter2Id: null, active: false};
+      state.trainingGroups = state.trainingGroups || {lineout: emptyLineoutGroup()};
+      state.trainingGroups.lineout = state.trainingGroups.lineout || emptyLineoutGroup();
       state.trainingGroups.lineout.active = lineoutActiveCb.checked;
       saveState();
       renderTraining();
@@ -3442,14 +3492,25 @@ function renderMatchday() {
     });
     document.getElementById('lineupLoadABtn').addEventListener('click', () => {
       const preset = state.lineupPresets[c.teamId] && state.lineupPresets[c.teamId].A;
-      if (!preset) { alert(t('timeANaoSalvo')); return; }
-      manualSlots = [...preset];
+      // Sem Time A salvo ainda: cai pra melhor escalação automática atual,
+      // igual já é o padrão antes de qualquer edição manual.
+      manualSlots = preset ? [...preset] : slotsFromXV(autoXV);
       renderMatchday();
     });
     document.getElementById('lineupLoadBBtn').addEventListener('click', () => {
       const preset = state.lineupPresets[c.teamId] && state.lineupPresets[c.teamId].B;
-      if (!preset) { alert(t('timeBNaoSalvo')); return; }
-      manualSlots = [...preset];
+      if (preset) {
+        manualSlots = [...preset];
+        renderMatchday();
+        return;
+      }
+      // Sem Time B salvo ainda: em vez de dar erro, já monta um Time B
+      // diferente do Time A na hora — os melhores disponíveis EXCLUINDO quem
+      // já está no Time A — pra nunca cair num "Time B" idêntico/vazio.
+      const primaryIds = new Set(autoXV.map(p => p.id));
+      const altOptions = {...myOptions, excludedIds: new Set([...(myOptions.excludedIds || []), ...primaryIds])};
+      const altXV = squadOf(c.teamId, altOptions);
+      manualSlots = slotsFromXV(altXV);
       renderMatchday();
     });
   }
@@ -3987,6 +4048,7 @@ function finalizeRound() {
   const matches = activeRoundMatches(c);
   const myMatch = matches.find(m => m.home === c.teamId || m.away === c.teamId);
   const roundsElapsedAtPlay = c.roundsElapsed;
+  const progressAtPlay = progressOf(c);
 
   matches.forEach(m => {
     if (m.played) return;
@@ -4047,7 +4109,7 @@ function finalizeRound() {
       // convocações avulsas não contam, não fazem parte do elenco persistente.
       bumpChemistryForXV(pendingMyXV.filter(p => !p.meta.emergencyCallUp));
     }
-    state.lastMatch[key] = {ids: pendingMyXV.map(p => p.id), roundsElapsed: roundsElapsedAtPlay, venue};
+    state.lastMatch[key] = {ids: pendingMyXV.map(p => p.id), roundsElapsed: roundsElapsedAtPlay, progress: progressAtPlay, venue};
   }
 
   afterRoundAdvance(c);
