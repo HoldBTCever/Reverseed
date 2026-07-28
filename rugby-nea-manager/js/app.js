@@ -686,6 +686,9 @@ function crestCode(team) {
 function crestStyle(team) {
   const identity = teamIdentity(team.id);
   if (!identity) return `background:${team.color}`;
+  // Escudo oficial (imagem) sobrepõe o crest CSS de cores/mascote — fundo
+  // branco neutro pra não brigar com a arte do brasão em vez do gradiente.
+  if (identity.logo) return 'background:#fff';
   const colors = identity.colors;
   const bg = colors.length === 1
     ? `background:${colors[0]}`
@@ -697,6 +700,7 @@ function crestStyle(team) {
 }
 function crestContent(team) {
   const identity = teamIdentity(team.id);
+  if (identity && identity.logo) return `<img class="teamCrestImg" src="${identity.logo}" alt="${escapeHtmlAttr(team.name)}" />`;
   if (identity && identity.mascotEmoji) return identity.mascotEmoji;
   if (identity && identity.initials) return identity.initials;
   return crestCode(team);

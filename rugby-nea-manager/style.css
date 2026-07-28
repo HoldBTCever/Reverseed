@@ -129,6 +129,7 @@ h1, h2, h3 { margin-top: 0; }
   display: flex; align-items: center; justify-content: center;
   font-weight: 800; font-size: 18px; color: #fff;
 }
+.teamCrestImg { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .teamName { font-weight: 700; margin-bottom: 6px; }
 .teamStats { font-size: 12px; color: var(--muted); }
 .teamIdentityLine { font-size: 12px; margin-bottom: 6px; }
