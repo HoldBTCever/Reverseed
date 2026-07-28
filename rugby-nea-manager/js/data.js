@@ -273,20 +273,26 @@ export function genTraits(rng, group) {
   return traits;
 }
 
+// Sorteia "Nome Sobrenome" a partir dos bancos de nomes genéricos (rioplatenses),
+// evitando repetir um nome já usado no mesmo lote (usedNames é opcional).
+export function randomName(rng, usedNames) {
+  let name;
+  do {
+    const fn = FIRST_NAMES[Math.floor(rng() * FIRST_NAMES.length)];
+    const ln = LAST_NAMES[Math.floor(rng() * LAST_NAMES.length)];
+    name = `${fn} ${ln}`;
+  } while (usedNames && usedNames.has(name));
+  if (usedNames) usedNames.add(name);
+  return name;
+}
+
 export function generateSquad(team) {
   const rng = mulberry32(seedFromString(team.id));
   const usedNames = new Set();
   const base = (team.attack + team.defense + team.stamina) / 3;
 
   const players = POSITIONS.map((pos, idx) => {
-    let name;
-    do {
-      const fn = FIRST_NAMES[Math.floor(rng() * FIRST_NAMES.length)];
-      const ln = LAST_NAMES[Math.floor(rng() * LAST_NAMES.length)];
-      name = `${fn} ${ln}`;
-    } while (usedNames.has(name));
-    usedNames.add(name);
-
+    const name = randomName(rng, usedNames);
     const profile = SKILL_PROFILES[pos.id];
     const skills = {};
     SKILL_KEYS.forEach(k => {

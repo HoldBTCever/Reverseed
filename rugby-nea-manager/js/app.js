@@ -3,7 +3,7 @@ import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES
 import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
-import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers} from './realSquads.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, createInitialYouthAcademy, advanceYouthAcademy} from './realSquads.js';
 
 // ---- Seleção Paraguay (Los Yacarés) ---------------------------------------
 // Time "virtual" pra amistosos e torneios aleatórios: não disputa nenhuma
@@ -22,7 +22,7 @@ const NATIONAL_TEAMS = [
   {id: 'NT-COL', name: 'Colombia', color: '#FCD116', attack: 65, defense: 64, stamina: 68},
 ];
 
-const SAVE_KEY = 'rugbyNeaSave_v13';
+const SAVE_KEY = 'rugbyNeaSave_v14';
 
 // Clubes menores do Paraguaio (procedurais, sem elenco curado) de onde o
 // Curda pode captar promessas reveladas (ver tickScouting).
@@ -174,6 +174,9 @@ const I18N = {
     captacaoConvidar: 'Invitar',
     captacaoAceitou: '¡{name} aceptó la invitación y se sumó al Curda!',
     captacaoRecusou: '{name} rechazó la invitación — prefirió seguir en el {club}.',
+    baseTitle: 'Categorías de base (Dante Legui)',
+    baseHelp: 'M14, M15, M16 y M18: cada tanto toda la base sube una categoría — quien estaba en M18 se gradúa y se suma directo al plantel principal.',
+    baseFormados: '¡Se graduaron de las categorías de base y se sumaron al plantel principal: {names}!',
     biometria: 'Biometría',
     altura: 'Altura',
     peso: 'Peso',
@@ -376,6 +379,9 @@ const I18N = {
     captacaoConvidar: 'Convidar',
     captacaoAceitou: '{name} aceitou o convite e se juntou ao Curda!',
     captacaoRecusou: '{name} recusou o convite — preferiu continuar no {club}.',
+    baseTitle: 'Categorias de base (Dante Legui)',
+    baseHelp: 'M14, M15, M16 e M18: de vez em quando toda a base sobe uma categoria — quem estava na M18 se forma e vai direto pro plantel principal.',
+    baseFormados: 'Se formaram nas categorias de base e se juntaram ao plantel principal: {names}!',
     biometria: 'Biometria',
     altura: 'Altura',
     peso: 'Peso',
@@ -745,7 +751,8 @@ function newGame(myTeamId) {
     gamePlanPdfs: [], // [{id, name, size, uploadedAt}] — metadados dos PDFs táticos enviados (conteúdo binário fica no IndexedDB, ver pdfStore)
     nationalTeamMatches: [], // histórico de amistosos/torneios da Seleção Paraguay (ver renderSelection)
     scoutingProspects: [], // promessas de clubes menores do Paraguaio disponíveis pra convidar (só time Curda)
-    recruitedPlayers: [], // jogadores captados que aceitaram o convite pra jogar no Curda (fundidos em getRealRoster)
+    recruitedPlayers: [], // jogadores captados/formados que se juntaram ao Curda (fundidos em getRealRoster)
+    youthAcademy: (myTeamId === 'ARG-CUR' || myTeamId === 'PAR-CUR') ? createInitialYouthAcademy() : null, // categorias M14/M15/M16/M18 do Curda, comandadas por Dante Legui
   };
   setRecruitedPlayers(state.recruitedPlayers);
   saveState();
@@ -1080,6 +1087,50 @@ function renderScoutingHtml() {
           </tbody>
         </table></div>
       `}
+    </div>
+  `;
+}
+
+// ---- Categorias de base (M14/M15/M16/M18, Dante Legui) ---------------------
+// A cada rodada finalizada, chance da base inteira "subir" uma categoria —
+// quem estava na M18 se forma e é promovido de vez ao plantel principal do
+// Curda (via recruitedPlayers/setRecruitedPlayers, mesmo mecanismo da
+// captação de promessas), e entra uma nova leva de garotos de 14 anos.
+function tickYouthAcademy() {
+  if (state.myTeamId !== 'ARG-CUR' && state.myTeamId !== 'PAR-CUR') return;
+  if (!state.youthAcademy) state.youthAcademy = createInitialYouthAcademy();
+  if (Math.random() > 0.18) return;
+
+  const {academy, graduates} = advanceYouthAcademy(state.youthAcademy);
+  state.youthAcademy = academy;
+
+  if (graduates.length) {
+    state.recruitedPlayers = state.recruitedPlayers || [];
+    state.recruitedPlayers.push(...graduates);
+    setRecruitedPlayers(state.recruitedPlayers);
+    alert(t('baseFormados', {names: graduates.map(p => p.name).join(', ')}));
+  }
+}
+
+function renderYouthAcademyHtml() {
+  const academy = state.youthAcademy || createInitialYouthAcademy();
+  return `
+    <div class="card">
+      <h3>${t('baseTitle')}</h3>
+      <p class="muted">${t('baseHelp')}</p>
+      <div class="youthGrid">
+        ${YOUTH_CATEGORIES.map(cat => `
+          <div class="youthCategoryCol">
+            <div class="youthCategoryLabel">${cat}</div>
+            ${academy[cat].map(p => `
+              <div class="youthPlayerRow" title="${escapeHtmlAttr(p.name)} — ${p.position}">
+                <span class="youthPlayerName">${escapeHtmlAttr(p.name)}</span>
+                <span class="muted">${p.position.slice(0, 3)} · ${p.rating}</span>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+      </div>
     </div>
   `;
 }
@@ -1646,6 +1697,7 @@ function renderRealSquad() {
   ` : '';
   const isCurda = state.myTeamId === 'ARG-CUR' || state.myTeamId === 'PAR-CUR';
   const scoutingHtml = isCurda ? renderScoutingHtml() : '';
+  const youthHtml = isCurda ? renderYouthAcademyHtml() : '';
 
   content.innerHTML = `
     <h1>${t('elencoTitle', {team: myTeam.name})}</h1>
@@ -1667,6 +1719,7 @@ function renderRealSquad() {
       <tbody>${rows.map(rowHtml).join('')}</tbody></table></div>
     </div>
     ${scoutingHtml}
+    ${youthHtml}
     ${staffHtml}
   `;
 
@@ -2780,6 +2833,7 @@ function finalizeRound() {
   tickInjuries();
   tickTraining();
   tickScouting();
+  tickYouthAcademy();
   if (pendingMyXV && pendingMyXV.length) {
     const venue = myMatch ? venueOf(myMatch, c.teamId) : 'home';
     // Condição/lesão por fadiga só existem pra elencos reais (curados): times

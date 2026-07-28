@@ -3,7 +3,7 @@
 // temos essa informação. Times sem entrada aqui continuam usando
 // generateSquad() normalmente.
 
-import {SKILL_PROFILES, SKILL_LABELS, genBiometrics, genTraits} from './data.js';
+import {SKILL_PROFILES, SKILL_LABELS, genBiometrics, genTraits, randomName} from './data.js';
 
 const SKILL_KEYS = Object.keys(SKILL_LABELS);
 
@@ -287,6 +287,7 @@ const CURDA_STAFF = [
   {role: 'Nutricionista', name: 'Cibils'},
   {role: 'Fisioterapeuta', name: 'Juan Carmona'},
   {role: 'Auxiliar Técnico', name: 'Sebas Bereta', note: 'assume o time B quando NEA e Paraguaio caem no mesmo dia em locais diferentes'},
+  {role: 'Treinador das Categorias de Base', name: 'Dante Legui', note: 'comanda as categorias M18, M16, M15 e M14 do clube'},
 ];
 
 const CURNE_STAFF = [
@@ -376,6 +377,63 @@ function emergencyYouthPlayer(posId) {
     {age: 18, note: 'Promovido às pressas do juvenil (18 anos) por falta de especialistas de primeira línea', emergencyCallUp: true},
   );
   return player;
+}
+
+// ---- Categorias de base do Curda (Dante Legui) -----------------------------
+// M14 -> M15 -> M16 -> M18: quatro categorias, cada uma com seu próprio
+// plantel de garotos gerados proceduralmente. De tempos em tempos (ver
+// tickYouthAcademy em app.js) toda a base "sobe" uma categoria — quem estava
+// na M18 se forma e é promovido ao plantel principal do Curda, e entra uma
+// nova leva de garotos de 14 na base da pirâmide.
+export const YOUTH_CATEGORIES = ['M14', 'M15', 'M16', 'M18'];
+const YOUTH_SQUAD_SIZE = 6;
+const YOUTH_BASE_RANGE = {M14: [28, 40], M15: [34, 46], M16: [42, 56], M18: [50, 66]};
+const YOUTH_POTENTIALS = ['limitado', 'médio', 'alto', 'altíssimo'];
+
+function generateYouthPlayer(category, usedNames) {
+  const posIds = Object.keys(POS_INFO);
+  const posId = posIds[Math.floor(Math.random() * posIds.length)];
+  const [min, max] = YOUTH_BASE_RANGE[category];
+  const base = min + Math.floor(Math.random() * (max - min + 1));
+  const name = randomName(Math.random, usedNames);
+  const potentialRoll = Math.random();
+  const potential = potentialRoll > 0.88 ? YOUTH_POTENTIALS[3] : potentialRoll > 0.6 ? YOUTH_POTENTIALS[2] : potentialRoll > 0.25 ? YOUTH_POTENTIALS[1] : YOUTH_POTENTIALS[0];
+  return mkPlayer(name, posId, base, {}, {
+    age: category,
+    potential,
+    note: `Categoria ${category} do Curda, sob comando de Dante Legui`,
+    youthCategory: category,
+  });
+}
+
+// Plantel inicial das 4 categorias, chamado uma vez ao começar um jogo novo
+// como o Curda.
+export function createInitialYouthAcademy() {
+  const usedNames = new Set();
+  const academy = {};
+  YOUTH_CATEGORIES.forEach(cat => {
+    academy[cat] = Array.from({length: YOUTH_SQUAD_SIZE}, () => generateYouthPlayer(cat, usedNames));
+  });
+  return academy;
+}
+
+// Função pura: recebe o estado atual da academia e devolve a nova academia
+// (cada categoria sobe uma faixa) + a lista de quem se formou na M18 e está
+// pronto pra ser promovido ao plantel principal (quem chama decide o que
+// fazer com eles — ver tickYouthAcademy em app.js).
+export function advanceYouthAcademy(academy) {
+  const usedNames = new Set();
+  const graduates = (academy.M18 || []).map(p => ({
+    ...p,
+    meta: {...p.meta, age: 'jovem', potential: p.meta.potential, youthCategory: undefined, note: `Formado nas categorias de base do Curda sob comando de Dante Legui; promovido ao plantel principal`},
+  }));
+  const next = {
+    M18: academy.M16 || [],
+    M16: academy.M15 || [],
+    M15: academy.M14 || [],
+    M14: Array.from({length: YOUTH_SQUAD_SIZE}, () => generateYouthPlayer('M14', usedNames)),
+  };
+  return {academy: next, graduates};
 }
 
 // Converte a condição física (0-100) num multiplicador de desempenho.

@@ -376,3 +376,20 @@ canvas#pitch {
 .tacticalSystem { color: var(--muted); font-size: 12px; }
 
 .finalScoreSmall { font-size: 20px; font-weight: 800; text-align: center; }
+
+/* Categorias de base (M14/M15/M16/M18) */
+.youthGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.youthCategoryCol {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+}
+.youthCategoryLabel { font-weight: 700; color: var(--accent); margin-bottom: 6px; font-size: 13px; }
+.youthPlayerRow {
+  display: flex; justify-content: space-between; gap: 6px; font-size: 12px; padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+}
+.youthPlayerRow:last-child { border-bottom: none; }
+.youthPlayerName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
