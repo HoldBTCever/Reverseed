@@ -169,14 +169,14 @@ const CURDA_ROSTER = [
   mkPlayer('Luciano Marsal', 'MS', 70),
 
   // Abertura (ordem: Mussi, Dupuy, Orrego, Moratal, Julián, Kirichenko)
-  mkPlayer('Joaquim Mussi', 'FB', 93, {kicking: 90, vision: 88, dropGoal: 80}, {nationalTeam: 'seleção', note: 'melhor fullback do time; também joga de apertura', altPos: ['AP']}, 93),
+  mkPlayer('Joaquim Mussi', 'FB', 93, {kicking: 90, vision: 88, dropGoal: 80}, {nationalTeam: 'seleção', note: 'melhor fullback do time; também joga de apertura', altPos: ['AP']}, 90),
   mkPlayer('Camilo Orrego', 'AP', 76, {kicking: 85, strength: 78}, {note: 'melhor como centro (12/13), mais pesado; chuta bem', altPos: ['CE']}),
   mkPlayer('Benjamín Moratal', 'AP', 68, {}, {note: 'usado como 9 ou 10', altPos: ['MS']}),
   mkPlayer('Julián Díaz', 'FB', 70, {kicking: 78, vision: 72, dropGoal: 60}, {age: 'jovem', potential: 'muito alto', note: 'também joga de apertura', altPos: ['AP']}),
   mkPlayer('Tiago Kirichenko', 'AP', 62, {reception: 82, positioning: 80, speed: 70, pass: 74}, {age: 'jovem', altPos: ['FB']}),
 
   // Centro (ordem: Nacho, Urbieta, Choclo, Orrego, LuizMi, Nico Allo, Argaña, Negro, Joaco, Fabiño, Mario)
-  mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 96}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado; recusa convocações da seleção pra se manter fiel só ao Curda', refusesNationalTeam: true}, 97),
+  mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 96}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado; recusa convocações da seleção pra se manter fiel só ao Curda', refusesNationalTeam: true}, 91),
   mkPlayer('Sebas Urbieta', 'CE', 83, {}, {nationalTeam: 'seleção'}, 83),
   mkPlayer('Gianfranco Parodi', 'WG', 85, {pass: 85, tackle: 82, strength: 70}, {nickname: 'Choclo', nationalTeam: 'seleção', note: 'também joga de centro', altPos: ['CE']}, 78),
   mkPlayer('Luiz Miguel', 'CE', 80, {speed: 95, sidestep: 93, agility: 90}, {nickname: 'LuizMi', note: 'também joga de ponta', altPos: ['WG']}, 66),
