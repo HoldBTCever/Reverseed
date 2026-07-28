@@ -303,6 +303,46 @@ const CURNE_ROSTER = [
   mkPlayer('Thiago Núñez', 'CE', 59, {}, {age: 18}),
 ];
 
+// Elenco do Duendes RC (Torneio do Interior), a partir das duas listas de
+// convocados enviadas pelo usuário: "Duendes Rugby Club" (time titular) e
+// "Duendes Rugby Club Reserva" (time reserva, claramente mais fraco — só
+// nomes e número de camisa, sem outros dados, por isso os titulares usam a
+// numeração 1-15 padrão pra deduzir a posição de cada um). Francisco
+// Angaroni, Ramiro Urban e Juan M(anuel) Narvaja aparecem nas duas listas —
+// tratados como um único jogador cada (o mesmo atleta circula entre os dois
+// times), não duplicados.
+const DUENDES_ROSTER = [
+  // Titulares
+  mkPlayer('Francisco Angaroni', 'PI', 80, {}, {note: 'também aparece na lista do time reserva'}),
+  mkPlayer('Bernardo Lis', 'HK', 78),
+  mkPlayer('Federico Bautista', 'PI', 79),
+  mkPlayer('Pedro Rivas', 'SL', 80),
+  mkPlayer('Ramiro Urban', 'SL', 81, {}, {note: 'também aparece na lista do time reserva'}),
+  mkPlayer('Marcos Simioni', 'AL', 79),
+  mkPlayer('Nicolás Sánchez', 'AL', 85, {}, {captain: true}),
+  mkPlayer('Matías Landi', 'N8', 82),
+  mkPlayer('Juan I. Araujo', 'MS', 78),
+  mkPlayer('Patricio Rodríguez Vidal', 'AP', 83),
+  mkPlayer('Joaquín Brogliati', 'WG', 80),
+  mkPlayer('Guido Chesini', 'CE', 79),
+  mkPlayer('Felipe Roldán', 'CE', 78),
+  mkPlayer('Martín Pellegrino', 'WG', 80),
+  mkPlayer('Juan Manuel Narvaja', 'FB', 84, {}, {note: 'também aparece na lista do time reserva'}),
+  // Time reserva (nível bem abaixo do time titular)
+  mkPlayer('Santiago Ruffinati', 'HK', 62, {}, {note: 'time reserva'}),
+  mkPlayer('Jonathan Moski', 'PI', 60, {}, {note: 'time reserva'}),
+  mkPlayer('Francisco Ibarguren', 'SL', 63, {}, {note: 'time reserva'}),
+  mkPlayer('Nicolás Solans', 'AL', 61, {}, {note: 'time reserva'}),
+  mkPlayer('Jeremías Del Mastro', 'AL', 62, {}, {note: 'time reserva'}),
+  mkPlayer('Franco Discaciatti', 'N8', 64, {}, {note: 'time reserva'}),
+  mkPlayer('Valentín Larrazábal', 'MS', 60, {}, {note: 'time reserva'}),
+  mkPlayer('Giuliano Francescangeli', 'AP', 63, {}, {note: 'time reserva'}),
+  mkPlayer('Santiago Cáceres', 'WG', 61, {}, {note: 'time reserva'}),
+  mkPlayer('Julián Denhoff', 'CE', 60, {}, {note: 'time reserva'}),
+  mkPlayer('Agustín Raparo', 'CE', 66, {}, {captain: true, note: 'capitão do time reserva'}),
+  mkPlayer('Patricio Bullentini', 'WG', 62, {}, {note: 'time reserva'}),
+];
+
 // O Curda é o mesmo clube nas duas ligas (disputa o NEA argentino e o
 // campeonato paraguaio) — mesmo plantel em ambas. O San José também disputa
 // as duas ligas ao mesmo tempo, com o mesmo plantel real dos dois lados.
@@ -312,6 +352,7 @@ const REAL_SQUADS = {
   'ARG-CUR': CURDA_ROSTER,
   'PAR-CUR': CURDA_ROSTER,
   'ARG-SNJ': SANJOSE_ROSTER,
+  'INT-DUE': DUENDES_ROSTER,
   'PAR-SNJ': SANJOSE_ROSTER,
   'ARG-CNE': CURNE_ROSTER,
   'INT-CNE': CURNE_ROSTER,
