@@ -143,7 +143,7 @@ export const LEAGUES = [
   },
   {
     id: 'paraguayo',
-    name: 'Campeonato Paraguaio',
+    name: 'URP',
     country: 'Paraguai',
     // Fase de grupos: os dois melhores de cada grupo avançam às semifinais.
     groups: {

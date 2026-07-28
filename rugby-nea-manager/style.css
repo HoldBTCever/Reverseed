@@ -326,6 +326,20 @@ canvas#pitch {
 .lineupPickBtn:hover { border-color: var(--accent); }
 .lineupPickBtn.selected { border-color: var(--accent); background: rgba(46,204,113,0.1); }
 
+.trainingFocusGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+.trainingFocusDayCol {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+}
+.trainingFocusDayLabel { font-weight: 700; margin-bottom: 8px; font-size: 13px; }
+.trainingFocusCatLabel { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 8px 0 3px; }
+.trainingFocusOption { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 0; cursor: pointer; }
+.trainingFocusOption input:disabled { cursor: not-allowed; }
+.trainingFocusOption input:disabled ~ * { color: var(--muted); }
+
 .dipSelect {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 5px; font-size: 12px; max-width: 220px;
@@ -393,3 +407,29 @@ canvas#pitch {
 }
 .youthPlayerRow:last-child { border-bottom: none; }
 .youthPlayerName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Agenda do mês */
+.agendaHeaderRow, .agendaWeekRow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.agendaHeaderRow { margin-bottom: 6px; }
+.agendaHeaderCell { text-align: center; font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+.agendaWeekRow { margin-bottom: 4px; }
+.agendaCell {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px; min-height: 64px; font-size: 10px;
+}
+.agendaCell.today { border-color: var(--accent); border-width: 2px; }
+.agendaCell.agenda-jogo { background: rgba(46, 204, 113, 0.06); }
+.agendaCellDate { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
+.agendaTrainingBadge { color: var(--muted); font-size: 9px; line-height: 1.3; }
+.agendaMatchBadge {
+  border-left: 3px solid; border-radius: 3px; padding: 2px 4px; margin-top: 2px;
+  font-size: 9px; line-height: 1.3; background: var(--panel);
+}
+.agendaMatchBadge.pending[data-goto-comp] { cursor: pointer; }
+.agendaMatchBadge.pending[data-goto-comp]:hover { background: var(--border); }
+.agendaMatchBadge.played { opacity: 0.75; }
+
+@media (max-width: 640px) {
+  .agendaCell { font-size: 9px; min-height: 56px; padding: 3px; }
+  .agendaHeaderCell { font-size: 9px; }
+}

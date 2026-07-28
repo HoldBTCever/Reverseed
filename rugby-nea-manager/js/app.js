@@ -22,7 +22,7 @@ const NATIONAL_TEAMS = [
   {id: 'NT-COL', name: 'Colombia', color: '#FCD116', attack: 65, defense: 64, stamina: 68},
 ];
 
-const SAVE_KEY = 'rugbyNeaSave_v14';
+const SAVE_KEY = 'rugbyNeaSave_v15';
 
 // Clubes menores do Paraguaio (procedurais, sem elenco curado) de onde o
 // Curda pode captar promessas reveladas (ver tickScouting).
@@ -104,7 +104,7 @@ const I18N = {
     noneClubTraining: 'Ninguno (solo entrenamiento de club)',
     dipHelp: 'Determinación ≥75 habilita entrenamiento individual intensivo: mejora garantizada en el atributo elegido, más rápido que el entrenamiento de club, a costa de mucho más desgaste físico.',
     trainingFocusTitle: 'Foco de entrenamiento de la semana',
-    trainingFocusHelp: 'Elegí en qué atributo el equipo se concentra en cada entrenamiento — el entrenamiento pasivo del plantel prioriza estos atributos (siempre respetando la posición de cada jugador). Dejá en "Libre" para volver al sorteo automático.',
+    trainingFocusHelp: 'Elegí hasta 3 atributos por día de entrenamiento — el entrenamiento pasivo del plantel prioriza esos atributos (siempre respetando la posición de cada jugador). Sin nada marcado, vuelve al sorteo automático.',
     trainSeg: 'Lunes',
     trainTer: 'Martes',
     trainQui: 'Jueves',
@@ -177,6 +177,12 @@ const I18N = {
     baseTitle: 'Categorías de base (Dante Legui)',
     baseHelp: 'M14, M15, M16 y M18: cada tanto toda la base sube una categoría — quien estaba en M18 se gradúa y se suma directo al plantel principal.',
     baseFormados: '¡Se graduaron de las categorías de base y se sumaron al plantel principal: {names}!',
+    agendaBloqueado: 'Jugá primero el partido pendiente de {comp} — las dos competencias siguen la misma agenda semanal.',
+    agendaIrPara: 'Ir a {comp}',
+    navAgenda: 'Agenda',
+    agendaTitle: 'Agenda del mes',
+    agendaHelp: 'Entrenamiento lunes, martes y jueves; partidos los sábados. Hacé clic en un partido pendiente para ir a prepararlo.',
+    agendaTreino: 'Entrenamiento',
     biometria: 'Biometría',
     altura: 'Altura',
     peso: 'Peso',
@@ -309,7 +315,7 @@ const I18N = {
     noneClubTraining: 'Nenhum (só treino de clube)',
     dipHelp: 'Determinação ≥75 libera treino individual intensivo: evolui garantido no atributo escolhido, mais rápido que o treino de clube, à custa de bem mais desgaste físico.',
     trainingFocusTitle: 'Foco de treino da semana',
-    trainingFocusHelp: 'Escolha em qual atributo o time se concentra em cada treino — o treino passivo do plantel prioriza esses atributos (ainda respeitando a posição de cada jogador). Deixe em "Livre" pra voltar ao sorteio automático.',
+    trainingFocusHelp: 'Escolha até 3 atributos por dia de treino — o treino passivo do plantel prioriza esses atributos (ainda respeitando a posição de cada jogador). Sem nada marcado, volta pro sorteio automático.',
     trainSeg: 'Segunda',
     trainTer: 'Terça',
     trainQui: 'Quinta',
@@ -382,6 +388,12 @@ const I18N = {
     baseTitle: 'Categorias de base (Dante Legui)',
     baseHelp: 'M14, M15, M16 e M18: de vez em quando toda a base sobe uma categoria — quem estava na M18 se forma e vai direto pro plantel principal.',
     baseFormados: 'Se formaram nas categorias de base e se juntaram ao plantel principal: {names}!',
+    agendaBloqueado: 'Jogue primeiro a partida pendente do {comp} — as duas competições seguem a mesma agenda semanal.',
+    agendaIrPara: 'Ir pro {comp}',
+    navAgenda: 'Agenda',
+    agendaTitle: 'Agenda do mês',
+    agendaHelp: 'Treino segunda, terça e quinta; jogos aos sábados. Clique num jogo pendente pra ir prepará-lo.',
+    agendaTreino: 'Treino',
     biometria: 'Biometria',
     altura: 'Altura',
     peso: 'Peso',
@@ -485,7 +497,7 @@ function t(key, vars) {
 // só a interface do app).
 const LEAGUE_NAME_ES = {
   nea: 'Campeonato del Nordeste Argentino (NEA)',
-  paraguayo: 'Campeonato Paraguayo',
+  paraguayo: 'URP',
   interior: 'Torneo del Interior',
 };
 const COUNTRY_ES = {
@@ -538,12 +550,14 @@ function setLang(newLang) {
 
 function applyStaticTranslations() {
   const dashboardBtn = mainNav.querySelector('[data-view="dashboard"]');
+  const agendaBtn = mainNav.querySelector('[data-view="agenda"]');
   const standingsBtn = mainNav.querySelector('[data-view="standings"]');
   const fixtureBtn = mainNav.querySelector('[data-view="fixture"]');
   const squadBtn = mainNav.querySelector('[data-view="squad"]');
   const tacticsBtn = mainNav.querySelector('[data-view="tactics"]');
   const selectionBtn = mainNav.querySelector('[data-view="selection"]');
   if (dashboardBtn) dashboardBtn.textContent = t('navPainel');
+  if (agendaBtn) agendaBtn.textContent = t('navAgenda');
   if (standingsBtn) standingsBtn.textContent = t('navTabela');
   if (fixtureBtn) fixtureBtn.textContent = t('navFixture');
   if (squadBtn) squadBtn.textContent = t('navElenco');
@@ -696,7 +710,12 @@ function buildLeagueCompetition(league, teamId) {
     currentRoundIndex = 7;
   }
 
-  return {teamId, league: league.id, stage: 'league', fixture, standings, currentRoundIndex, roundsElapsed: currentRoundIndex, knockoutRounds: []};
+  // roundsElapsedBaseline guarda o ponto de partida (ex.: NEA já entra na 7ª
+  // rodada, com resultados históricos reais pré-carregados) — a trava de
+  // intercalação entre competições (competitionBlockedReason) compara o
+  // AVANÇO desde esse ponto, não o valor absoluto, senão o NEA nasceria
+  // bloqueado por já estar "na frente" antes mesmo do usuário jogar algo.
+  return {teamId, league: league.id, stage: 'league', fixture, standings, currentRoundIndex, roundsElapsed: currentRoundIndex, roundsElapsedBaseline: currentRoundIndex, knockoutRounds: []};
 }
 
 function buildGroupCompetition(league, teamId) {
@@ -712,7 +731,7 @@ function buildGroupCompetition(league, teamId) {
   return {
     teamId, league: league.id, stage: 'groups',
     groupOf, groupFixtures, groupStandings,
-    currentRoundIndex: 0, roundsElapsed: 0, knockoutRounds: [],
+    currentRoundIndex: 0, roundsElapsed: 0, roundsElapsedBaseline: 0, knockoutRounds: [],
   };
 }
 
@@ -746,7 +765,7 @@ function newGame(myTeamId) {
     lineupPresets: {}, // {[teamId]: {A: [15 playerIds ou null], B: [...]}} — escalações salvas (Time A / Time B)
     skillGrowth: {}, // {[playerId]: {skillKey: novoValorAbsoluto}} — evolução de atributos por treino (ver tickTraining)
     dipTraining: {}, // {[playerId]: skillKey} — foco de treino individual intensivo (DIP) escolhido pelo manager
-    trainingFocus: {seg: null, ter: null, qui: null}, // skillKey ou null ("livre") escolhido pelo técnico pra cada dia de treino do clube
+    trainingFocus: {seg: [], ter: [], qui: []}, // até 3 skillKeys escolhidos pelo técnico pra cada dia de treino do clube
     gamePlan: (myTeamId === 'ARG-CUR' || myTeamId === 'PAR-CUR') ? curdaDefaultGamePlan() : defaultGamePlan(), // plano de jogo por zona de campo (ver tela de Tática)
     gamePlanPdfs: [], // [{id, name, size, uploadedAt}] — metadados dos PDFs táticos enviados (conteúdo binário fica no IndexedDB, ver pdfStore)
     nationalTeamMatches: [], // histórico de amistosos/torneios da Seleção Paraguay (ver renderSelection)
@@ -841,6 +860,22 @@ function myMatchThisRound(key) {
 
 function otherCompetitionKey(key) {
   return Object.keys(state.competitions).find(k => k !== key) || null;
+}
+
+// Impede jogar vários jogos seguidos de UMA competição enquanto a outra (pro
+// clube dual) fica parada — as duas rodam na mesma agenda semanal, então
+// roundsElapsed das duas precisa ficar sempre bem próximo (ver clashInfoFor,
+// que já assume "mesmo roundsElapsed = mesma data"). Bloqueia `key` se a
+// outra competição ainda tem jogo pendente E está atrasada em relação a ela.
+function competitionBlockedReason(key) {
+  const otherKey = otherCompetitionKey(key);
+  if (!otherKey) return null;
+  const c = comp(key);
+  const other = comp(otherKey);
+  if (!myMatchThisRound(otherKey)) return null; // outra competição já terminou a temporada, sem trava
+  const progress = x => x.roundsElapsed - (x.roundsElapsedBaseline || 0);
+  if (progress(other) < progress(c)) return otherKey;
+  return null;
 }
 
 // Verifica se a partida que o clube está prestes a jogar em `key` cai na
@@ -969,10 +1004,10 @@ function tickTraining() {
   if (!roster) return;
   const quality = getStaffQuality(state.myTeamId);
   // Foco de treino da semana escolhido pelo técnico pra segunda/terça/quinta
-  // (ver renderTrainingFocusHtml) — dias sem foco definido ("livre") não
-  // entram no pool, então o treino passivo cai pro sorteio livre de sempre
-  // se o técnico não escolheu nada específico pra nenhum dos três dias.
-  const focusPool = Object.values(state.trainingFocus || {}).filter(Boolean);
+  // (até 3 atributos por dia — ver renderTrainingFocusHtml). Dias sem foco
+  // definido não entram no pool, então o treino passivo cai pro sorteio livre
+  // de sempre se o técnico não escolheu nada específico pra nenhum dos três dias.
+  const focusPool = Object.values(state.trainingFocus || {}).flat().filter(Boolean);
   roster.forEach(p => {
     const override = state.playerOverrides[p.id];
     const injuryWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
@@ -1279,6 +1314,7 @@ function render() {
   });
 
   if (currentView === 'dashboard') renderDashboard();
+  else if (currentView === 'agenda') renderAgenda();
   else if (currentView === 'standings') renderStandings();
   else if (currentView === 'fixture') renderFixture();
   else if (currentView === 'squad') renderSquad();
@@ -1360,6 +1396,131 @@ function renderBracketHtml(c) {
   `;
 }
 
+// ---- Agenda do mês (jogos + treino) ---------------------------------------
+// state.calendarDay é "dias desde o início da temporada"; mapeamos pra uma
+// data real só pra ter uma grade de calendário de verdade (nomes de dia da
+// semana/mês via toLocaleDateString). Cada semana de 7 dias segue sempre
+// segunda->domingo: treino às segunda/terça/quinta, jogo aos sábados —
+// mesma convenção já usada no resto do jogo (explicacaoTreino etc.).
+function seasonStartDate() {
+  const d = new Date(2026, 1, 2);
+  const day = d.getDay(); // 0=dom, 1=seg, ...
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day)); // volta pra segunda-feira daquela semana
+  return d;
+}
+
+function dateForOffset(offsetDays) {
+  const d = new Date(seasonStartDate());
+  d.setDate(d.getDate() + offsetDays);
+  return d;
+}
+
+// índice do dia dentro da semana (0=seg ... 6=dom)
+const WEEKDAY_ROLE = ['treino', 'treino', 'livre', 'treino', 'livre', 'jogo', 'livre'];
+const TRAINING_DAY_KEY = {0: 'seg', 1: 'ter', 3: 'qui'};
+
+function trainingFocusForWeekday(d) {
+  const key = TRAINING_DAY_KEY[d];
+  if (!key) return [];
+  return (state.trainingFocus && state.trainingFocus[key]) || [];
+}
+
+// Quantas rodadas dessa competição já são conhecidas (fixture gerado por
+// inteiro na fase de liga/grupos; mata-mata só existe rodada a rodada,
+// conforme é gerada).
+function totalRoundsKnown(c) {
+  if (c.stage === 'league') return c.fixture.length;
+  if (c.stage === 'groups') return Math.max(c.groupFixtures.A.length, c.groupFixtures.B.length);
+  if (c.stage === 'knockout') return c.knockoutRounds.length;
+  return 0;
+}
+
+// A própria partida do clube numa rodada específica (0-indexed), em
+// qualquer estágio da competição — generaliza myMatchThisRound (que só olha
+// a rodada ATUAL) pra poder desenhar o calendário inteiro.
+function myMatchAtRoundIndex(c, idx) {
+  if (c.stage === 'league') {
+    const round = c.fixture[idx];
+    return round ? round.matches.find(m => m.home === c.teamId || m.away === c.teamId) || null : null;
+  }
+  if (c.stage === 'groups') {
+    const g = c.groupOf[c.teamId];
+    const round = c.groupFixtures[g][idx];
+    return round ? round.matches.find(m => m.home === c.teamId || m.away === c.teamId) || null : null;
+  }
+  if (c.stage === 'knockout') {
+    const round = c.knockoutRounds[idx];
+    return round ? round.matches.find(m => m.home === c.teamId || m.away === c.teamId) || null : null;
+  }
+  return null;
+}
+
+function renderAgenda() {
+  const locale = lang === 'es' ? 'es-PY' : 'pt-BR';
+  const todayOffset = state.calendarDay;
+  const currentWeek = Math.floor(todayOffset / 7);
+  const startWeek = Math.max(0, currentWeek - 1);
+  const WEEKS_TO_SHOW = 5;
+  const competitionsForCalendar = Object.entries(state.competitions);
+
+  const weekdayHeaders = Array.from({length: 7}, (_, i) => dateForOffset(i).toLocaleDateString(locale, {weekday: 'short'}));
+
+  const weekRowsHtml = Array.from({length: WEEKS_TO_SHOW}, (_, wi) => {
+    const w = startWeek + wi;
+    const cellsHtml = Array.from({length: 7}, (_, d) => {
+      const offset = w * 7 + d;
+      const date = dateForOffset(offset);
+      const isToday = offset === todayOffset;
+      const role = WEEKDAY_ROLE[d];
+      let extraHtml = '';
+      if (role === 'treino') {
+        const focus = trainingFocusForWeekday(d);
+        extraHtml = `<div class="agendaTrainingBadge">${t('agendaTreino')}${focus.length ? `: ${focus.map(k => skillLabel(k)).join(', ')}` : ''}</div>`;
+      } else if (role === 'jogo') {
+        competitionsForCalendar.forEach(([key, c]) => {
+          if (w >= totalRoundsKnown(c)) return;
+          const m = myMatchAtRoundIndex(c, w);
+          if (!m) return;
+          const oppId = m.home === c.teamId ? m.away : m.home;
+          const opp = teamById[oppId];
+          const isHome = m.home === c.teamId;
+          const resultText = m.played ? `${m.scoreHome}-${m.scoreAway}` : (isHome ? t('home') : t('away'));
+          const pendingBlocked = !m.played && competitionBlockedReason(key);
+          extraHtml += `
+            <div class="agendaMatchBadge ${m.played ? 'played' : 'pending'}" style="border-color:${opp.color}" ${!m.played && !pendingBlocked ? `data-goto-comp="${key}"` : ''}>
+              <b>${competitionLabel(key)}</b> vs ${escapeHtmlAttr(opp.name)} <span class="muted">${resultText}</span>
+            </div>
+          `;
+        });
+      }
+      return `
+        <div class="agendaCell ${isToday ? 'today' : ''} agenda-${role}">
+          <div class="agendaCellDate">${date.getDate()}</div>
+          ${extraHtml}
+        </div>
+      `;
+    }).join('');
+    return `<div class="agendaWeekRow">${cellsHtml}</div>`;
+  }).join('');
+
+  content.innerHTML = `
+    <h1>${t('agendaTitle')}</h1>
+    <p class="muted">${t('agendaHelp')}</p>
+    <div class="card">
+      <div class="agendaHeaderRow">${weekdayHeaders.map(h => `<div class="agendaHeaderCell">${h}</div>`).join('')}</div>
+      ${weekRowsHtml}
+    </div>
+  `;
+
+  Array.from(document.querySelectorAll('[data-goto-comp]')).forEach(el => {
+    el.addEventListener('click', () => {
+      state.activeCompetition = el.dataset.gotoComp;
+      currentView = 'matchday';
+      render();
+    });
+  });
+}
+
 function renderDashboard() {
   const myTeam = teamById[state.myTeamId];
   const keys = Object.keys(state.competitions);
@@ -1371,14 +1532,23 @@ function renderDashboard() {
     const status = competitionStatusLabel(c);
 
     let matchHtml = '';
+    const blockedBy = match ? competitionBlockedReason(key) : null;
     if (match) {
       const oppId = match.home === c.teamId ? match.away : match.home;
       const opp = teamById[oppId];
       const isHome = match.home === c.teamId;
-      matchHtml = `
-        <p><b>${roundName}</b> — ${isHome ? t('home') : t('away')} contra <b>${opp.name}</b></p>
-        <button class="playBtn goMatchdayBtn" data-comp="${key}">${t('prepareMatch')}</button>
-      `;
+      if (blockedBy) {
+        matchHtml = `
+          <p><b>${roundName}</b> — ${isHome ? t('home') : t('away')} contra <b>${opp.name}</b></p>
+          <p class="muted">${t('agendaBloqueado', {comp: competitionLabel(blockedBy)})}</p>
+          <button class="ctrlBtn goMatchdayBtn" data-comp="${blockedBy}">${t('agendaIrPara', {comp: competitionLabel(blockedBy)})}</button>
+        `;
+      } else {
+        matchHtml = `
+          <p><b>${roundName}</b> — ${isHome ? t('home') : t('away')} contra <b>${opp.name}</b></p>
+          <button class="playBtn goMatchdayBtn" data-comp="${key}">${t('prepareMatch')}</button>
+        `;
+      }
     } else if (c.stage === 'knockout') {
       matchHtml = `<p class="muted">${status}</p>`;
     } else {
@@ -1623,31 +1793,38 @@ function sortRowsByPosition(rows) {
 }
 
 // Foco de treino do clube pra segunda/terça/quinta, escolhido pelo técnico:
-// cada dia pode ficar "livre" (sorteio automático, comportamento padrão) ou
-// travado num atributo específico, deixando o treino passivo do plantel
-// (fora do DIP individual) mais direcionado — ver tickTraining.
+// cada dia pode ficar sem nenhum foco (sorteio automático, comportamento
+// padrão) ou travado em até 3 atributos, deixando o treino passivo do
+// plantel (fora do DIP individual) mais direcionado — ver tickTraining.
 function renderTrainingFocusHtml() {
-  const focus = state.trainingFocus || {seg: null, ter: null, qui: null};
+  const focus = state.trainingFocus || {seg: [], ter: [], qui: []};
   const dayLabel = {seg: t('trainSeg'), ter: t('trainTer'), qui: t('trainQui')};
-  const optionsHtml = current => `
-    <option value="">${t('trainLivre')}</option>
-    ${Object.keys(SKILL_CATEGORIES).map(cat => `
-      <optgroup label="${cat[0].toUpperCase()}${cat.slice(1)}">
-        ${SKILL_CATEGORIES[cat].map(k => `<option value="${k}" ${current === k ? 'selected' : ''}>${skillLabel(k)}</option>`).join('')}
-      </optgroup>
-    `).join('')}
-  `;
+  const dayColumnHtml = day => {
+    const selected = focus[day] || [];
+    const optionsHtml = Object.keys(SKILL_CATEGORIES).map(cat => `
+      <div class="trainingFocusCatLabel">${cat[0].toUpperCase()}${cat.slice(1)}</div>
+      ${SKILL_CATEGORIES[cat].map(k => `
+        <label class="trainingFocusOption">
+          <input type="checkbox" class="trainingFocusCheck" data-day="${day}" value="${k}"
+            ${selected.includes(k) ? 'checked' : ''}
+            ${!selected.includes(k) && selected.length >= 3 ? 'disabled' : ''} />
+          ${skillLabel(k)}
+        </label>
+      `).join('')}
+    `).join('');
+    return `
+      <div class="trainingFocusDayCol">
+        <div class="trainingFocusDayLabel">${dayLabel[day]} <span class="muted">(${selected.length}/3)</span></div>
+        ${optionsHtml}
+      </div>
+    `;
+  };
   return `
     <div class="card">
       <h3>${t('trainingFocusTitle')}</h3>
       <p class="muted">${t('trainingFocusHelp')}</p>
-      <div class="lineupEditorGrid">
-        ${['seg', 'ter', 'qui'].map(day => `
-          <div class="lineupSlot">
-            <label>${dayLabel[day]}</label>
-            <select class="trainingFocusSelect" data-day="${day}">${optionsHtml(focus[day])}</select>
-          </div>
-        `).join('')}
+      <div class="trainingFocusGrid">
+        ${['seg', 'ter', 'qui'].map(dayColumnHtml).join('')}
       </div>
     </div>
   `;
@@ -1750,11 +1927,19 @@ function renderRealSquad() {
     });
   });
 
-  Array.from(document.querySelectorAll('.trainingFocusSelect')).forEach(sel => {
-    sel.addEventListener('change', () => {
-      state.trainingFocus = state.trainingFocus || {seg: null, ter: null, qui: null};
-      state.trainingFocus[sel.dataset.day] = sel.value || null;
+  Array.from(document.querySelectorAll('.trainingFocusCheck')).forEach(cb => {
+    cb.addEventListener('change', () => {
+      state.trainingFocus = state.trainingFocus || {seg: [], ter: [], qui: []};
+      const day = cb.dataset.day;
+      const arr = state.trainingFocus[day] || [];
+      if (cb.checked) {
+        if (arr.length >= 3) { cb.checked = false; return; }
+        state.trainingFocus[day] = [...arr, cb.value];
+      } else {
+        state.trainingFocus[day] = arr.filter(k => k !== cb.value);
+      }
       saveState();
+      renderRealSquad();
     });
   });
 
@@ -2414,6 +2599,7 @@ function renderMatchday() {
   const c = comp(key);
   const match = myMatchThisRound(key);
   if (!match) { currentView = 'dashboard'; render(); return; }
+  if (competitionBlockedReason(key)) { currentView = 'dashboard'; render(); return; }
   const oppId = match.home === c.teamId ? match.away : match.home;
   const opp = teamById[oppId];
   const myTeam = teamById[c.teamId];
