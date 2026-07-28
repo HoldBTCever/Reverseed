@@ -90,6 +90,7 @@ const I18N = {
     navTabela: 'Tabla',
     navFixture: 'Fixture',
     navElenco: 'Plantel',
+    navTreino: 'Entrenamiento',
     newGameBtn: 'Nuevo juego',
     newGameBtnTitle: 'Empezar un juego nuevo',
     langToggleBtn: 'Português',
@@ -136,6 +137,7 @@ const I18N = {
     noneClubTraining: 'Ninguno (solo entrenamiento de club)',
     dipHelp: 'Entrenamiento individual intensivo (DIP): mejora garantizada en el atributo elegido, más rápido que el entrenamiento de club, a costa de mucho más desgaste físico. Rinde hasta 3 veces por semana según la determinación y el físico del jugador — con determinación muy baja o muy desgastado, casi no rinde.',
     dipDaysCap: 'Esta semana rinde {days}/{max} veces (determinación y físico actuales).',
+    treinoIndisponivel: 'Este club no tiene plantel curado, así que no hay entrenamiento individual para gestionar.',
     trainingFocusTitle: 'Foco de entrenamiento de la semana',
     trainingFocusHelp: 'Elegí un tipo de entrenamiento por día — cada tipo trabaja varios atributos relacionados a la vez (ej.: "Duelo" mejora decisión, pase, recepción y aceleración juntos), siempre respetando la posición de cada jugador. Sin nada elegido, vuelve al sorteo automático.',
     trainingAutomatico: 'Automático',
@@ -326,6 +328,7 @@ const I18N = {
     navTabela: 'Tabela',
     navFixture: 'Fixture',
     navElenco: 'Elenco',
+    navTreino: 'Treino',
     newGameBtn: 'Novo jogo',
     newGameBtnTitle: 'Começar um novo jogo',
     langToggleBtn: 'Español',
@@ -372,6 +375,7 @@ const I18N = {
     noneClubTraining: 'Nenhum (só treino de clube)',
     dipHelp: 'Treino individual intensivo (DIP): evolui garantido no atributo escolhido, mais rápido que o treino de clube, à custa de bem mais desgaste físico. Rende até 3x por semana conforme a determinação e o físico do jogador — com determinação muito baixa ou muito desgastado, quase não rende.',
     dipDaysCap: 'Essa semana rende {days}/{max} vezes (determinação e físico atuais).',
+    treinoIndisponivel: 'Esse clube não tem plantel curado, então não tem treino individual pra gerenciar.',
     trainingFocusTitle: 'Foco de treino da semana',
     trainingFocusHelp: 'Escolha um tipo de treino por dia — cada tipo trabalha vários atributos relacionados ao mesmo tempo (ex.: "Duelo" evolui decisão, passe, recepção e aceleração juntos), sempre respeitando a posição de cada jogador. Sem nada escolhido, volta pro sorteio automático.',
     trainingAutomatico: 'Automático',
@@ -656,6 +660,7 @@ function applyStaticTranslations() {
   const standingsBtn = mainNav.querySelector('[data-view="standings"]');
   const fixtureBtn = mainNav.querySelector('[data-view="fixture"]');
   const squadBtn = mainNav.querySelector('[data-view="squad"]');
+  const trainingBtn = mainNav.querySelector('[data-view="training"]');
   const tacticsBtn = mainNav.querySelector('[data-view="tactics"]');
   const selectionBtn = mainNav.querySelector('[data-view="selection"]');
   if (dashboardBtn) dashboardBtn.textContent = t('navPainel');
@@ -663,6 +668,7 @@ function applyStaticTranslations() {
   if (standingsBtn) standingsBtn.textContent = t('navTabela');
   if (fixtureBtn) fixtureBtn.textContent = t('navFixture');
   if (squadBtn) squadBtn.textContent = t('navElenco');
+  if (trainingBtn) trainingBtn.textContent = t('navTreino');
   if (tacticsBtn) tacticsBtn.textContent = t('navTatica');
   if (selectionBtn) selectionBtn.textContent = t('navSelecao');
   const newGameBtnEl = document.getElementById('newGameBtn');
@@ -1746,6 +1752,7 @@ function render() {
   else if (currentView === 'standings') renderStandings();
   else if (currentView === 'fixture') renderFixture();
   else if (currentView === 'squad') renderSquad();
+  else if (currentView === 'training') renderTraining();
   else if (currentView === 'tactics') renderTactics();
   else if (currentView === 'selection') renderSelection();
   else if (currentView === 'matchday') renderMatchday();
@@ -2178,8 +2185,9 @@ function altPosHtml(meta) {
 }
 
 // Painel expandido com a nota individual de cada um dos 22 atributos,
-// agrupados por categoria — aberto ao clicar na linha do jogador.
-function skillDetailHtml(p, colspan, dipEnabled) {
+// agrupados por categoria — aberto ao clicar na linha do jogador. O DIP
+// (treino individual intensivo) fica na aba Treinamento, não aqui.
+function skillDetailHtml(p, colspan) {
   const groupHtml = category => `
     <div class="skillDetailGroup">
       <h4>${category[0].toUpperCase()}${category.slice(1)}</h4>
@@ -2191,21 +2199,6 @@ function skillDetailHtml(p, colspan, dipEnabled) {
       `).join('')}
     </div>
   `;
-  const dipDays = trainingIntensityCap(p, p.condition != null ? p.condition : 100);
-  const dipHtml = dipEnabled && p.skills.determination >= 45 ? `
-    <div class="skillDetailGroup">
-      <h4>${t('dipTitle')}</h4>
-      <div class="skillDetailRow">
-        <span class="skillDetailLabel">${t('focusLabel')}</span>
-        <select class="dipSelect" data-player="${p.id}">
-          <option value="">${t('noneClubTraining')}</option>
-          ${SKILL_KEYS.map(k => `<option value="${k}" ${state.dipTraining[p.id] === k ? 'selected' : ''}>${skillLabel(k)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="skillDetailRow"><span class="muted" style="font-size:11px">${t('dipDaysCap', {days: dipDays, max: MAX_INTENSIVE_DAYS_PER_WEEK})}</span></div>
-      <div class="skillDetailRow"><span class="muted" style="font-size:11px">${t('dipHelp')}</span></div>
-    </div>
-  ` : '';
   return `
     <tr class="skillDetailTr">
       <td colspan="${colspan}">
@@ -2217,7 +2210,6 @@ function skillDetailHtml(p, colspan, dipEnabled) {
             <div class="skillDetailRow"><span class="skillDetailLabel">${t('peso')}</span> ${p.weightKg ? `${p.weightKg} kg` : '—'}</div>
             ${p.meta.traits && p.meta.traits.length ? `<div class="skillDetailRow"><span class="skillDetailLabel">${t('traitsLabel')}</span> ${p.meta.traits.map(tr => `${TRAIT_ICON[tr] || '★'} ${traitLabel(tr)}`).join(', ')}</div>` : ''}
           </div>
-          ${dipHtml}
         </div>
       </td>
     </tr>
@@ -2368,7 +2360,7 @@ function renderRealSquad() {
       <td class="posCol">${p.heightCm ? `${p.heightCm}cm/${p.weightKg}kg` : '—'}</td>
       <td class="posCol">${metaBadges(p.meta)}</td>
     </tr>
-    ${skillDetailHtml(p, 10, true)}
+    ${skillDetailHtml(p, 10)}
   `;
   const headHtml = `
     <tr>
@@ -2401,9 +2393,6 @@ function renderRealSquad() {
     <p class="muted">${t('explicacaoCategorias')}</p>
     <p class="muted">${t('explicacaoPrimeiraLinea')}</p>
     <p class="muted">${t('explicacaoCondicao')}</p>
-    <p class="muted">${t('explicacaoTreino')}</p>
-    ${renderTrainingFocusHtml()}
-    ${renderLineoutGroupHtml()}
     <div class="card">
       <div class="squadHeaderRow">
         <h3>${t('plantelCompleto', {n: rows.length})}</h3>
@@ -2437,15 +2426,59 @@ function renderRealSquad() {
     });
   });
 
-  Array.from(document.querySelectorAll('.dipSelect')).forEach(sel => {
-    sel.addEventListener('click', e => e.stopPropagation());
-    sel.addEventListener('change', () => {
-      const pid = sel.dataset.player;
-      if (sel.value) state.dipTraining[pid] = sel.value;
-      else delete state.dipTraining[pid];
-      saveState();
-    });
+  Array.from(document.querySelectorAll('[data-invite]')).forEach(btn => {
+    btn.addEventListener('click', () => inviteProspect(btn.dataset.invite));
   });
+}
+
+// ---- Aba Treinamento: normal (foco por dia), grupos menores (line-out) e
+// individual (DIP), tudo num só lugar em vez de espalhado no Elenco. ------
+function renderDipListHtml() {
+  const roster = getRealRoster(state.myTeamId);
+  if (!roster) return '';
+  const rows = roster
+    .filter(p => !p.meta.injuryWeeks)
+    .map(p => ({...p, condition: currentConditionOf(p)}))
+    .sort((a, b) => b.skills.determination - a.skills.determination);
+  const rowHtml = p => {
+    const days = trainingIntensityCap(p, p.condition);
+    return `
+      <div class="dipListRow">
+        <span class="dipListName">${escapeHtmlAttr(p.name)}</span>
+        <span class="muted dipListMeta" title="${skillLabel('determination')}">${SKILL_SHORT.determination} ${p.skills.determination} · ${Math.round(p.condition)}%</span>
+        <select class="dipSelect" data-player="${p.id}">
+          <option value="">${t('noneClubTraining')}</option>
+          ${SKILL_KEYS.map(k => `<option value="${k}" ${state.dipTraining[p.id] === k ? 'selected' : ''}>${skillLabel(k)}</option>`).join('')}
+        </select>
+        <span class="muted dipListCap">${t('dipDaysCap', {days, max: MAX_INTENSIVE_DAYS_PER_WEEK})}</span>
+      </div>
+    `;
+  };
+  return `
+    <div class="card">
+      <h3>${t('dipTitle')}</h3>
+      <p class="muted">${t('dipHelp')}</p>
+      <div class="dipList">${rows.map(rowHtml).join('')}</div>
+    </div>
+  `;
+}
+
+function renderTraining() {
+  const myTeam = teamById[state.myTeamId];
+  if (!getRealRoster(state.myTeamId)) {
+    content.innerHTML = `
+      <h1>${t('navTreino')} — ${myTeam.name}</h1>
+      <p class="muted">${t('treinoIndisponivel')}</p>
+    `;
+    return;
+  }
+  content.innerHTML = `
+    <h1>${t('navTreino')} — ${myTeam.name}</h1>
+    <p class="muted">${t('explicacaoTreino')}</p>
+    ${renderTrainingFocusHtml()}
+    ${renderLineoutGroupHtml()}
+    ${renderDipListHtml()}
+  `;
 
   Array.from(document.querySelectorAll('.trainingFocusRadio')).forEach(radio => {
     radio.addEventListener('change', () => {
@@ -2453,7 +2486,7 @@ function renderRealSquad() {
       state.trainingFocus = state.trainingFocus || {seg: null, ter: null, qui: null};
       state.trainingFocus[radio.dataset.day] = radio.value || null;
       saveState();
-      renderRealSquad();
+      renderTraining();
     });
   });
 
@@ -2472,12 +2505,17 @@ function renderRealSquad() {
       state.trainingGroups.lineout = state.trainingGroups.lineout || {hookerId: null, jumperId: null, lifter1Id: null, lifter2Id: null, active: false};
       state.trainingGroups.lineout.active = lineoutActiveCb.checked;
       saveState();
-      renderRealSquad();
+      renderTraining();
     });
   }
 
-  Array.from(document.querySelectorAll('[data-invite]')).forEach(btn => {
-    btn.addEventListener('click', () => inviteProspect(btn.dataset.invite));
+  Array.from(document.querySelectorAll('.dipSelect')).forEach(sel => {
+    sel.addEventListener('change', () => {
+      const pid = sel.dataset.player;
+      if (sel.value) state.dipTraining[pid] = sel.value;
+      else delete state.dipTraining[pid];
+      saveState();
+    });
   });
 }
 
