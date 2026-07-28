@@ -178,7 +178,7 @@ export const LEAGUES = [
       team('INT-CNE', 'Curne', '#FFEB3B', 82, 81, 81),
       team('INT-MER', 'Mercedes RC', '#FDD835', 78, 76, 77),
       team('INT-GOY', 'Goya RC', '#1B4332', 77, 75, 76),
-      team('INT-STM', 'Santo Tomé RC', '#1565C0', 70, 69, 72),
+      team('INT-STM', 'Santo Tomé RC', '#C62828', 70, 69, 72),
       team('INT-PLB', 'Paso de los Libres RC', '#6A1B9A', 69, 68, 71),
       team('INT-BVI', 'Bella Vista RC', '#0D3B66', 62, 61, 65),
       team('INT-ITZ', 'Ituzaingó RC', '#2E7D32', 61, 60, 64),
@@ -228,6 +228,8 @@ export const TEAM_IDENTITY = {
   'INT-ITZ': {colors: ['#2E7D32', '#1565C0', '#FBC02D'], mascotEmoji: '🌳', mascotName: {es: 'El Árbol', pt: 'A Árvore'}},
   'INT-CCT': {colors: ['#FFFFFF', '#81D4FA', '#1A1A1A'], mascotEmoji: '🍃', mascotName: {es: 'La Hoja', pt: 'A Folha'}},
   'INT-BVI': {colors: ['#0D3B66', '#FBC02D'], initials: 'CRBV'},
+  'INT-STM': {colors: ['#C62828', '#0D1B4C']},
+  'INT-PLB': {colors: ['#6A1B9A', '#2E7D32']},
 };
 
 export function teamIdentity(teamId) {
