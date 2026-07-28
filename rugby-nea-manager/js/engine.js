@@ -181,7 +181,12 @@ function teamStrength(team, players, tacticKey) {
   };
 }
 
-export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB, gamePlanA, gamePlanB) {
+// resumeState (opcional): retoma a simulação de um ponto no meio da partida
+// em vez de começar do zero (0-0, bola no meio) — usado pra recalcular o
+// "futuro" da partida depois de uma substituição ao vivo, sem redigitar o que
+// já aconteceu. {pos, scoreA, scoreB, cardPenaltyA, cardPenaltyB, redCardA,
+// redCardB, tick} — tick é o último tick já concluído (0 = ainda não começou).
+export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB, gamePlanA, gamePlanB, resumeState) {
   const planA = gamePlanA || defaultGamePlan();
   const planB = gamePlanB || defaultGamePlan();
 
@@ -260,13 +265,16 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
   const sysA = PLAY_SYSTEMS[planA.system] || PLAY_SYSTEMS.ninguno;
   const sysB = PLAY_SYSTEMS[planB.system] || PLAY_SYSTEMS.ninguno;
 
-  let pos = 50; // 0 = try-line de A (perigo p/ A), 100 = try-line de B (perigo p/ B)
-  let scoreA = 0;
-  let scoreB = 0;
-  let cardPenaltyA = 0; // ticks restantes de desvantagem por cartão amarelo
-  let cardPenaltyB = 0;
-  let redCardA = false; // expulso: desvantagem por todo o resto da partida
-  let redCardB = false;
+  // 0 = try-line de A (perigo p/ A), 100 = try-line de B (perigo p/ B). Sem
+  // resumeState começa do zero (bola no meio); com resumeState, retoma
+  // exatamente de onde a partida parou (ver comentário do parâmetro acima).
+  let pos = resumeState ? resumeState.pos : 50;
+  let scoreA = resumeState ? resumeState.scoreA : 0;
+  let scoreB = resumeState ? resumeState.scoreB : 0;
+  let cardPenaltyA = resumeState ? resumeState.cardPenaltyA : 0; // ticks restantes de desvantagem por cartão amarelo
+  let cardPenaltyB = resumeState ? resumeState.cardPenaltyB : 0;
+  let redCardA = resumeState ? resumeState.redCardA : false; // expulso: desvantagem por todo o resto da partida
+  let redCardB = resumeState ? resumeState.redCardB : false;
 
   const ticks = [];
   const log = [];
@@ -275,14 +283,15 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
   const cards = [];
 
   const TOTAL_TICKS = 40; // 2 min por tick = 80 min
+  const startTick = resumeState ? resumeState.tick : 0;
 
   function addLog(minute, text) {
     log.push({minute, text});
   }
 
-  addLog(0, `Comienza el partido en cancha: ${teamA.name} vs ${teamB.name}.`);
+  if (!resumeState) addLog(0, `Comienza el partido en cancha: ${teamA.name} vs ${teamB.name}.`);
 
-  for (let tick = 1; tick <= TOTAL_TICKS; tick++) {
+  for (let tick = startTick + 1; tick <= TOTAL_TICKS; tick++) {
     const minute = tick * 2;
 
     if (tick === 21) {
@@ -488,7 +497,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       eventHandled = true;
     }
 
-    ticks.push({minute, pos, scoreA, scoreB});
+    ticks.push({minute, pos, scoreA, scoreB, cardPenaltyA, cardPenaltyB, redCardA, redCardB});
   }
 
   addLog(80, `Final del partido: ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);

@@ -262,6 +262,13 @@ const I18N = {
     outrasPosicoes: 'Otras posiciones',
     lineupClickHelp: 'Hacé clic en una camiseta del campo para elegir quién juega ahí. Pilar y hooker solo muestran especialistas de esa posición exacta (sin improvisar); las demás posiciones muestran primero quien juega ahí, y abajo el resto del plantel disponible.',
     fecharSeletor: 'Cerrar selector',
+    subsBtnLabel: '🔄 Sustituciones ({used}/{max})',
+    subsPanelTitle: 'Sustituciones ({used}/{max})',
+    subsPickOut: 'Elegí quién sale',
+    subsPickIn: 'Elegí quién entra por {name}',
+    subsNoneLeft: 'Ya usaste las {max} sustituciones disponibles.',
+    subsBankEmpty: 'No hay suplentes disponibles para esa posición.',
+    subChangeLog: 'Cambio en {team}: entra {in}, sale {out}.',
     diaDeJogo: 'Día de partido — {comp} — {round}',
     casaVs: '{home} (local) vs {away} (visitante)',
     mataDesempate: 'Playoffs: en caso de empate, el partido va a tiempo suplementario hasta que salga un ganador.',
@@ -473,6 +480,13 @@ const I18N = {
     outrasPosicoes: 'Outras posições',
     lineupClickHelp: 'Clique numa camisa do campo pra escolher quem joga ali. Pilar e hooker só mostram especialistas daquela posição exata (sem improviso); as demais posições mostram primeiro quem joga ali, e embaixo o resto do plantel disponível.',
     fecharSeletor: 'Fechar seletor',
+    subsBtnLabel: '🔄 Substituições ({used}/{max})',
+    subsPanelTitle: 'Substituições ({used}/{max})',
+    subsPickOut: 'Escolha quem sai',
+    subsPickIn: 'Escolha quem entra no lugar de {name}',
+    subsNoneLeft: 'Você já usou as {max} substituições disponíveis.',
+    subsBankEmpty: 'Não tem reserva disponível pra essa posição.',
+    subChangeLog: 'Substituição no {team}: entra {in}, sai {out}.',
     diaDeJogo: 'Dia de jogo — {comp} — {round}',
     casaVs: '{home} (casa) vs {away} (visitante)',
     mataDesempate: 'Mata-mata: em caso de empate, a partida vai para a prorrogação até sair um vencedor.',
@@ -2796,6 +2810,22 @@ function renderLive() {
   const awaySquad = awayId === c.teamId ? mySquad : squadOf(awayId);
   pendingMyXV = mySquad;
 
+  // Substituições ao vivo: só faz sentido pra times com elenco real (curado),
+  // que têm banco de reservas — times procedurais só têm os 15 gerados. Até
+  // 8 trocas por partida (regra real do rugby); quem sai não volta a entrar.
+  const myRosterReal = !!getRealRoster(c.teamId);
+  const myBench = myRosterReal ? rosterWithStatus(c.teamId, myOptions).filter(p => p.status === 'reserva') : [];
+  const MAX_SUBS = 8;
+  let subsUsed = 0;
+  let subOutSelected = null; // id do titular em campo escolhido pra sair
+  let subsOpen = false;
+  const subbedOffIds = new Set();
+  // Acumula todo mundo que entrou em campo (titulares + quem entrou depois),
+  // pra aplicar desgaste/lesão de pós-jogo em todos eles, não só em quem
+  // terminou a partida — ver finish() mais abaixo.
+  const playedPlayersById = {};
+  mySquad.forEach(p => { playedPlayersById[p.id] = p; });
+
   // O plano de jogo por zona (tela de Tática) só é editável pelo clube
   // gerenciado — o rival entra com um plano de IA escalado pela própria
   // força (ver aiGamePlanFor), pra não ser um adversário tacticamente inerte.
@@ -2842,7 +2872,9 @@ function renderLive() {
         <button class="ctrlBtn" data-speed="2">2x</button>
         <button class="ctrlBtn" data-speed="4">4x</button>
         <button class="ctrlBtn" id="skipBtn">${t('adiantar')}</button>
+        ${myRosterReal ? `<button class="ctrlBtn" id="subsBtn">${t('subsBtnLabel', {used: 0, max: MAX_SUBS})}</button>` : ''}
       </div>
+      <div id="subsPanel" class="subsPanel"></div>
       <div id="ticker"></div>
     </div>
   `;
@@ -2880,7 +2912,7 @@ function renderLive() {
     tacticalBannerEl.classList.add('show');
   }
 
-  const ticks = result.ticks;
+  let ticks = result.ticks;
   const logByMinute = {};
   result.log.forEach(l => {
     if (!logByMinute[l.minute]) logByMinute[l.minute] = [];
@@ -2912,6 +2944,10 @@ function renderLive() {
     playing = false;
     matchAnim = null;
     pendingMatchResult = result;
+    // Desgaste pós-jogo (ver finalizeRound) deve valer pra todo mundo que
+    // entrou em campo, não só quem terminou a partida — inclui quem foi
+    // substituído no meio do jogo.
+    pendingMyXV = Object.values(playedPlayersById);
     showSummary(result, isHome);
   }
 
@@ -2975,6 +3011,144 @@ function renderLive() {
     if (matchAnim) { matchAnim.stopped = true; cancelAnimationFrame(matchAnim.raf); }
     finish();
   });
+
+  // ---- Substituições ao vivo -----------------------------------------------
+  // Troca um titular em campo por alguém do banco no minuto atual e recalcula
+  // o "futuro" da partida a partir dali (resumeState), descartando o trecho
+  // que ainda não tinha sido mostrado ao vivo — o que já rolou no ticker fica
+  // intacto.
+  function currentResumeState() {
+    if (tickIndex === 0) {
+      return {pos: 50, scoreA: 0, scoreB: 0, cardPenaltyA: 0, cardPenaltyB: 0, redCardA: false, redCardB: false, tick: 0};
+    }
+    const last = ticks[tickIndex - 1];
+    return {
+      pos: last.pos, scoreA: last.scoreA, scoreB: last.scoreB,
+      cardPenaltyA: last.cardPenaltyA || 0, cardPenaltyB: last.cardPenaltyB || 0,
+      redCardA: !!last.redCardA, redCardB: !!last.redCardB,
+      tick: tickIndex,
+    };
+  }
+
+  function performSubstitution(outId, inPlayer) {
+    if (subsUsed >= MAX_SUBS) return;
+    const idx = mySquad.findIndex(p => p.id === outId);
+    if (idx === -1) return;
+    const outPlayer = mySquad[idx];
+    const newPlayer = {...inPlayer, posId: outPlayer.posId, position: outPlayer.position, group: outPlayer.group, number: outPlayer.number};
+    mySquad[idx] = newPlayer;
+    playedPlayersById[newPlayer.id] = newPlayer;
+    subsUsed++;
+    subbedOffIds.add(outPlayer.id);
+
+    const resumeState = currentResumeState();
+    const newSegment = simulateMatch(
+      homeTeam, homeSquad, tacticHome,
+      awayTeam, awaySquad, tacticAway,
+      gamePlanHome, gamePlanAway,
+      resumeState,
+    );
+    const currentMinute = resumeState.tick * 2;
+
+    ticks = ticks.slice(0, tickIndex).concat(newSegment.ticks);
+    result.ticks = ticks;
+    Object.keys(logByMinute).forEach(m => { if (Number(m) > currentMinute) delete logByMinute[m]; });
+    newSegment.log.forEach(l => {
+      if (!logByMinute[l.minute]) logByMinute[l.minute] = [];
+      logByMinute[l.minute].push(l.text);
+    });
+    const subTeamName = isHome ? homeTeam.name : awayTeam.name;
+    const subText = t('subChangeLog', {team: subTeamName, in: inPlayer.name, out: outPlayer.name});
+    if (!logByMinute[currentMinute]) logByMinute[currentMinute] = [];
+    logByMinute[currentMinute].push(subText);
+    pushLog(currentMinute, subText);
+
+    result.scorersA = result.scorersA.filter(s => s.minute <= currentMinute).concat(newSegment.scorersA);
+    result.scorersB = result.scorersB.filter(s => s.minute <= currentMinute).concat(newSegment.scorersB);
+    result.cards = result.cards.filter(cd => cd.minute <= currentMinute).concat(newSegment.cards);
+    const lastTick = ticks[ticks.length - 1];
+    if (lastTick) { result.scoreA = lastTick.scoreA; result.scoreB = lastTick.scoreB; }
+    if (newSegment.motm) result.motm = newSegment.motm;
+  }
+
+  const subsBtn = document.getElementById('subsBtn');
+  const subsPanelEl = document.getElementById('subsPanel');
+
+  function updateSubsButtonLabel() {
+    if (subsBtn) subsBtn.textContent = t('subsBtnLabel', {used: subsUsed, max: MAX_SUBS});
+  }
+
+  function renderSubsPanel() {
+    if (!subsPanelEl) return;
+    if (!subsOpen) { subsPanelEl.innerHTML = ''; return; }
+
+    const availableBench = myBench.filter(p => !subbedOffIds.has(p.id) && !mySquad.some(m => m.id === p.id));
+    const onFieldRows = mySquad.map(p => `
+      <button type="button" class="lineupPickBtn ${subOutSelected === p.id ? 'selected' : ''}" data-out="${p.id}">
+        <span>#${p.number} ${escapeHtmlAttr(p.name)}</span>
+        <span class="muted">${p.position}</span>
+      </button>
+    `).join('');
+
+    let pickInHtml = '';
+    if (subOutSelected) {
+      const outPlayer = mySquad.find(p => p.id === subOutSelected);
+      const posId = outPlayer.posId;
+      const specialists = availableBench.filter(p => canPlay(p, posId));
+      const outros = FRONT_ROW_POS.has(posId) ? [] : availableBench.filter(p => !canPlay(p, posId));
+      const benchRow = p => `
+        <button type="button" class="lineupPickBtn" data-in="${p.id}">
+          <span>${escapeHtmlAttr(p.name)}${p.posId !== posId ? ' ⇄' : ''}</span>
+          <span class="muted">${p.rating} · ${Math.round(p.condition)}%</span>
+        </button>
+      `;
+      pickInHtml = `
+        <div class="lineupPickGroupLabel">${t('subsPickIn', {name: outPlayer.name})}</div>
+        ${!specialists.length && !outros.length ? `<p class="muted">${t('subsBankEmpty')}</p>` : ''}
+        ${specialists.length ? `<div class="lineupPickList">${specialists.map(benchRow).join('')}</div>` : ''}
+        ${outros.length ? `<div class="lineupPickGroupLabel">${t('outrasPosicoes')}</div><div class="lineupPickList">${outros.map(benchRow).join('')}</div>` : ''}
+      `;
+    }
+
+    subsPanelEl.innerHTML = `
+      <div class="lineupPicker">
+        <h4>${t('subsPanelTitle', {used: subsUsed, max: MAX_SUBS})}</h4>
+        ${subsUsed >= MAX_SUBS ? `<p class="muted">${t('subsNoneLeft', {max: MAX_SUBS})}</p>` : `
+          <div class="lineupPickGroupLabel">${t('subsPickOut')}</div>
+          <div class="lineupPickList">${onFieldRows}</div>
+        `}
+        ${pickInHtml}
+        <button type="button" class="ctrlBtn" id="closeSubsBtn">${t('fecharSeletor')}</button>
+      </div>
+    `;
+
+    Array.from(subsPanelEl.querySelectorAll('[data-out]')).forEach(btn => {
+      btn.addEventListener('click', () => {
+        subOutSelected = btn.dataset.out === subOutSelected ? null : btn.dataset.out;
+        renderSubsPanel();
+      });
+    });
+    Array.from(subsPanelEl.querySelectorAll('[data-in]')).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const inPlayer = availableBench.find(p => p.id === btn.dataset.in);
+        if (!inPlayer || !subOutSelected) return;
+        performSubstitution(subOutSelected, inPlayer);
+        subOutSelected = null;
+        updateSubsButtonLabel();
+        renderSubsPanel();
+      });
+    });
+    const closeBtn = document.getElementById('closeSubsBtn');
+    if (closeBtn) closeBtn.addEventListener('click', () => { subsOpen = false; subOutSelected = null; renderSubsPanel(); });
+  }
+
+  if (subsBtn) {
+    subsBtn.addEventListener('click', () => {
+      subsOpen = !subsOpen;
+      subOutSelected = null;
+      renderSubsPanel();
+    });
+  }
 }
 
 function showSummary(result, isHome) {
