@@ -133,11 +133,11 @@ export const LEAGUES = [
       team('ARG-ARA', 'Aranduroga', '#C62828', 83, 81, 83),
       team('ARG-REG', 'Regatas', '#1565C0', 67, 66, 69),
       team('ARG-CUR', 'Curda', '#F9A825', 82, 81, 80),
-      team('ARG-SNJ', 'San José', '#6A1B9A', 80, 79, 78),
+      team('ARG-SNJ', 'San José', '#0D47A1', 80, 79, 78),
       team('ARG-SIX', 'Sixty', '#37474F', 64, 63, 66),
       team('ARG-CAP', 'Capri', '#EF6C00', 55, 54, 58),
       team('ARG-CNE', 'Curne', '#00838F', 82, 81, 81),
-      team('ARG-AGU', 'Aguará', '#558B2F', 61, 60, 63),
+      team('ARG-AGU', 'Aguará', '#283593', 61, 60, 63),
       team('ARG-SNP', 'San Patricio', '#AD1457', 79, 78, 80),
     ],
   },
@@ -156,13 +156,13 @@ export const LEAGUES = [
     // escalão; Cristo Rey e Asunción vêm um pouco atrás disso; Villa Hayes e
     // Fernando de la Mora fecham a tabela.
     teams: [
-      team('PAR-SNJ', 'San José', '#D32F2F', 80, 79, 78),
+      team('PAR-SNJ', 'San José', '#0D47A1', 80, 79, 78),
       team('PAR-CUR', 'Curda', '#F9A825', 82, 81, 80),
       team('PAR-STC', 'Santa Clara', '#1976D2', 79, 77, 78),
-      team('PAR-LUQ', 'Luque', '#7B1FA2', 79, 77, 78),
-      team('PAR-ASU', 'Asunción', '#00695C', 71, 70, 73),
+      team('PAR-LUQ', 'Luque', '#FBC02D', 79, 77, 78),
+      team('PAR-ASU', 'Asunción', '#6D4C29', 71, 70, 73),
       team('PAR-VHA', 'Villa Hayes', '#455A64', 66, 64, 70),
-      team('PAR-CRI', 'Cristo Rey', '#8D6E63', 71, 70, 73),
+      team('PAR-CRI', 'Cristo Rey', '#1B5E20', 71, 70, 73),
       team('PAR-FDM', 'Fernando de la Mora', '#C2185B', 65, 63, 69),
     ],
   },
@@ -193,6 +193,28 @@ const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 
 export function getTeam(id) {
   return teamById[id];
+}
+
+// Identidade de clube: cores duplas (a `color` do time já é a primeira delas),
+// mascote e apelido popular — só documentados pros clubes que o usuário
+// confirmou; os demais seguem só com a cor única (`team.color`) que já
+// tinham, sem crest de duas cores nem mascote/apelido inventados. Curda e San
+// José entram duas vezes (ARG-* e PAR-*) porque disputam duas ligas com o
+// MESMO clube/plantel — a identidade tem que ser idêntica nas duas.
+export const TEAM_IDENTITY = {
+  'ARG-CUR': {colors: ['#F9A825', '#1A1A1A'], mascotEmoji: '🦉', mascotName: {es: 'La Lechuza', pt: 'A Coruja'}, nickname: {es: 'El Tractor Amarillo', pt: 'O Trator Amarelo'}},
+  'PAR-CUR': {colors: ['#F9A825', '#1A1A1A'], mascotEmoji: '🦉', mascotName: {es: 'La Lechuza', pt: 'A Coruja'}, nickname: {es: 'El Tractor Amarillo', pt: 'O Trator Amarelo'}},
+  'ARG-AGU': {colors: ['#283593', '#1A1A1A']},
+  'ARG-SNJ': {colors: ['#0D47A1', '#FFFFFF']},
+  'PAR-SNJ': {colors: ['#0D47A1', '#FFFFFF']},
+  'PAR-ASU': {colors: ['#6D4C29', '#F9A825']},
+  'PAR-CRI': {colors: ['#1B5E20', '#1A1A1A']},
+  'PAR-STC': {colors: ['#1976D2', '#1A1A1A']},
+  'PAR-LUQ': {colors: ['#FBC02D', '#6D4C29']},
+};
+
+export function teamIdentity(teamId) {
+  return TEAM_IDENTITY[teamId] || null;
 }
 
 export function leagueOfTeam(teamId) {

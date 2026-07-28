@@ -1,4 +1,4 @@
-import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS} from './data.js';
+import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS, teamIdentity} from './data.js';
 import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, zoneForPos, defaultGamePlan} from './engine.js';
 import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
@@ -623,6 +623,35 @@ function applyStaticTranslations() {
 const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
 function crestCode(team) {
   return team.id.slice(-3);
+}
+
+// Identidade de clube (cores duplas, mascote, apelido — ver TEAM_IDENTITY em
+// data.js): crest de duas cores em diagonal via CSS puro (sem imagem/arte
+// nova) e mascote em emoji no lugar do código de 3 letras quando existe.
+function crestStyle(team) {
+  const identity = teamIdentity(team.id);
+  if (!identity) return `background:${team.color}`;
+  return `background:linear-gradient(135deg, ${identity.colors[0]} 50%, ${identity.colors[1]} 50%)`;
+}
+function crestContent(team) {
+  const identity = teamIdentity(team.id);
+  return identity && identity.mascotEmoji ? identity.mascotEmoji : crestCode(team);
+}
+// Linha com apelido/mascote do clube (quando documentado) pra mostrar junto
+// do nome do time — ex.: "El Tractor Amarillo" · 🦉 La Lechuza.
+function teamIdentityLine(team) {
+  const identity = teamIdentity(team.id);
+  if (!identity) return '';
+  const parts = [];
+  if (identity.nickname) {
+    const nick = identity.nickname[lang] || identity.nickname.es;
+    parts.push(`«${escapeHtmlAttr(nick)}»`);
+  }
+  if (identity.mascotName) {
+    const mascot = identity.mascotName[lang] || identity.mascotName.es;
+    parts.push(`${identity.mascotEmoji || ''} ${escapeHtmlAttr(mascot)}`.trim());
+  }
+  return parts.length ? `<div class="teamIdentityLine muted">${parts.join(' · ')}</div>` : '';
 }
 const squadCache = {};
 function squadOf(teamId, options) {
@@ -1392,8 +1421,9 @@ function renderTeamSelect() {
       card.className = 'teamCard';
       const dual = getDualPartner(team.id);
       card.innerHTML = `
-        <div class="teamCrest" style="background:${team.color}">${crestCode(team)}</div>
+        <div class="teamCrest" style="${crestStyle(team)}">${crestContent(team)}</div>
         <div class="teamName">${team.name}</div>
+        ${teamIdentityLine(team)}
         <div class="teamStats">${t('statsLine', {a: team.attack, d: team.defense, s: team.stamina})}</div>
         ${dual ? `<div class="teamStats muted">${t('dualLeague')}</div>` : ''}
       `;
@@ -1614,7 +1644,13 @@ function renderDashboard() {
   }).join('');
 
   content.innerHTML = `
-    <h1>${t('dashboardTitle', {team: myTeam.name})}</h1>
+    <div class="dashboardHeaderRow">
+      <div class="teamCrest dashboardCrest" style="${crestStyle(myTeam)}">${crestContent(myTeam)}</div>
+      <div>
+        <h1>${t('dashboardTitle', {team: myTeam.name})}</h1>
+        ${teamIdentityLine(myTeam)}
+      </div>
+    </div>
     ${keys.length > 1 ? `<p class="muted">${t('dashboardDualNote', {team: myTeam.name})}</p>` : ''}
     ${cardsHtml}
   `;
@@ -2445,12 +2481,12 @@ function renderNationalFriendlyLive(opponent) {
   content.innerHTML = `
     <div id="matchWrap">
       <div id="scoreboard">
-        <div class="side"><span class="crestSmall" style="background:${PARAGUAY_TEAM.color}">${crestCode(PARAGUAY_TEAM)}</span>${PARAGUAY_TEAM.name}</div>
+        <div class="side"><span class="crestSmall" style="${crestStyle(PARAGUAY_TEAM)}">${crestContent(PARAGUAY_TEAM)}</span>${PARAGUAY_TEAM.name}</div>
         <div class="center">
           <div class="clock" id="clockEl">0'</div>
           <div class="scoreNum"><span id="scoreHomeEl">0</span> - <span id="scoreAwayEl">0</span></div>
         </div>
-        <div class="side">${opponent.name}<span class="crestSmall" style="background:${opponent.color}">${crestCode(opponent)}</span></div>
+        <div class="side">${opponent.name}<span class="crestSmall" style="${crestStyle(opponent)}">${crestContent(opponent)}</span></div>
       </div>
       <canvas id="pitch"></canvas>
       <div id="matchControls">
@@ -2865,12 +2901,12 @@ function renderLive() {
   content.innerHTML = `
     <div id="matchWrap">
       <div id="scoreboard">
-        <div class="side"><span class="crestSmall" style="background:${homeTeam.color}">${crestCode(homeTeam)}</span>${homeTeam.name}</div>
+        <div class="side"><span class="crestSmall" style="${crestStyle(homeTeam)}">${crestContent(homeTeam)}</span>${homeTeam.name}</div>
         <div class="center">
           <div class="clock" id="clockEl">0'</div>
           <div class="scoreNum"><span id="scoreHomeEl">0</span> - <span id="scoreAwayEl">0</span></div>
         </div>
-        <div class="side">${awayTeam.name}<span class="crestSmall" style="background:${awayTeam.color}">${crestCode(awayTeam)}</span></div>
+        <div class="side">${awayTeam.name}<span class="crestSmall" style="${crestStyle(awayTeam)}">${crestContent(awayTeam)}</span></div>
       </div>
       <div id="tacticalBanner" class="tacticalBanner"></div>
       <canvas id="pitch"></canvas>
@@ -2914,7 +2950,7 @@ function renderLive() {
     const systemLabel = info.system !== 'ninguno' ? ` <span class="tacticalSystem">· ${t('sistema_' + info.system).split(' — ')[0]}</span>` : '';
     tacticalBannerEl.style.borderColor = ZONE_COLORS[info.zoneKey];
     tacticalBannerEl.innerHTML = `
-      <span class="crestSmall" style="background:${info.team.color}">${crestCode(info.team)}</span>
+      <span class="crestSmall" style="${crestStyle(info.team)}">${crestContent(info.team)}</span>
       <b>${zoneLabel}</b> — ${styleLabel}${info.code ? ` · <span class="tacticalCode">${escapeHtmlAttr(info.code)}</span>` : ''}${systemLabel}
     `;
     tacticalBannerEl.classList.add('show');

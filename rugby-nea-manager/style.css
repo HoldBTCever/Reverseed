@@ -113,6 +113,11 @@ h1, h2, h3 { margin-top: 0; }
 }
 .teamName { font-weight: 700; margin-bottom: 6px; }
 .teamStats { font-size: 12px; color: var(--muted); }
+.teamIdentityLine { font-size: 12px; margin-bottom: 6px; }
+
+.dashboardHeaderRow { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+.dashboardHeaderRow h1 { margin-bottom: 2px; }
+.dashboardCrest { margin: 0; flex-shrink: 0; }
 
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 7px 8px; text-align: center; border-bottom: 1px solid var(--border); }
