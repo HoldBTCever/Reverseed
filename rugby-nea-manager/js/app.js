@@ -3,7 +3,7 @@ import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES
 import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
-import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, YOUTH_CATEGORY_TOTAL_SIZE, createInitialYouthAcademy, advanceYouthAcademy} from './realSquads.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, YOUTH_CATEGORY_TOTAL_SIZE, createInitialYouthAcademy, advanceYouthAcademy, effectiveOverallAt} from './realSquads.js';
 
 // ---- Seleção Paraguay (Los Yacarés) ---------------------------------------
 // Time "virtual" pra amistosos e torneios aleatórios: não disputa nenhuma
@@ -2358,7 +2358,7 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor, bench) {
     const playerRow = p => `
       <button type="button" class="lineupPickBtn ${p.id === currentId ? 'selected' : ''}" data-pick="${p.id}">
         <span>${escapeHtmlAttr(p.name)}${p.posId !== posId ? ' ⇄' : ''}</span>
-        <span class="muted">${p.rating} · ${Math.round(p.condition)}%</span>
+        <span class="muted">${effectiveOverallAt(p, posId)} · ${Math.round(p.condition)}%</span>
       </button>
     `;
     pickerHtml = `
@@ -3466,7 +3466,7 @@ function renderLive() {
     const specialists = free.filter(p => canPlay(p, posId));
     const pool = specialists.length ? specialists : (FRONT_ROW_POS.has(posId) ? [] : free);
     if (!pool.length) return null;
-    return pool.reduce((best, p) => (p.rating > best.rating ? p : best), pool[0]);
+    return pool.reduce((best, p) => (effectiveOverallAt(p, posId) > effectiveOverallAt(best, posId) ? p : best), pool[0]);
   }
 
   const pendingMedicalReturns = []; // {side, tempPlayerId, originalPlayer, returnAtTick, kind}
@@ -3568,7 +3568,7 @@ function renderLive() {
       const benchRow = p => `
         <button type="button" class="lineupPickBtn" data-in="${p.id}">
           <span>${escapeHtmlAttr(p.name)}${p.posId !== posId ? ' ⇄' : ''}</span>
-          <span class="muted">${p.rating} · ${Math.round(p.condition)}%</span>
+          <span class="muted">${effectiveOverallAt(p, posId)} · ${Math.round(p.condition)}%</span>
         </button>
       `;
       pickInHtml = `
