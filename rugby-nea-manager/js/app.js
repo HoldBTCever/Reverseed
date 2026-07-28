@@ -5,7 +5,7 @@ import {generateFixture, initialStandings, applyResult, sortedStandings, firstKn
 import {NEA_SEED_MATCHES} from './seedNea.js';
 import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier} from './realSquads.js';
 
-const SAVE_KEY = 'rugbyNeaSave_v8';
+const SAVE_KEY = 'rugbyNeaSave_v9';
 
 // ---- Idioma (i18n) --------------------------------------------------------
 // Espanhol paraguaio é o idioma padrão do app; português fica disponível
@@ -60,6 +60,12 @@ const I18N = {
     focusLabel: 'Foco',
     noneClubTraining: 'Ninguno (solo entrenamiento de club)',
     dipHelp: 'Determinación ≥75 habilita entrenamiento individual intensivo: mejora garantizada en el atributo elegido, más rápido que el entrenamiento de club, a costa de mucho más desgaste físico.',
+    trainingFocusTitle: 'Foco de entrenamiento de la semana',
+    trainingFocusHelp: 'Elegí en qué atributo el equipo se concentra en cada entrenamiento — el entrenamiento pasivo del plantel prioriza estos atributos (siempre respetando la posición de cada jugador). Dejá en "Libre" para volver al sorteo automático.',
+    trainSeg: 'Lunes',
+    trainTer: 'Martes',
+    trainQui: 'Jueves',
+    trainLivre: 'Libre (automático)',
     biometria: 'Biometría',
     altura: 'Altura',
     peso: 'Peso',
@@ -189,6 +195,12 @@ const I18N = {
     focusLabel: 'Foco',
     noneClubTraining: 'Nenhum (só treino de clube)',
     dipHelp: 'Determinação ≥75 libera treino individual intensivo: evolui garantido no atributo escolhido, mais rápido que o treino de clube, à custa de bem mais desgaste físico.',
+    trainingFocusTitle: 'Foco de treino da semana',
+    trainingFocusHelp: 'Escolha em qual atributo o time se concentra em cada treino — o treino passivo do plantel prioriza esses atributos (ainda respeitando a posição de cada jogador). Deixe em "Livre" pra voltar ao sorteio automático.',
+    trainSeg: 'Segunda',
+    trainTer: 'Terça',
+    trainQui: 'Quinta',
+    trainLivre: 'Livre (automático)',
     biometria: 'Biometria',
     altura: 'Altura',
     peso: 'Peso',
@@ -495,6 +507,7 @@ function newGame(myTeamId) {
     lineupPresets: {}, // {[teamId]: {A: [15 playerIds ou null], B: [...]}} — escalações salvas (Time A / Time B)
     skillGrowth: {}, // {[playerId]: {skillKey: novoValorAbsoluto}} — evolução de atributos por treino (ver tickTraining)
     dipTraining: {}, // {[playerId]: skillKey} — foco de treino individual intensivo (DIP) escolhido pelo manager
+    trainingFocus: {seg: null, ter: null, qui: null}, // skillKey ou null ("livre") escolhido pelo técnico pra cada dia de treino do clube
   };
   saveState();
   render();
@@ -680,16 +693,21 @@ function growSkill(playerId, baseSkills, key, amount) {
 }
 
 // Sorteia uma skill pra evoluir no treino de clube, com mais chance nas
-// skills que definem a posição do jogador (peso do SKILL_PROFILES).
-function weightedRandomSkill(posId) {
+// skills que definem a posição do jogador (peso do SKILL_PROFILES). Se `pool`
+// for dado (foco de treino escolhido pelo técnico pra segunda/terça/quinta),
+// sorteia só entre essas skills, ainda pesado pela posição — cai pro sorteio
+// livre entre todas as skills se o pool estiver vazio ou não fizer sentido
+// pra posição do jogador (peso zero em todas as opções do foco).
+function weightedRandomSkill(posId, pool) {
   const profile = SKILL_PROFILES[posId];
-  const totalWeight = SKILL_KEYS.reduce((sum, k) => sum + profile[k], 0);
+  const keys = (pool && pool.length && pool.some(k => profile[k] > 0)) ? pool : SKILL_KEYS;
+  const totalWeight = keys.reduce((sum, k) => sum + profile[k], 0);
   let roll = Math.random() * totalWeight;
-  for (const k of SKILL_KEYS) {
+  for (const k of keys) {
     roll -= profile[k];
     if (roll <= 0) return k;
   }
-  return SKILL_KEYS[SKILL_KEYS.length - 1];
+  return keys[keys.length - 1];
 }
 
 // Treino do clube: segunda, terça e quinta, uma vez por rodada finalizada.
@@ -704,6 +722,11 @@ function tickTraining() {
   const roster = getRealRoster(state.myTeamId);
   if (!roster) return;
   const quality = getStaffQuality(state.myTeamId);
+  // Foco de treino da semana escolhido pelo técnico pra segunda/terça/quinta
+  // (ver renderTrainingFocusHtml) — dias sem foco definido ("livre") não
+  // entram no pool, então o treino passivo cai pro sorteio livre de sempre
+  // se o técnico não escolheu nada específico pra nenhum dos três dias.
+  const focusPool = Object.values(state.trainingFocus || {}).filter(Boolean);
   roster.forEach(p => {
     const override = state.playerOverrides[p.id];
     const injuryWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
@@ -718,7 +741,7 @@ function tickTraining() {
     } else {
       fatigue = 3 + Math.random() * 5;
       if (Math.random() < 0.3 * quality) {
-        growSkill(p.id, p.skills, weightedRandomSkill(p.posId), Math.max(1, Math.round(quality)));
+        growSkill(p.id, p.skills, weightedRandomSkill(p.posId, focusPool), Math.max(1, Math.round(quality)));
       }
     }
     const current = currentConditionOf(p);
@@ -1211,6 +1234,37 @@ function sortRowsByPosition(rows) {
   });
 }
 
+// Foco de treino do clube pra segunda/terça/quinta, escolhido pelo técnico:
+// cada dia pode ficar "livre" (sorteio automático, comportamento padrão) ou
+// travado num atributo específico, deixando o treino passivo do plantel
+// (fora do DIP individual) mais direcionado — ver tickTraining.
+function renderTrainingFocusHtml() {
+  const focus = state.trainingFocus || {seg: null, ter: null, qui: null};
+  const dayLabel = {seg: t('trainSeg'), ter: t('trainTer'), qui: t('trainQui')};
+  const optionsHtml = current => `
+    <option value="">${t('trainLivre')}</option>
+    ${Object.keys(SKILL_CATEGORIES).map(cat => `
+      <optgroup label="${cat[0].toUpperCase()}${cat.slice(1)}">
+        ${SKILL_CATEGORIES[cat].map(k => `<option value="${k}" ${current === k ? 'selected' : ''}>${skillLabel(k)}</option>`).join('')}
+      </optgroup>
+    `).join('')}
+  `;
+  return `
+    <div class="card">
+      <h3>${t('trainingFocusTitle')}</h3>
+      <p class="muted">${t('trainingFocusHelp')}</p>
+      <div class="lineupEditorGrid">
+        ${['seg', 'ter', 'qui'].map(day => `
+          <div class="lineupSlot">
+            <label>${dayLabel[day]}</label>
+            <select class="trainingFocusSelect" data-day="${day}">${optionsHtml(focus[day])}</select>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function renderRealSquad() {
   const myOptions = {conditionOf: currentConditionOf, metaOverrides: state.playerOverrides, skillOverrides: state.skillGrowth};
   let rows = rosterWithStatus(state.myTeamId, myOptions);
@@ -1261,6 +1315,7 @@ function renderRealSquad() {
     <p class="muted">${t('explicacaoPrimeiraLinea')}</p>
     <p class="muted">${t('explicacaoCondicao')}</p>
     <p class="muted">${t('explicacaoTreino')}</p>
+    ${renderTrainingFocusHtml()}
     <div class="card">
       <div class="squadHeaderRow">
         <h3>${t('plantelCompleto', {n: rows.length})}</h3>
@@ -1298,6 +1353,14 @@ function renderRealSquad() {
       const pid = sel.dataset.player;
       if (sel.value) state.dipTraining[pid] = sel.value;
       else delete state.dipTraining[pid];
+      saveState();
+    });
+  });
+
+  Array.from(document.querySelectorAll('.trainingFocusSelect')).forEach(sel => {
+    sel.addEventListener('change', () => {
+      state.trainingFocus = state.trainingFocus || {seg: null, ter: null, qui: null};
+      state.trainingFocus[sel.dataset.day] = sel.value || null;
       saveState();
     });
   });
