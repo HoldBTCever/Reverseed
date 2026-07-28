@@ -81,7 +81,7 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
-export {TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, zoneForPos, defaultGamePlan};
+export {TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, zoneForPos, defaultGamePlan, pickLineoutUnit};
 
 function rand(min, max) {
   return Math.random() * (max - min) + min;
@@ -150,6 +150,16 @@ function shoulderPenalty(player) {
 
 function avgOf(players, fn) {
   return players.length ? players.reduce((s, p) => s + fn(p), 0) / players.length : 0;
+}
+
+// Bônus de entrosamento (chemistry) do time gerenciado, calculado em app.js a
+// partir de quanto os jogadores já jogaram/treinaram juntos (ver
+// bumpChemistryForXV/tickGroupTraining) e injetado como meta.teamLineoutChemistry/
+// meta.teamScrumChemistry em todo o elenco antes da simulação — times sem
+// esse dado (rivais procedurais) simplesmente não têm bônus nenhum. Melhora
+// o TIMING de quem já treinou/jogou junto, não a sorte crua do lance.
+function chemistryBonus(player, key) {
+  return (player.meta && typeof player.meta[key] === 'number') ? player.meta[key] : 0;
 }
 
 // Escolhe o trio que decide o lineout: o hooker que lança, o segunda-línea
@@ -263,8 +273,9 @@ function scrumTeamBaseScore(players, rivalAvgWeight) {
   const feedQuality = scrumHalf ? scrumHalf.skills.pass * 0.10 + scrumHalf.skills.positioning * 0.08 : 0;
   const flankerCall = flankers.length ? (avgOf(flankers, p => p.skills.leadership) * 0.08 + avgOf(flankers, p => p.skills.discipline) * 0.08) : 0;
   const shoulderHit = forwards.reduce((s, p) => s + shoulderPenalty(p), 0) * 2;
+  const chemistryEdge = forwards.length ? chemistryBonus(forwards[0], 'teamScrumChemistry') : 0;
 
-  return scrumTechAvg * 0.75 + weightEdge + locksHeightEdge + coordination + hookQuality + feedQuality + flankerCall - shoulderHit;
+  return scrumTechAvg * 0.75 + weightEdge + locksHeightEdge + coordination + hookQuality + feedQuality + flankerCall + chemistryEdge - shoulderHit;
 }
 
 // resumeState (opcional): retoma a simulação de um ponto no meio da partida
@@ -483,7 +494,8 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
       const throwQuality = lineoutThrowerScore(throwUnit.thrower, !throwingA, throwerBonus) * 0.5
         + lineoutJumperScore(throwUnit.jumper) * 0.35
-        + lineoutLifterScore(throwUnit.lifters) * 0.15;
+        + lineoutLifterScore(throwUnit.lifters) * 0.15
+        + chemistryBonus(throwUnit.thrower, 'teamLineoutChemistry');
       const contestQuality = (lineoutJumperScore(rivalUnit.jumper) + jumperBonus) * 0.75
         + lineoutLifterScore(rivalUnit.lifters) * 0.25;
 

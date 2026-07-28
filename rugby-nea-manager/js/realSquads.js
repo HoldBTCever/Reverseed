@@ -187,7 +187,7 @@ const CURDA_ROSTER = [
 
   // Wing (ordem: Facu Paiva, LuizMi, Choclo, Micmacher, King, Lewis, Inge, Vic Torres, Fabiño)
   mkPlayer('Facundo Paiva', 'WG', 91, {speed: 92}, {nationalTeam: 'seleção', note: 'um dos melhores jogadores do Curda'}),
-  mkPlayer('Benjamín Micmacher', 'WG', 76, {vision: 80, speed: 85, agility: 88}, {note: 'inteligente, rápido e ágil'}, 76),
+  {...mkPlayer('Benjamín Micmacher', 'WG', 76, {vision: 80, speed: 85, agility: 88}, {age: 19, note: 'inteligente, rápido e ágil'}, 76), weightKg: 81, heightCm: 178},
   mkPlayer('Juan King', 'WG', 80, {speed: 88, tackle: 82, stamina: 85, kicking: 32, vision: 35, positioning: 35, reception: 55}, {note: 'ótima disposição, velocidade e tackles, não desiste da jogada', altPos: ['FB']}, 73),
   mkPlayer('Luis Guanes', 'WG', 78, {}, {nickname: 'Lewis'}, 70),
   mkPlayer('Christian Daniel', 'WG', 64, {}, {nickname: 'Inge'}),
