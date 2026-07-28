@@ -8,7 +8,51 @@ const TACTICS = {
   defensivo: {attackMod: 0.90, defenseMod: 1.12, label: 'Defensivo'},
 };
 
-export {TACTICS};
+// ---- Plano de jogo por zona de campo ---------------------------------------
+// Reflete o "tablero de mando territorial" que clubes de verdade usam pra
+// orientar a equipe conforme a bola entra em cada trecho do campo: perto da
+// própria try-line (vermelha) prioriza sair jogando com segurança; passada a
+// própria 22 (laranja) busca ganhar terreno e transferir pressão; no campo de
+// ataque (verde) impõe os forwards; nos 22m finais (dourada) joga físico e
+// direto pro ingoal. Cada zona tem um estilo (afeta ataque/defesa/quiebre/erro
+// de mão só quando a bola está nela) e um "código" — grito de identificação da
+// jogada, só decorativo/visual.
+const ZONE_KEYS = ['red', 'orange', 'green', 'yellow'];
+
+const ZONE_STYLES = {
+  chute: {attackMod: 0.94, defenseMod: 1.06, breakMod: 0.82, errorMod: 0.88, label: 'Saída pelo chute'},
+  equilibrado: {attackMod: 1.0, defenseMod: 1.0, breakMod: 1.0, errorMod: 1.0, label: 'Equilibrado'},
+  forwards: {attackMod: 1.08, defenseMod: 0.95, breakMod: 1.22, errorMod: 1.14, label: 'Forwards / jogo corrido'},
+};
+
+// pos: 0 = try-line do time A, 100 = try-line do time B (ver simulateMatch).
+// "side" é de qual time estamos olhando a zona: as zonas de B são o espelho
+// das de A (perto de 100 = zona vermelha — própria try-line — de B).
+function zoneForPos(pos, side) {
+  const p = side === 'B' ? 100 - pos : pos;
+  if (p <= 22) return 'red';
+  if (p <= 50) return 'orange';
+  if (p <= 78) return 'green';
+  return 'yellow';
+}
+
+function defaultGamePlan() {
+  return {
+    zones: {
+      red: {style: 'equilibrado', code: ''},
+      orange: {style: 'equilibrado', code: ''},
+      green: {style: 'equilibrado', code: ''},
+      yellow: {style: 'equilibrado', code: ''},
+    },
+    pillars: {disciplina: 50, posse: 50, fisicalidade: 50},
+  };
+}
+
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+
+export {TACTICS, ZONE_KEYS, ZONE_STYLES, zoneForPos, defaultGamePlan};
 
 function rand(min, max) {
   return Math.random() * (max - min) + min;
@@ -109,7 +153,10 @@ function teamStrength(team, players, tacticKey) {
   };
 }
 
-export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB) {
+export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB, gamePlanA, gamePlanB) {
+  const planA = gamePlanA || defaultGamePlan();
+  const planB = gamePlanB || defaultGamePlan();
+
   const sA = teamStrength(teamA, playersA, tacticA);
   const sB = teamStrength(teamB, playersB, tacticB);
 
@@ -140,17 +187,36 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
   const turnoverForwardA = bestByGroup(playersA, 'turnover', 'forward');
   const turnoverForwardB = bestByGroup(playersB, 'turnover', 'forward');
-  const turnoverChanceA = turnoverChance(turnoverForwardA.skills.turnover);
-  const turnoverChanceB = turnoverChance(turnoverForwardB.skills.turnover);
+  let turnoverChanceA = turnoverChance(turnoverForwardA.skills.turnover);
+  let turnoverChanceB = turnoverChance(turnoverForwardB.skills.turnover);
 
   // Disciplina reduz a chance de cartão (tanto amarelo quanto vermelho).
   const disciplineAvgA = teamSkillAvg(playersA, 'discipline');
   const disciplineAvgB = teamSkillAvg(playersB, 'discipline');
   const disciplineFactor = avg => Math.max(0.4, Math.min(1.1, 1.3 - avg / 100));
-  const yellowChanceA = 0.012 * disciplineFactor(disciplineAvgA);
-  const yellowChanceB = 0.012 * disciplineFactor(disciplineAvgB);
-  const redChanceA = 0.0025 * disciplineFactor(disciplineAvgA);
-  const redChanceB = 0.0025 * disciplineFactor(disciplineAvgB);
+  let yellowChanceA = 0.012 * disciplineFactor(disciplineAvgA);
+  let yellowChanceB = 0.012 * disciplineFactor(disciplineAvgB);
+  let redChanceA = 0.0025 * disciplineFactor(disciplineAvgA);
+  let redChanceB = 0.0025 * disciplineFactor(disciplineAvgB);
+
+  // Pilares do plano de jogo: modificadores fixos pra partida inteira (não
+  // dependem de zona). Disciplina de zona reduz cartões; posse e controle
+  // reduz erro de mão próprio e a chance do rival roubar a bola no tackle;
+  // fisicalidade absoluta aumenta a chance de quiebre de línea do time.
+  const disciplinaGuardA = clamp(1 - (planA.pillars.disciplina - 50) * 0.006, 0.5, 1.3);
+  const disciplinaGuardB = clamp(1 - (planB.pillars.disciplina - 50) * 0.006, 0.5, 1.3);
+  yellowChanceA *= disciplinaGuardA; redChanceA *= disciplinaGuardA;
+  yellowChanceB *= disciplinaGuardB; redChanceB *= disciplinaGuardB;
+
+  const posseGuardA = clamp(1 - (planA.pillars.posse - 50) * 0.005, 0.6, 1.4);
+  const posseGuardB = clamp(1 - (planB.pillars.posse - 50) * 0.005, 0.6, 1.4);
+  const handlingErrorBaseA = handlingErrorA * posseGuardA;
+  const handlingErrorBaseB = handlingErrorB * posseGuardB;
+  turnoverChanceB *= posseGuardA; // boa posse do A dificulta o roubo de bola do B
+  turnoverChanceA *= posseGuardB;
+
+  const fisicalidadeFactorA = clamp(1 + (planA.pillars.fisicalidade - 50) * 0.004, 0.7, 1.4);
+  const fisicalidadeFactorB = clamp(1 + (planB.pillars.fisicalidade - 50) * 0.004, 0.7, 1.4);
 
   let pos = 50; // 0 = try-line de A (perigo p/ A), 100 = try-line de B (perigo p/ B)
   let scoreA = 0;
@@ -187,19 +253,28 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     const fatigueA = inMatchFatigueFactor(tick, staminaAvgA);
     const fatigueB = inMatchFatigueFactor(tick, staminaAvgB);
 
-    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA;
-    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA;
-    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB;
-    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB;
+    // Zona de campo em que a bola está agora, do ponto de vista de cada
+    // time (espelhadas — ver zoneForPos) — define qual estilo do plano de
+    // jogo de cada equipe está em vigor neste instante.
+    const zoneA = zoneForPos(pos, 'A');
+    const zoneB = zoneForPos(pos, 'B');
+    const styleA = ZONE_STYLES[planA.zones[zoneA].style] || ZONE_STYLES.equilibrado;
+    const styleB = ZONE_STYLES[planB.zones[zoneB].style] || ZONE_STYLES.equilibrado;
+
+    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.attackMod;
+    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.defenseMod;
+    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.attackMod;
+    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.defenseMod;
 
     let push = ((effAttackA - effDefenseB) - (effAttackB - effDefenseA)) * 0.14;
     push += rand(-9, 9);
 
     let eventHandled = false;
 
-    // Quiebre de línea, más probable con líneas rápidas (y menos con líneas lentas)
-    const breakChanceA = breakChance(paceA);
-    const breakChanceB = breakChance(paceB);
+    // Quiebre de línea, más probable con líneas rápidas (y menos con líneas
+    // lentas) — o estilo/fisicalidade da zona ativa também pesa.
+    const breakChanceA = breakChance(paceA) * styleA.breakMod * fisicalidadeFactorA;
+    const breakChanceB = breakChance(paceB) * styleB.breakMod * fisicalidadeFactorB;
     if (Math.random() < breakChanceA) {
       push += rand(15, 26);
       addLog(minute, `¡${fastestBackA.name} rompe la línea con velocidad y avanza para ${teamA.name}!`);
@@ -223,8 +298,8 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     // Error de manos: concentrado en el 9 y el 10, que son quienes más tocan la
     // pelota. El cansancio (fatigueA/B < 1 en el segundo tiempo) suma más
     // errores de mano, reflejando peores decisiones con el cuerpo pesado.
-    const handlingErrorA_eff = handlingErrorA + (1 - fatigueA) * 0.20;
-    const handlingErrorB_eff = handlingErrorB + (1 - fatigueB) * 0.20;
+    const handlingErrorA_eff = handlingErrorBaseA * styleA.errorMod + (1 - fatigueA) * 0.20;
+    const handlingErrorB_eff = handlingErrorBaseB * styleB.errorMod + (1 - fatigueB) * 0.20;
     if (!eventHandled && push > 0 && Math.random() < handlingErrorA_eff) {
       const culprit = pickHandlingCulprit(scrumHalfA, flyHalfA);
       addLog(minute, `Knock-on de ${teamA.name}: a ${culprit.name} se le escapa la pelota en el pase.`);

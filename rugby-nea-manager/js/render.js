@@ -1,6 +1,18 @@
 // Renderização da quadra 2D (campo de rugby completo) e animação da partida ao vivo,
 // além da escalação visual (campo estático com as camisas em formação).
 
+import {zoneForPos} from './engine.js';
+
+// Cores das 4 zonas táticas, no mesmo espírito do "tablero de mando
+// territorial" real (vermelho perto da própria try-line, dourado nos 22m
+// finais de ataque).
+const ZONE_RIBBON_COLORS = {
+  red: '#c0392b',
+  orange: '#d68a2c',
+  green: '#1f7a43',
+  yellow: '#c9a227',
+};
+
 // As 15 posições da numeração tradicional do rugby, com onde cada uma se
 // posiciona em relação à bola (profundidade) e à largura do campo (y).
 // "tight" = forwards de contato direto (pilares, hooker, segunda linha);
@@ -29,11 +41,13 @@ const TIGHT_DEPTH = {attack: 8, defense: 8};
 const LOOSE_DEPTH = {attack: 13, defense: 11};
 
 export class MatchRenderer {
-  constructor(canvas, teamA, teamB) {
+  constructor(canvas, teamA, teamB, gamePlanA, gamePlanB) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.teamA = teamA;
     this.teamB = teamB;
+    this.gamePlanA = gamePlanA || null;
+    this.gamePlanB = gamePlanB || null;
     this.dots = this.makeDots();
     this.currentPos = 50;
     this.jitterSeed = 0;
@@ -208,8 +222,56 @@ export class MatchRenderer {
     return marginX + (pos / 100) * fieldW;
   }
 
+  // Fita colorida com as 4 zonas táticas do plano de jogo (mesmas faixas do
+  // "tablero de mando territorial" real), com uma seta marcando onde a bola
+  // está agora — deixa visível, quadro a quadro, em qual zona a tática de
+  // cada time está em vigor.
+  drawZoneRibbon(pos) {
+    const {ctx, fieldGeom} = this;
+    const {marginX, fieldW, marginY} = fieldGeom;
+    const y = marginY - 14;
+    const h = 6;
+    const bounds = [0, 0.22, 0.50, 0.78, 1];
+    const keys = ['red', 'orange', 'green', 'yellow'];
+    keys.forEach((k, i) => {
+      const x0 = marginX + fieldW * bounds[i];
+      const x1 = marginX + fieldW * bounds[i + 1];
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = ZONE_RIBBON_COLORS[k];
+      ctx.fillRect(x0, y, x1 - x0, h);
+    });
+    ctx.globalAlpha = 1;
+
+    const x = this.posToX(pos);
+    ctx.beginPath();
+    ctx.moveTo(x, y + h + 3);
+    ctx.lineTo(x - 5, y - 3);
+    ctx.lineTo(x + 5, y - 3);
+    ctx.closePath();
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+  }
+
+  // Info da zona/tática em vigor pro time que está com a iniciativa do jogo
+  // agora (attackingTeam) — usado pelo app pra montar o aviso tático (banner)
+  // acima do campo, com o código de comunicação daquela zona.
+  getActiveZoneInfo(pos) {
+    const isA = this.attackingTeam === 'A';
+    const team = isA ? this.teamA : this.teamB;
+    const plan = isA ? this.gamePlanA : this.gamePlanB;
+    const zoneKey = zoneForPos(pos, this.attackingTeam);
+    const zoneConf = plan && plan.zones ? plan.zones[zoneKey] : null;
+    return {
+      team,
+      zoneKey,
+      style: zoneConf ? zoneConf.style : 'equilibrado',
+      code: zoneConf ? zoneConf.code : '',
+    };
+  }
+
   draw(pos, scoreA, scoreB, minute) {
     this.drawPitch();
+    this.drawZoneRibbon(pos);
     const {ctx, fieldGeom} = this;
     const centerY = fieldGeom.centerY;
     const x = this.posToX(pos);

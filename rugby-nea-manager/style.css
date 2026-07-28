@@ -307,3 +307,44 @@ canvas#pitch {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 5px; font-size: 12px; max-width: 220px;
 }
+
+/* Tela de Tática: plano de jogo por zona + pilares + PDFs */
+.zoneGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.zoneCard {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px; display: flex; flex-direction: column; gap: 6px;
+}
+.zoneCard h3 { margin: 0 0 4px; font-size: 14px; }
+.zoneFieldLabel { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.zoneStyleSelect, .zoneCodeInput {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px; font-size: 12px; width: 100%;
+}
+.pillarRow { margin-bottom: 12px; }
+.pillarRow label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+.pillarVal { color: var(--accent); font-weight: 700; }
+.pillarSlider { width: 100%; }
+.tacticaBtnRow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.pdfList { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.pdfRow {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
+}
+.pdfName { flex: 1; min-width: 140px; font-size: 13px; }
+#pdfUploadInput { color: var(--text); font-size: 13px; }
+
+/* Faixa tática (banner) acima da quadra na partida ao vivo */
+.tacticalBanner {
+  display: none;
+  align-items: center; gap: 8px;
+  background: var(--panel-2); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  border-radius: 8px; padding: 8px 12px; font-size: 13px;
+}
+.tacticalBanner.show { display: flex; }
+.tacticalBanner .crestSmall { width: 22px; height: 22px; border-radius: 50%; display:flex; align-items:center; justify-content:center; font-size: 9px; font-weight: 800; color:#fff; flex-shrink: 0; }
+.tacticalCode { font-weight: 800; letter-spacing: 0.03em; color: var(--accent); }

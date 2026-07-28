@@ -1,11 +1,28 @@
 import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS} from './data.js';
-import {simulateMatch, TACTICS} from './engine.js';
+import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, zoneForPos, defaultGamePlan} from './engine.js';
 import {MatchRenderer, renderFormationHtml} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
 import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier} from './realSquads.js';
 
-const SAVE_KEY = 'rugbyNeaSave_v9';
+const SAVE_KEY = 'rugbyNeaSave_v10';
+
+// Plano de jogo padrão do Curda, extraído do "Tablero de Mando Territorial:
+// Curda vs Taraguy" (documento real usado pelo clube). Serve de ponto de
+// partida quando o manager assume o Curda; pode ser editado livremente na
+// tela de Tática. Times sem plano configurado jogam com defaultGamePlan()
+// (equilibrado em toda zona, sem efeito).
+function curdaDefaultGamePlan() {
+  return {
+    zones: {
+      red: {style: 'chute', code: 'AVIÓN'},
+      orange: {style: 'equilibrado', code: 'PASTO/BOMBA'},
+      green: {style: 'forwards', code: 'BURRO'},
+      yellow: {style: 'forwards', code: 'SUDAFRICA'},
+    },
+    pillars: {disciplina: 75, posse: 75, fisicalidade: 85},
+  };
+}
 
 // ---- Idioma (i18n) --------------------------------------------------------
 // Espanhol paraguaio é o idioma padrão do app; português fica disponível
@@ -66,6 +83,34 @@ const I18N = {
     trainTer: 'Martes',
     trainQui: 'Jueves',
     trainLivre: 'Libre (automático)',
+    navTatica: 'Táctica',
+    taticaTitle: 'Táctica — {team}',
+    taticaHelp: 'Definí el plan de juego por zona del campo, igual que el "tablero de mando territorial" que usan los clubes de verdad: cada zona tiene un estilo propio, que se aplica en la simulación en vivo (y se ve en la franja de colores arriba de la cancha, con el código de la jugada activa).',
+    zonaVermelha: 'Zona Roja (0-22 propia)',
+    zonaLaranja: 'Zona Naranja (22-50)',
+    zonaVerde: 'Zona Verde (50-22 rival)',
+    zonaDourada: 'Zona Dorada (22-Ingoal)',
+    estiloDeJogo: 'Estilo de juego',
+    codigoComunicacao: 'Código de comunicación',
+    codigoPlaceholder: 'ej: AVIÓN',
+    estiloChute: 'Salida por el pie',
+    estiloEquilibrado: 'Equilibrado',
+    estiloForwards: 'Forwards / juego corrido',
+    pilaresTitle: 'Pilares de identidad',
+    pilaresHelp: 'Modificadores fijos para todo el partido, sin importar la zona.',
+    pilar_disciplina: 'Disciplina de zona',
+    pilar_posse: 'Posesión y control',
+    pilar_fisicalidade: 'Fisicalidad absoluta',
+    resetarPlano: 'Restablecer a equilibrado',
+    carregarPlanoCurda: 'Cargar plan del Tablero de Mando (Curda)',
+    pdfUploadTitle: 'Enviar prancheta táctica en PDF',
+    pdfUploadHelp: 'Subí el PDF que te llega antes de cada partido. El archivo queda guardado acá como referencia — para que el equipo "se ajuste" a la nueva estrategia, actualizá manualmente el estilo/código de cada zona arriba según lo que diga el documento (todavía no hay lectura automática del contenido del PDF).',
+    pdfListaVazia: 'Todavía no subiste ninguna prancheta.',
+    verPdf: 'Ver PDF',
+    removerPdf: 'Eliminar',
+    pdfTipoInvalido: 'Ese archivo no es un PDF.',
+    pdfErroSalvar: 'No se pudo guardar el PDF en este navegador.',
+    pdfNaoEncontrado: 'No se encontró el archivo guardado.',
     biometria: 'Biometría',
     altura: 'Altura',
     peso: 'Peso',
@@ -201,6 +246,34 @@ const I18N = {
     trainTer: 'Terça',
     trainQui: 'Quinta',
     trainLivre: 'Livre (automático)',
+    navTatica: 'Tática',
+    taticaTitle: 'Tática — {team}',
+    taticaHelp: 'Defina o plano de jogo por zona do campo, igual ao "tablero de mando territorial" que os clubes de verdade usam: cada zona tem um estilo próprio, aplicado na simulação ao vivo (e visível na faixa colorida acima do campo, com o código da jogada em vigor).',
+    zonaVermelha: 'Zona Vermelha (0-22 própria)',
+    zonaLaranja: 'Zona Laranja (22-50)',
+    zonaVerde: 'Zona Verde (50-22 rival)',
+    zonaDourada: 'Zona Dourada (22-Ingoal)',
+    estiloDeJogo: 'Estilo de jogo',
+    codigoComunicacao: 'Código de comunicação',
+    codigoPlaceholder: 'ex: AVIÃO',
+    estiloChute: 'Saída pelo chute',
+    estiloEquilibrado: 'Equilibrado',
+    estiloForwards: 'Forwards / jogo corrido',
+    pilaresTitle: 'Pilares de identidade',
+    pilaresHelp: 'Modificadores fixos pra partida inteira, independente da zona.',
+    pilar_disciplina: 'Disciplina de zona',
+    pilar_posse: 'Posse e controle',
+    pilar_fisicalidade: 'Fisicalidade absoluta',
+    resetarPlano: 'Resetar pra equilibrado',
+    carregarPlanoCurda: 'Carregar plano do Tablero de Mando (Curda)',
+    pdfUploadTitle: 'Enviar prancheta tática em PDF',
+    pdfUploadHelp: 'Suba o PDF que chega antes de cada partida. O arquivo fica guardado aqui como referência — pra o time "se ajustar" à nova estratégia, atualize manualmente o estilo/código de cada zona acima conforme o documento (ainda não há leitura automática do conteúdo do PDF).',
+    pdfListaVazia: 'Você ainda não enviou nenhuma prancheta.',
+    verPdf: 'Ver PDF',
+    removerPdf: 'Remover',
+    pdfTipoInvalido: 'Esse arquivo não é um PDF.',
+    pdfErroSalvar: 'Não foi possível salvar o PDF neste navegador.',
+    pdfNaoEncontrado: 'Arquivo salvo não encontrado.',
     biometria: 'Biometria',
     altura: 'Altura',
     peso: 'Peso',
@@ -358,10 +431,12 @@ function applyStaticTranslations() {
   const standingsBtn = mainNav.querySelector('[data-view="standings"]');
   const fixtureBtn = mainNav.querySelector('[data-view="fixture"]');
   const squadBtn = mainNav.querySelector('[data-view="squad"]');
+  const tacticsBtn = mainNav.querySelector('[data-view="tactics"]');
   if (dashboardBtn) dashboardBtn.textContent = t('navPainel');
   if (standingsBtn) standingsBtn.textContent = t('navTabela');
   if (fixtureBtn) fixtureBtn.textContent = t('navFixture');
   if (squadBtn) squadBtn.textContent = t('navElenco');
+  if (tacticsBtn) tacticsBtn.textContent = t('navTatica');
   const newGameBtnEl = document.getElementById('newGameBtn');
   newGameBtnEl.textContent = t('newGameBtn');
   newGameBtnEl.title = t('newGameBtnTitle');
@@ -424,6 +499,57 @@ function loadState() {
   } catch (e) {
     return null;
   }
+}
+
+// ---- Armazenamento dos PDFs táticos (IndexedDB) ----------------------------
+// PDFs de "prancheta tática" que o técnico envia pro time podem ter vários MB
+// — grande demais pra guardar em base64 no localStorage (junto do save,
+// arriscando estourar a cota do navegador). Guardamos o Blob no IndexedDB e
+// só a metadata (nome, tamanho, data) fica no save normal, em state.gamePlanPdfs.
+const PDF_DB_NAME = 'rugbyNeaTacticalPdfs';
+const PDF_STORE = 'pdfs';
+
+function openPdfDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(PDF_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(PDF_STORE)) {
+        req.result.createObjectStore(PDF_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function savePdfBlob(id, blob) {
+  const db = await openPdfDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PDF_STORE, 'readwrite');
+    tx.objectStore(PDF_STORE).put(blob, id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function loadPdfBlob(id) {
+  const db = await openPdfDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PDF_STORE, 'readonly');
+    const req = tx.objectStore(PDF_STORE).get(id);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function deletePdfBlob(id) {
+  const db = await openPdfDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PDF_STORE, 'readwrite');
+    tx.objectStore(PDF_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 function saveState() {
@@ -508,6 +634,8 @@ function newGame(myTeamId) {
     skillGrowth: {}, // {[playerId]: {skillKey: novoValorAbsoluto}} — evolução de atributos por treino (ver tickTraining)
     dipTraining: {}, // {[playerId]: skillKey} — foco de treino individual intensivo (DIP) escolhido pelo manager
     trainingFocus: {seg: null, ter: null, qui: null}, // skillKey ou null ("livre") escolhido pelo técnico pra cada dia de treino do clube
+    gamePlan: (myTeamId === 'ARG-CUR' || myTeamId === 'PAR-CUR') ? curdaDefaultGamePlan() : defaultGamePlan(), // plano de jogo por zona de campo (ver tela de Tática)
+    gamePlanPdfs: [], // [{id, name, size, uploadedAt}] — metadados dos PDFs táticos enviados (conteúdo binário fica no IndexedDB, ver pdfStore)
   };
   saveState();
   render();
@@ -896,6 +1024,7 @@ function render() {
   else if (currentView === 'standings') renderStandings();
   else if (currentView === 'fixture') renderFixture();
   else if (currentView === 'squad') renderSquad();
+  else if (currentView === 'tactics') renderTactics();
   else if (currentView === 'matchday') renderMatchday();
   else if (currentView === 'live') renderLive();
 }
@@ -1541,6 +1670,147 @@ function renderLineupEditorHtml(teamId, myOptions) {
   `;
 }
 
+// ---- Tela de Tática: plano de jogo por zona + upload de PDFs -------------
+function escapeHtmlAttr(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]));
+}
+
+const ZONE_COLORS = {red: '#c0392b', orange: '#d68a2c', green: '#1f7a43', yellow: '#c9a227'};
+const ZONE_LABEL_KEY = {red: 'zonaVermelha', orange: 'zonaLaranja', green: 'zonaVerde', yellow: 'zonaDourada'};
+const ZONE_STYLE_LABEL_KEY = {chute: 'estiloChute', equilibrado: 'estiloEquilibrado', forwards: 'estiloForwards'};
+
+function ensureGamePlan() {
+  if (!state.gamePlan) state.gamePlan = defaultGamePlan();
+  if (!state.gamePlanPdfs) state.gamePlanPdfs = [];
+  return state.gamePlan;
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function renderTactics() {
+  const plan = ensureGamePlan();
+  const myTeam = teamById[state.myTeamId];
+  const isCurda = state.myTeamId === 'ARG-CUR' || state.myTeamId === 'PAR-CUR';
+
+  content.innerHTML = `
+    <h1>${t('taticaTitle', {team: myTeam.name})}</h1>
+    <p class="muted">${t('taticaHelp')}</p>
+    <div class="zoneGrid">
+      ${ZONE_KEYS.map(z => `
+        <div class="zoneCard" style="border-top: 4px solid ${ZONE_COLORS[z]}">
+          <h3>${t(ZONE_LABEL_KEY[z])}</h3>
+          <label class="zoneFieldLabel">${t('estiloDeJogo')}</label>
+          <select class="zoneStyleSelect" data-zone="${z}">
+            ${Object.keys(ZONE_STYLES).map(s => `<option value="${s}" ${plan.zones[z].style === s ? 'selected' : ''}>${t(ZONE_STYLE_LABEL_KEY[s])}</option>`).join('')}
+          </select>
+          <label class="zoneFieldLabel">${t('codigoComunicacao')}</label>
+          <input type="text" class="zoneCodeInput" data-zone="${z}" maxlength="18" value="${escapeHtmlAttr(plan.zones[z].code)}" placeholder="${t('codigoPlaceholder')}" />
+        </div>
+      `).join('')}
+    </div>
+    <div class="card">
+      <h3>${t('pilaresTitle')}</h3>
+      <p class="muted">${t('pilaresHelp')}</p>
+      ${['disciplina', 'posse', 'fisicalidade'].map(p => `
+        <div class="pillarRow">
+          <label>${t('pilar_' + p)} <span class="pillarVal" data-pillar-val="${p}">${plan.pillars[p]}</span></label>
+          <input type="range" min="0" max="100" step="5" class="pillarSlider" data-pillar="${p}" value="${plan.pillars[p]}" />
+        </div>
+      `).join('')}
+      <div class="tacticaBtnRow">
+        <button class="ctrlBtn" id="resetGamePlanBtn">${t('resetarPlano')}</button>
+        ${isCurda ? `<button class="ctrlBtn" id="loadCurdaPlanBtn">${t('carregarPlanoCurda')}</button>` : ''}
+      </div>
+    </div>
+    <div class="card">
+      <h3>${t('pdfUploadTitle')}</h3>
+      <p class="muted">${t('pdfUploadHelp')}</p>
+      <input type="file" id="pdfUploadInput" accept="application/pdf" />
+      <div id="pdfListWrap" class="pdfList">
+        ${state.gamePlanPdfs.length === 0 ? `<p class="muted">${t('pdfListaVazia')}</p>` : state.gamePlanPdfs.map(p => `
+          <div class="pdfRow" data-pdf-id="${p.id}">
+            <span class="pdfName">📄 ${escapeHtmlAttr(p.name)}</span>
+            <span class="muted">${formatFileSize(p.size)}</span>
+            <button class="ctrlBtn pdfViewBtn" data-id="${p.id}">${t('verPdf')}</button>
+            <button class="ctrlBtn pdfDeleteBtn" data-id="${p.id}">${t('removerPdf')}</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  Array.from(document.querySelectorAll('.zoneStyleSelect')).forEach(sel => {
+    sel.addEventListener('change', () => {
+      ensureGamePlan().zones[sel.dataset.zone].style = sel.value;
+      saveState();
+    });
+  });
+  Array.from(document.querySelectorAll('.zoneCodeInput')).forEach(inp => {
+    inp.addEventListener('input', () => {
+      ensureGamePlan().zones[inp.dataset.zone].code = inp.value;
+      saveState();
+    });
+  });
+  Array.from(document.querySelectorAll('.pillarSlider')).forEach(sl => {
+    sl.addEventListener('input', () => {
+      ensureGamePlan().pillars[sl.dataset.pillar] = Number(sl.value);
+      document.querySelector(`.pillarVal[data-pillar-val="${sl.dataset.pillar}"]`).textContent = sl.value;
+      saveState();
+    });
+  });
+  document.getElementById('resetGamePlanBtn').addEventListener('click', () => {
+    state.gamePlan = defaultGamePlan();
+    saveState();
+    renderTactics();
+  });
+  const loadCurdaBtn = document.getElementById('loadCurdaPlanBtn');
+  if (loadCurdaBtn) {
+    loadCurdaBtn.addEventListener('click', () => {
+      state.gamePlan = curdaDefaultGamePlan();
+      saveState();
+      renderTactics();
+    });
+  }
+
+  document.getElementById('pdfUploadInput').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') { alert(t('pdfTipoInvalido')); return; }
+    const id = `pdf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      await savePdfBlob(id, file);
+      state.gamePlanPdfs = state.gamePlanPdfs || [];
+      state.gamePlanPdfs.push({id, name: file.name, size: file.size, uploadedAt: Date.now()});
+      saveState();
+      renderTactics();
+    } catch (err) {
+      alert(t('pdfErroSalvar'));
+    }
+  });
+
+  Array.from(document.querySelectorAll('.pdfViewBtn')).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const blob = await loadPdfBlob(btn.dataset.id);
+      if (!blob) { alert(t('pdfNaoEncontrado')); return; }
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    });
+  });
+  Array.from(document.querySelectorAll('.pdfDeleteBtn')).forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await deletePdfBlob(btn.dataset.id);
+      state.gamePlanPdfs = state.gamePlanPdfs.filter(p => p.id !== btn.dataset.id);
+      saveState();
+      renderTactics();
+    });
+  });
+}
+
 function renderMatchday() {
   const key = state.activeCompetition;
   const c = comp(key);
@@ -1697,9 +1967,16 @@ function renderLive() {
   const awaySquad = awayId === c.teamId ? mySquad : squadOf(awayId);
   pendingMyXV = mySquad;
 
+  // O plano de jogo por zona (tela de Tática) só existe pro clube gerenciado
+  // — o rival entra com o plano neutro (defaultGamePlan, sem efeito nenhum).
+  const myPlan = ensureGamePlan();
+  const gamePlanHome = homeId === c.teamId ? myPlan : defaultGamePlan();
+  const gamePlanAway = awayId === c.teamId ? myPlan : defaultGamePlan();
+
   const result = simulateMatch(
     homeTeam, homeSquad, tacticHome,
     awayTeam, awaySquad, tacticAway,
+    gamePlanHome, gamePlanAway,
   );
 
   // Mata-mata não permite empate: se a simulação terminou empatada, resolve
@@ -1727,6 +2004,7 @@ function renderLive() {
         </div>
         <div class="side">${awayTeam.name}<span class="crestSmall" style="background:${awayTeam.color}">${crestCode(awayTeam)}</span></div>
       </div>
+      <div id="tacticalBanner" class="tacticalBanner"></div>
       <canvas id="pitch"></canvas>
       <div id="matchControls">
         <button class="ctrlBtn active" id="playPauseBtn">${t('pausar')}</button>
@@ -1740,7 +2018,7 @@ function renderLive() {
   `;
 
   const canvas = document.getElementById('pitch');
-  const renderer = new MatchRenderer(canvas, homeTeam, awayTeam);
+  const renderer = new MatchRenderer(canvas, homeTeam, awayTeam, gamePlanHome, gamePlanAway);
   renderer.resize();
   window.addEventListener('resize', () => renderer.resize());
 
@@ -1748,6 +2026,28 @@ function renderLive() {
   const clockEl = document.getElementById('clockEl');
   const scoreHomeEl = document.getElementById('scoreHomeEl');
   const scoreAwayEl = document.getElementById('scoreAwayEl');
+  const tacticalBannerEl = document.getElementById('tacticalBanner');
+  let lastBannerKey = null;
+
+  function updateTacticalBanner(pos) {
+    const info = renderer.getActiveZoneInfo(pos);
+    if (!info.code && info.style === 'equilibrado') {
+      tacticalBannerEl.classList.remove('show');
+      lastBannerKey = null;
+      return;
+    }
+    const bannerKey = `${info.team.id}|${info.zoneKey}|${info.style}|${info.code}`;
+    if (bannerKey === lastBannerKey) return;
+    lastBannerKey = bannerKey;
+    const styleLabel = t(ZONE_STYLE_LABEL_KEY[info.style] || 'estiloEquilibrado');
+    const zoneLabel = t(ZONE_LABEL_KEY[info.zoneKey]);
+    tacticalBannerEl.style.borderColor = ZONE_COLORS[info.zoneKey];
+    tacticalBannerEl.innerHTML = `
+      <span class="crestSmall" style="background:${info.team.color}">${crestCode(info.team)}</span>
+      <b>${zoneLabel}</b> — ${styleLabel}${info.code ? ` · <span class="tacticalCode">${escapeHtmlAttr(info.code)}</span>` : ''}
+    `;
+    tacticalBannerEl.classList.add('show');
+  }
 
   const ticks = result.ticks;
   const logByMinute = {};
@@ -1805,6 +2105,7 @@ function renderLive() {
       const frac = Math.min(1, accum / baseMsPerTick);
       const interpPos = prev.pos + (curr.pos - prev.pos) * frac;
       renderer.draw(interpPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent);
+      updateTacticalBanner(interpPos);
       if (tickIndex >= ticks.length) {
         finish();
         return;
