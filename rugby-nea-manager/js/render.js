@@ -1,7 +1,7 @@
 // Renderização da quadra 2D (campo de rugby completo) e animação da partida ao vivo,
 // além da escalação visual (campo estático com as camisas em formação).
 
-import {zoneForPos} from './engine.js';
+import {zoneForPos, PLAY_SYSTEMS} from './engine.js';
 
 // Cores das 4 zonas táticas, no mesmo espírito do "tablero de mando
 // territorial" real (vermelho perto da própria try-line, dourado nos 22m
@@ -40,6 +40,23 @@ const ROLE_TEMPLATE = [
 const TIGHT_DEPTH = {attack: 8, defense: 8};
 const LOOSE_DEPTH = {attack: 13, defense: 11};
 
+// Lê a "formação" real do sistema de jogo escolhido (ex.: Irlanda =
+// '1-3-2-1+1', jogo de fases com forwards espalhados em vários pods pela
+// largura do campo; Argentina = '1-3-3-1', mais compacto; Sudáfrica =
+// '3-3-2+1', jogo frontal com pods maiores e mais perto do ponto de contato)
+// e devolve quantos forwards entram em cada pod, sempre somando os 8
+// forwards reais (1 a 8) — normaliza formações cuja soma não bata com 8.
+function parsePodSizes(formation) {
+  const raw = (formation || '').split(/[-+]/).map(n => parseInt(n, 10)).filter(n => Number.isFinite(n) && n > 0);
+  if (!raw.length) return [8]; // sem sistema definido: um único bloco (comportamento antigo)
+  const total = raw.reduce((a, b) => a + b, 0);
+  if (total === 8) return raw;
+  const scaled = raw.map(n => Math.max(1, Math.round((n * 8) / total)));
+  const diff = 8 - scaled.reduce((a, b) => a + b, 0);
+  scaled[scaled.length - 1] += diff;
+  return scaled.filter(n => n > 0);
+}
+
 export class MatchRenderer {
   constructor(canvas, teamA, teamB, gamePlanA, gamePlanB) {
     this.canvas = canvas;
@@ -49,6 +66,7 @@ export class MatchRenderer {
     this.gamePlanA = gamePlanA || null;
     this.gamePlanB = gamePlanB || null;
     this.dots = this.makeDots();
+    this.assignPods();
     this.currentPos = 50;
     this.jitterSeed = 0;
     this.lastX = null;
@@ -64,6 +82,33 @@ export class MatchRenderer {
       });
     });
     return dots;
+  }
+
+  // Distribui os 8 forwards de cada equipe em "pods" (pequenos grupos)
+  // espalhados pela largura do campo, no formato real do sistema de jogo
+  // escolhido no Plano de Jogo (1-3-3-1, 1-3-2-1+1, 3-3-2+1 etc.) — é assim
+  // que times como a Irlanda jogam o "juego de fases": em vez de um bloco só
+  // de forwards sempre grudado no meio, cada pod ataca por um canal
+  // diferente. Fixo pra partida inteira (o sistema não muda durante o jogo).
+  assignPods() {
+    ['A', 'B'].forEach(team => {
+      const plan = team === 'A' ? this.gamePlanA : this.gamePlanB;
+      const sys = plan && plan.system ? PLAY_SYSTEMS[plan.system] : null;
+      const pods = parsePodSizes(sys ? sys.formation : '');
+      const forwardDots = this.dots
+        .filter(d => d.team === team && (d.kind === 'tight' || d.kind === 'loose'))
+        .sort((a, b) => a.num - b.num);
+      const n = pods.length;
+      let idx = 0;
+      pods.forEach((size, podIdx) => {
+        const podY = n > 1 ? -0.82 + (1.64 * podIdx) / (n - 1) : 0;
+        for (let k = 0; k < size && idx < forwardDots.length; k++, idx++) {
+          forwardDots[idx].podY = podY;
+          forwardDots[idx].podIndex = podIdx;
+          forwardDots[idx].podCount = n;
+        }
+      });
+    });
   }
 
   resize() {
@@ -277,7 +322,7 @@ export class MatchRenderer {
     const centerY = fieldGeom.centerY;
     const x = this.posToX(pos);
 
-    this.jitterSeed += 0.12;
+    this.jitterSeed += 0.09;
 
     // Time atacante = quem está empurrando o jogo para a frente (posição crescendo = A ataca).
     if (this.lastX !== null) {
@@ -299,26 +344,65 @@ export class MatchRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
+    // Estilo de zona em vigor AGORA pra cada equipe, do ponto de vista de
+    // quem ataca (ver ZONE_STYLES em engine.js) — muda a forma da linha de
+    // ataque: "chute" (saída pelo pé) puxa o time mais fundo e mais estreito
+    // (cobertura de chute), "forwards" (jogo corrido/físico) puxa os backs
+    // mais colados nos forwards e mais estreitos (bola raramente sai da
+    // zona de contato), "equilibrado" mantém a linha padrão.
+    const zoneStyleFor = team => {
+      const plan = team === 'A' ? this.gamePlanA : this.gamePlanB;
+      if (!plan || !plan.zones) return 'equilibrado';
+      const zoneKey = zoneForPos(pos, team);
+      const z = plan.zones[zoneKey];
+      return z ? z.style : 'equilibrado';
+    };
+    const styleForA = zoneStyleFor('A');
+    const styleForB = zoneStyleFor('B');
+
     this.dots.forEach(dot => {
       const isAttacking = dot.team === this.attackingTeam;
-      const bob = Math.sin(this.jitterSeed + dot.phase) * 3;
+      const isForward = dot.kind === 'tight' || dot.kind === 'loose';
+      // Forwards balançam pouco (grudados no contato); backs correm mais,
+      // então oscilam um pouco mais — mas bem menos que antes, pra não
+      // parecer um tremor aleatório.
+      const bobAmp = isForward ? 1.1 : 2;
+      const bob = Math.sin(this.jitterSeed + dot.phase) * bobAmp;
+      const bobY = Math.cos(this.jitterSeed * 1.2 + dot.phase) * bobAmp;
       let px;
+      let wideY = dot.y;
 
-      if (dot.kind === 'tight' || dot.kind === 'loose') {
-        // Forwards das duas equipes disputam junto ao ponto de contato (ruck/maul/scrum/line-out).
+      if (isForward) {
+        // Forwards do time atacante se espalham nos "pods" do sistema de
+        // jogo escolhido (ex.: Irlanda joga vários pods pela largura toda,
+        // Argentina fica mais compacta) — cada pod ataca por um canal
+        // diferente, com os pods mais largos vindo um pouco mais atrás
+        // (apoio chegando de fora). O time que defende continua compacto
+        // em volta do ponto de contato, como uma defesa em linha real.
         const depth = dot.kind === 'tight' ? TIGHT_DEPTH : LOOSE_DEPTH;
-        const side = isAttacking ? -1 : 1; // ataque chega por trás da bola, defesa a encontra pela frente
-        const d = isAttacking ? depth.attack : depth.defense;
-        px = x + side * dirSign * d + bob;
+        if (isAttacking && dot.podY != null && dot.podCount > 1) {
+          const spread = Math.abs(dot.podIndex - (dot.podCount - 1) / 2);
+          px = x - dirSign * (depth.attack + spread * 2.5) + bob;
+          wideY = dot.podY;
+        } else {
+          const side = isAttacking ? -1 : 1; // ataque chega por trás da bola, defesa a encontra pela frente
+          const d = isAttacking ? depth.attack : depth.defense;
+          px = x + side * dirSign * d + bob;
+        }
       } else if (isAttacking) {
-        // Backs do ataque: recuam em relação à bola, cada um na sua profundidade típica de linha.
-        px = x - dirSign * dot.attackDepth + bob;
+        // Backs do ataque: recuam em relação à bola, cada um na sua
+        // profundidade típica de linha, ajustada pelo estilo da zona atual.
+        const style = dot.team === 'A' ? styleForA : styleForB;
+        const depthMul = style === 'chute' ? 1.2 : style === 'forwards' ? 0.72 : 1;
+        const widthMul = style === 'chute' ? 0.6 : style === 'forwards' ? 0.5 : 1;
+        px = x - dirSign * dot.attackDepth * depthMul + bob;
+        wideY = dot.y * widthMul;
       } else {
         // Backs da defesa: avançam em relação à bola, formando a linha defensiva.
         px = x + dirSign * dot.defenseDepth + bob;
       }
 
-      const py = centerY + dot.y * yHalfSpan + Math.cos(this.jitterSeed * 1.2 + dot.phase) * 3;
+      const py = centerY + wideY * yHalfSpan + bobY;
       const clampedX = clampX(px);
       const clampedY = clampY(py);
       ctx.beginPath();

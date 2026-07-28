@@ -3555,7 +3555,7 @@ function renderLive() {
     const onFieldRows = mySquad.map(p => `
       <button type="button" class="lineupPickBtn ${subOutSelected === p.id ? 'selected' : ''}" data-out="${p.id}">
         <span>#${p.number} ${escapeHtmlAttr(p.name)}</span>
-        <span class="muted">${p.position}</span>
+        <span class="muted">${p.position} · ${Math.round(p.condition)}%</span>
       </button>
     `).join('');
 
