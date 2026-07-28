@@ -50,6 +50,34 @@ function curdaDefaultGamePlan() {
   };
 }
 
+// Plano de jogo do rival pra uma partida: sem isso, todo adversário jogava
+// com o plano neutro (defaultGamePlan, zero modificador), enquanto só o
+// clube gerenciado tinha acesso à tela de Tática — na prática um bônus
+// unilateral que tornava a temporada fácil demais mesmo contra os times mais
+// fortes do campeonato. Escalado pela força do próprio time (ataque/defesa/
+// físico): clubes fortes jogam de forma organizada (quase no nível do Curda),
+// clubes fracos ficam perto do neutro.
+function aiGamePlanFor(team) {
+  const strength = (team.attack + team.defense + team.stamina) / 3;
+  const t = Math.max(0, Math.min(1, (strength - 55) / 31)); // ~0 nos times mais fracos, ~1 nos mais fortes
+  const pillar = Math.round(40 + t * 38);
+  let system = 'ninguno';
+  if (t > 0.3) {
+    system = (team.attack - team.defense >= 2) ? 'irlanda' : (team.defense - team.attack >= 2) ? 'argentina' : 'sudafrica';
+  }
+  const zoneStyle = t > 0.35 ? 'forwards' : 'equilibrado';
+  return {
+    system,
+    zones: {
+      red: {style: 'chute', code: ''},
+      orange: {style: 'equilibrado', code: ''},
+      green: {style: zoneStyle, code: ''},
+      yellow: {style: zoneStyle, code: ''},
+    },
+    pillars: {disciplina: pillar, posse: pillar, fisicalidade: pillar, defesa: pillar},
+  };
+}
+
 // ---- Idioma (i18n) --------------------------------------------------------
 // Espanhol paraguaio é o idioma padrão do app; português fica disponível
 // através do botão de troca no topbar, com a escolha salva no localStorage.
@@ -2768,11 +2796,12 @@ function renderLive() {
   const awaySquad = awayId === c.teamId ? mySquad : squadOf(awayId);
   pendingMyXV = mySquad;
 
-  // O plano de jogo por zona (tela de Tática) só existe pro clube gerenciado
-  // — o rival entra com o plano neutro (defaultGamePlan, sem efeito nenhum).
+  // O plano de jogo por zona (tela de Tática) só é editável pelo clube
+  // gerenciado — o rival entra com um plano de IA escalado pela própria
+  // força (ver aiGamePlanFor), pra não ser um adversário tacticamente inerte.
   const myPlan = ensureGamePlan();
-  const gamePlanHome = homeId === c.teamId ? myPlan : defaultGamePlan();
-  const gamePlanAway = awayId === c.teamId ? myPlan : defaultGamePlan();
+  const gamePlanHome = homeId === c.teamId ? myPlan : aiGamePlanFor(homeTeam);
+  const gamePlanAway = awayId === c.teamId ? myPlan : aiGamePlanFor(awayTeam);
 
   const result = simulateMatch(
     homeTeam, homeSquad, tacticHome,
