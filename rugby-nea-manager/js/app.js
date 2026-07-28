@@ -3,7 +3,7 @@ import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES
 import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
-import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad} from './realSquads.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers} from './realSquads.js';
 
 // ---- Seleção Paraguay (Los Yacarés) ---------------------------------------
 // Time "virtual" pra amistosos e torneios aleatórios: não disputa nenhuma
@@ -22,7 +22,11 @@ const NATIONAL_TEAMS = [
   {id: 'NT-COL', name: 'Colombia', color: '#FCD116', attack: 65, defense: 64, stamina: 68},
 ];
 
-const SAVE_KEY = 'rugbyNeaSave_v12';
+const SAVE_KEY = 'rugbyNeaSave_v13';
+
+// Clubes menores do Paraguaio (procedurais, sem elenco curado) de onde o
+// Curda pode captar promessas reveladas (ver tickScouting).
+const SMALL_PARAGUAY_TEAM_IDS = ['PAR-STC', 'PAR-LUQ', 'PAR-ASU', 'PAR-VHA', 'PAR-CRI', 'PAR-FDM'];
 
 // Plano de jogo padrão do Curda, extraído dos documentos táticos reais do
 // clube: "Tablero de Mando Territorial" (zonas/códigos), "Plan de Juego
@@ -163,6 +167,13 @@ const I18N = {
     selecaoTorneioTitle: '🏆 Resultado del torneo',
     selecaoSemifinal: 'Semifinal',
     selecaoFinal: 'Final',
+    captacaoTitle: 'Captación de promesas',
+    captacaoHelp: 'De vez en cuando aparece una promesa revelada en un club chico del Paraguayo, lista para ser invitada al Curda — el jugador decide si acepta o no.',
+    captacaoVazio: 'Ninguna promesa disponible por ahora. Volvé a mirar después de la próxima fecha.',
+    captacaoColOrigem: 'Club de origen',
+    captacaoConvidar: 'Invitar',
+    captacaoAceitou: '¡{name} aceptó la invitación y se sumó al Curda!',
+    captacaoRecusou: '{name} rechazó la invitación — prefirió seguir en el {club}.',
     biometria: 'Biometría',
     altura: 'Altura',
     peso: 'Peso',
@@ -358,6 +369,13 @@ const I18N = {
     selecaoTorneioTitle: '🏆 Resultado do torneio',
     selecaoSemifinal: 'Semifinal',
     selecaoFinal: 'Final',
+    captacaoTitle: 'Captação de promessas',
+    captacaoHelp: 'De vez em quando surge uma promessa revelada num clube menor do Paraguaio, pronta pra ser convidada pro Curda — o jogador decide se aceita ou não.',
+    captacaoVazio: 'Nenhuma promessa disponível por enquanto. Volte a olhar depois da próxima rodada.',
+    captacaoColOrigem: 'Clube de origem',
+    captacaoConvidar: 'Convidar',
+    captacaoAceitou: '{name} aceitou o convite e se juntou ao Curda!',
+    captacaoRecusou: '{name} recusou o convite — preferiu continuar no {club}.',
     biometria: 'Biometria',
     altura: 'Altura',
     peso: 'Peso',
@@ -726,7 +744,10 @@ function newGame(myTeamId) {
     gamePlan: (myTeamId === 'ARG-CUR' || myTeamId === 'PAR-CUR') ? curdaDefaultGamePlan() : defaultGamePlan(), // plano de jogo por zona de campo (ver tela de Tática)
     gamePlanPdfs: [], // [{id, name, size, uploadedAt}] — metadados dos PDFs táticos enviados (conteúdo binário fica no IndexedDB, ver pdfStore)
     nationalTeamMatches: [], // histórico de amistosos/torneios da Seleção Paraguay (ver renderSelection)
+    scoutingProspects: [], // promessas de clubes menores do Paraguaio disponíveis pra convidar (só time Curda)
+    recruitedPlayers: [], // jogadores captados que aceitaram o convite pra jogar no Curda (fundidos em getRealRoster)
   };
+  setRecruitedPlayers(state.recruitedPlayers);
   saveState();
   render();
 }
@@ -965,6 +986,102 @@ function tickTraining() {
     const current = currentConditionOf(p);
     state.playerCondition[p.id] = {condition: Math.max(15, current - fatigue), atDay: currentCalendarDay()};
   });
+}
+
+// ---- Captação de promessas (clubes menores do Paraguaio) ------------------
+// Gera um jogador revelação a partir de um clube menor do Paraguaio
+// (procedural): sorteia um jogador do elenco gerado daquele clube e aplica um
+// "salto" de evolução (ele "evoluiu" nesse tempo), escalando as skills na
+// mesma proporção do aumento de overall pra manter o detalhamento coerente.
+function generateScoutProspect() {
+  const teamId = SMALL_PARAGUAY_TEAM_IDS[Math.floor(Math.random() * SMALL_PARAGUAY_TEAM_IDS.length)];
+  const team = teamById[teamId];
+  const squad = generateSquad(team);
+  const base = squad[Math.floor(Math.random() * squad.length)];
+  const boost = 8 + Math.floor(Math.random() * 10);
+  const newRating = Math.min(92, base.rating + boost);
+  const ratio = newRating / base.rating;
+  const skills = {};
+  Object.keys(base.skills).forEach(k => {
+    skills[k] = Math.max(30, Math.min(99, Math.round(base.skills[k] * ratio)));
+  });
+  return {
+    ...base,
+    id: `prospect-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    skills,
+    rating: newRating,
+    meta: {...base.meta, age: 'jovem', note: `Revelação surgida do ${team.name}; evoluiu bastante nesta temporada`, scoutedFrom: team.name},
+  };
+}
+
+// A cada rodada finalizada, chance de surgir uma nova promessa disponível
+// pra convocação — só quando o clube gerenciado é o Curda (a mecânica é
+// específica desse clube, ver mensagem do manager sobre captação).
+function tickScouting() {
+  if (state.myTeamId !== 'ARG-CUR' && state.myTeamId !== 'PAR-CUR') return;
+  state.scoutingProspects = state.scoutingProspects || [];
+  if (state.scoutingProspects.length >= 3) return;
+  if (Math.random() < 0.35) {
+    state.scoutingProspects.push(generateScoutProspect());
+  }
+}
+
+// O jogador decide se aceita o convite: mais determinado, mais ambicioso,
+// mais chance de topar a mudança pro Curda — mas nunca é garantido.
+function inviteProspect(prospectId) {
+  const prospects = state.scoutingProspects || [];
+  const prospect = prospects.find(p => p.id === prospectId);
+  if (!prospect) return;
+  const determination = prospect.skills.determination || 65;
+  const acceptChance = Math.max(0.35, Math.min(0.85, 0.55 + (determination - 65) * 0.006));
+  const accepted = Math.random() < acceptChance;
+  state.scoutingProspects = prospects.filter(p => p.id !== prospectId);
+  if (accepted) {
+    state.recruitedPlayers = state.recruitedPlayers || [];
+    state.recruitedPlayers.push({
+      ...prospect,
+      meta: {...prospect.meta, note: `Contratado do ${prospect.meta.scoutedFrom}; ${prospect.meta.note}`},
+    });
+    setRecruitedPlayers(state.recruitedPlayers);
+    saveState();
+    alert(t('captacaoAceitou', {name: prospect.name}));
+  } else {
+    saveState();
+    alert(t('captacaoRecusou', {name: prospect.name, club: prospect.meta.scoutedFrom}));
+  }
+  renderRealSquad();
+}
+
+function renderScoutingHtml() {
+  const prospects = state.scoutingProspects || [];
+  return `
+    <div class="card">
+      <h3>${t('captacaoTitle')}</h3>
+      <p class="muted">${t('captacaoHelp')}</p>
+      ${prospects.length === 0 ? `<p class="muted">${t('captacaoVazio')}</p>` : `
+        <div class="tableScroll"><table class="squadTable">
+          <thead><tr>
+            <th class="teamCol">${t('colJogador')}</th>
+            <th>${t('colPosicao')}</th>
+            <th>${t('colOverall')}</th>
+            <th>${t('captacaoColOrigem')}</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            ${prospects.map(p => `
+              <tr>
+                <td class="teamCol">${escapeHtmlAttr(p.name)}</td>
+                <td class="posCol">${p.position}</td>
+                <td><b>${p.rating}</b></td>
+                <td class="muted">${escapeHtmlAttr(p.meta.scoutedFrom || '')}</td>
+                <td><button class="ctrlBtn" data-invite="${p.id}">${t('captacaoConvidar')}</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table></div>
+      `}
+    </div>
+  `;
 }
 
 // ---- Transições de estágio e mata-mata ------------------------------------
@@ -1527,6 +1644,8 @@ function renderRealSquad() {
       </table>
     </div>
   ` : '';
+  const isCurda = state.myTeamId === 'ARG-CUR' || state.myTeamId === 'PAR-CUR';
+  const scoutingHtml = isCurda ? renderScoutingHtml() : '';
 
   content.innerHTML = `
     <h1>${t('elencoTitle', {team: myTeam.name})}</h1>
@@ -1547,6 +1666,7 @@ function renderRealSquad() {
       <div class="tableScroll"><table class="squadTable"><thead>${headHtml}</thead>
       <tbody>${rows.map(rowHtml).join('')}</tbody></table></div>
     </div>
+    ${scoutingHtml}
     ${staffHtml}
   `;
 
@@ -1583,6 +1703,10 @@ function renderRealSquad() {
       state.trainingFocus[sel.dataset.day] = sel.value || null;
       saveState();
     });
+  });
+
+  Array.from(document.querySelectorAll('[data-invite]')).forEach(btn => {
+    btn.addEventListener('click', () => inviteProspect(btn.dataset.invite));
   });
 }
 
@@ -2655,6 +2779,7 @@ function finalizeRound() {
   state.calendarDay += 7;
   tickInjuries();
   tickTraining();
+  tickScouting();
   if (pendingMyXV && pendingMyXV.length) {
     const venue = myMatch ? venueOf(myMatch, c.teamId) : 'home';
     // Condição/lesão por fadiga só existem pra elencos reais (curados): times
@@ -2688,4 +2813,5 @@ function finalizeRound() {
 }
 
 state = loadState();
+if (state) setRecruitedPlayers(state.recruitedPlayers || []);
 render();

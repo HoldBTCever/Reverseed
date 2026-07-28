@@ -216,7 +216,7 @@ const SANJOSE_ROSTER = [
   mkPlayer('Jorge Matiauda', 'SL', 58),
   mkPlayer('Santino Scribano', 'SL', 54),
   // Craque e capitão do time
-  mkPlayer('Paco Lamas', 'FB', 88, {}, {captain: true, note: 'melhor jogador do San José'}, 90),
+  mkPlayer('Paco Lamas', 'FB', 88, {}, {captain: true, note: 'melhor jogador do San José; nascido em Buenos Aires, o San José às vezes busca reforços na Argentina', nationality: 'Argentina', yearsInParaguay: 3}, 90),
 ];
 
 // Elenco do Curne, mesmo clube que disputa o NEA argentino e também o
@@ -314,8 +314,25 @@ const STAFF_QUALITY = {
   'INT-CNE': 1.2,
 };
 
+// Jogadores captados de clubes menores do Paraguaio que aceitaram o convite
+// pra jogar no Curda (ver tickScouting/inviteProspect em app.js). Fica num
+// registro à parte em vez de mutar CURDA_ROSTER porque essa lista muda ao
+// longo da partida/sessão — getRealRoster funde os dois transparentemente
+// pra todo o resto do app (squadOf, rosterWithStatus, editor de escalação
+// etc.) continuar funcionando sem precisar saber da diferença.
+let recruitedIntoCurda = [];
+
+export function setRecruitedPlayers(players) {
+  recruitedIntoCurda = players || [];
+}
+
 export function getRealRoster(teamId) {
-  return REAL_SQUADS[teamId] || null;
+  const base = REAL_SQUADS[teamId] || null;
+  if (!base) return null;
+  if ((teamId === 'ARG-CUR' || teamId === 'PAR-CUR') && recruitedIntoCurda.length) {
+    return [...base, ...recruitedIntoCurda];
+  }
+  return base;
 }
 
 export function getStaff(teamId) {
@@ -473,17 +490,33 @@ export function rosterWithStatus(teamId, options = {}) {
     });
 }
 
+// Regra de elegibilidade por nacionalidade: jogador estrangeiro (ex.: um
+// argentino recrutado pelo San José em Buenos Aires, como o Paco Lamas) só
+// pode defender a seleção paraguaia depois de um número mínimo de anos no
+// país (5 por padrão, salvo meta.eligibleAfterYears customizado). Jogador
+// sem meta.nationality (ou nascido no Paraguai) é elegível sem restrição.
+function isNationalTeamEligible(p) {
+  if (p.meta.refusesNationalTeam) return false;
+  const foreign = p.meta.nationality && p.meta.nationality !== 'Paraguai';
+  if (!foreign) return true;
+  const required = p.meta.eligibleAfterYears != null ? p.meta.eligibleAfterYears : 5;
+  return (p.meta.yearsInParaguay || 0) >= required;
+}
+
 // ---- Seleção do Paraguai (Los Yacarés) -------------------------------------
 // Escalada com os melhores jogadores disponíveis do Curda e do San José — os
 // dois clubes mais fortes do país — respeitando a posição de cada um.
 // Ignacio "Nacho" Cuevas (Curda) é a exceção: recusa convocações pra se
 // manter fiel só ao clube (meta.refusesNationalTeam), então nunca entra no
-// pool de seleção mesmo sendo o melhor jogador do país.
+// pool de seleção mesmo sendo o melhor jogador do país. Jogadores
+// estrangeiros recém-chegados (ex.: Paco Lamas, argentino) também ficam de
+// fora até completarem os anos de residência exigidos (isNationalTeamEligible).
 export function getParaguaySquad() {
-  const curdaTagged = CURDA_ROSTER
-    .filter(p => !p.meta.refusesNationalTeam)
+  const curdaTagged = [...CURDA_ROSTER, ...recruitedIntoCurda]
+    .filter(isNationalTeamEligible)
     .map(p => ({...p, meta: {...p.meta, clubOrigin: 'Curda'}}));
   const sanjoseTagged = SANJOSE_ROSTER
+    .filter(isNationalTeamEligible)
     .map(p => ({...p, meta: {...p.meta, clubOrigin: 'San José'}}));
   const pool = [...curdaTagged, ...sanjoseTagged];
 
