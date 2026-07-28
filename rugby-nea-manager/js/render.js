@@ -416,20 +416,30 @@ export class MatchRenderer {
       ctx.fillText(String(dot.num), clampedX, clampedY + 0.5);
     });
 
-    // bola
+    // bola (oval branca de rugby, com costura central e travessas — não a
+    // bola marrom de futebol americano)
     ctx.save();
     ctx.translate(x, centerY);
     ctx.rotate(Math.sin(this.jitterSeed) * 0.15);
     ctx.beginPath();
-    ctx.fillStyle = '#5b3a1a';
+    ctx.fillStyle = '#f4f1e8';
     ctx.ellipse(0, 0, 9, 5.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#fff';
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.strokeStyle = '#2b2b2b';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(-6, 0);
-    ctx.lineTo(6, 0);
+    ctx.moveTo(-6.5, 0);
+    ctx.lineTo(6.5, 0);
     ctx.stroke();
+    [-3.2, 0, 3.2].forEach(cx => {
+      ctx.beginPath();
+      ctx.moveTo(cx, -1.6);
+      ctx.lineTo(cx, 1.6);
+      ctx.stroke();
+    });
     ctx.restore();
 
     this.currentPos = pos;

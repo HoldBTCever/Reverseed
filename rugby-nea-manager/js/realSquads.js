@@ -113,15 +113,15 @@ const CURDA_ROSTER = [
   {...mkPlayer('Martín Ayala', 'PI', 58, {}, {note: 'por vezes usado no time intermédio'}, 68), weightKg: 130},
   {...mkPlayer('Adolfo Jariton', 'PI', 72, {lineoutThrow: 99, jump: 85, tackle: 82, strength: 88, scrum: 92, stamina: 80}, {note: 'também joga de hooker', altPos: ['HK']}, 65), weightKg: 120},
   {...mkPlayer('Fernando Gracía', 'PI', 58, {}, {nickname: 'England', note: 'pilar mediano'}, 62), weightKg: 100},
-  {...mkPlayer('Franco Laterza', 'PI', 60, {lineoutThrow: 55}, {nationalTeam: 'seleção juvenil', note: 'também joga de hooker', altPos: ['HK']}, 60), weightKg: 110},
-  {...mkPlayer('Gonzalo Barrios', 'PI', 58, {lineoutThrow: 48}, {nickname: 'Samurai', altPos: ['HK']}, 58), weightKg: 105},
+  {...mkPlayer('Franco Laterza', 'PI', 60, {lineoutThrow: 55}, {age: 18, nationalTeam: 'seleção juvenil', note: 'também joga de hooker', altPos: ['HK']}, 60), weightKg: 110},
+  {...mkPlayer('Gonzalo Barrios', 'PI', 58, {lineoutThrow: 48}, {nickname: 'Samurai', age: 18, altPos: ['HK']}, 58), weightKg: 103, heightCm: 180},
   {...mkPlayer('Piacentini', 'PI', 56, {}, {note: 'pilar mediano'}, 56), weightKg: 130},
-  {...mkPlayer('Martín Carvallo', 'PI', 53, {}, {nickname: 'Thanos'}, 53), weightKg: 130},
+  {...mkPlayer('Martín Carvallo', 'PI', 53, {}, {nickname: 'Thanos', age: 31}, 53), weightKg: 116, heightCm: 179},
 
   // Hookers (ordem: Otaño, Ballasch, Jariton, Centurión, Fabiño, Achon, Laterza, Samurai)
   mkPlayer('Lucas Otaño', 'HK', 80, {}, {injuryWeeks: 13, injuryLabel: '3 meses', traits: ['injuryProne']}, 82),
-  mkPlayer('Alejo Centurión', 'HK', 68, {lineoutThrow: 90, determination: 85}, {age: 19, nationalTeam: 'seleção juvenil'}, 66),
-  mkPlayer('Fábio Silva', 'HK', 58, {speed: 80, determination: 85, stamina: 70}, {nickname: 'Fabiño', note: 'o mais velho do elenco, mais dedicado porém com menor conhecimento; joga também de ponta e de centro por ser rápido', altPos: ['WG', 'CE']}, 58),
+  mkPlayer('Alejo Centurión', 'HK', 68, {lineoutThrow: 90, determination: 85}, {age: 21, nationalTeam: 'seleção juvenil'}, 66),
+  {...mkPlayer('Fábio Silva', 'HK', 58, {speed: 80, determination: 85, stamina: 70}, {nickname: 'Fabiño', age: 40, note: 'o mais velho do elenco, mais dedicado porém com menor conhecimento; joga também de ponta e de centro por ser rápido', altPos: ['WG', 'CE']}, 58), weightKg: 90, heightCm: 172},
 
   // Segunda línea (primários) — Garcete, Javo, Volei, Dr Bro, Bruno Heisecke,
   // Sebas Benítez, Pesoka, Abel, Maxi; os "dois-em-um" com a terceira línea
@@ -134,7 +134,7 @@ const CURDA_ROSTER = [
   mkPlayer('Manuel', 'SL', 68, {}, {nickname: 'Dr Bro'}, 68),
   mkPlayer('Bruno Heisecke', 'SL', 58, {}, {}, 58),
   mkPlayer('Sebas Benítez', 'SL', 50, {}, {}, 50),
-  mkPlayer('Pesoka', 'SL', 47, {}, {}, 47),
+  mkPlayer('Pesoka', 'SL', 47, {}, {age: 40}, 47),
   mkPlayer('Abel Locatti', 'SL', 40, {}, {}, 40),
   mkPlayer('Maxi Doldan', 'SL', 38, {}, {age: 18, note: 'juvenil'}, 38),
   mkPlayer('Bruno Vacotti', 'SL', 60),
@@ -145,16 +145,16 @@ const CURDA_ROSTER = [
   // Cani/Fenocchi jogam principalmente aqui, mas cobrem a segunda línea
   // (altPos SL, com overrides de jump/strength pra diferenciar o overall
   // efetivo de cada um nas duas posições).
-  mkPlayer('Álvaro Allo', 'AL', 78, {jump: 92}, {note: 'excelente no salto para o line-out'}, 84),
-  mkPlayer('Carlos Plate', 'AL', 80, {jump: 96, strength: 93}, {nickname: 'Charlie', nationalTeam: 'seleção do Paraguai adulta', altPos: ['SL', 'N8']}, 80),
+  mkPlayer('Álvaro Allo', 'AL', 78, {jump: 92}, {age: 23, note: 'excelente no salto para o line-out'}, 84),
+  mkPlayer('Carlos Plate', 'AL', 80, {jump: 96, strength: 93}, {nickname: 'Charlie', age: 31, nationalTeam: 'seleção do Paraguai adulta', altPos: ['SL', 'N8']}, 80),
   mkPlayer('Gonza Alvarado', 'AL', 77, {jump: 99, lineoutThrow: 60, strength: 96, tackle: 92}, {note: 'excelente no salto para o line-out, no estilo do Álvaro Allo', traits: ['lineoutSpecialist'], altPos: ['SL']}, 77),
   mkPlayer('Jean Paul Clemont', 'AL', 70, {}, {nickname: 'JP', injuryWeeks: 43, injuryLabel: '10 meses'}, 74),
   mkPlayer('Agustín Vázquez', 'AL', 71, {jump: 60, strength: 62}, {nickname: 'Prolijo', altPos: ['SL']}, 71),
   mkPlayer('René Villar', 'AL', 68, {jump: 82, strength: 80}, {altPos: ['SL']}, 68),
   mkPlayer('Elías Achon', 'AL', 76, {tackle: 86, stamina: 88, determination: 88, lineoutThrow: 40, pass: 48, reception: 48, ruck: 60, turnover: 60}, {note: 'hooker ou 3ª línea, joga mais de 3ª; muito bom nos tackles e muita disposição física', altPos: ['HK']}, 65),
   mkPlayer('Edgard Espinoza', 'AL', 62, {jump: 62, strength: 60}, {nickname: 'Cani', altPos: ['SL'], injuryWeeks: 9, injuryLabel: '2 meses'}, 62),
-  mkPlayer('Joaquín Alzueta', 'AL', 68, {}, {nickname: 'Joaco', age: 'jovem', note: 'joga também de centro', altPos: ['CE']}, 59),
-  mkPlayer('Vic Torres', 'AL', 61, {determination: 80}, {age: 'jovem', note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído', altPos: ['WG']}, 56),
+  mkPlayer('Joaquín Alzueta', 'AL', 68, {}, {nickname: 'Joaco', age: 20, note: 'joga também de centro', altPos: ['CE']}, 59),
+  {...mkPlayer('Vic Torres', 'AL', 61, {determination: 80}, {age: 29, note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído', altPos: ['WG']}, 56), weightKg: 90, heightCm: 182},
   mkPlayer('Nico Fenocchi', 'AL', 53, {jump: 44, strength: 46}, {altPos: ['SL']}, 53),
 
   // Oitavo (ordem: Marco Riquelme, Lautaro, Charlie)
@@ -177,10 +177,10 @@ const CURDA_ROSTER = [
 
   // Centro (ordem: Nacho, Urbieta, Choclo, Orrego, LuizMi, Nico Allo, Argaña, Negro, Joaco, Fabiño, Mario)
   mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 96}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado; recusa convocações da seleção pra se manter fiel só ao Curda', refusesNationalTeam: true}, 91),
-  mkPlayer('Sebas Urbieta', 'CE', 83, {}, {nationalTeam: 'seleção'}, 83),
+  mkPlayer('Sebas Urbieta', 'CE', 83, {}, {age: 34, nationalTeam: 'seleção'}, 83),
   mkPlayer('Gianfranco Parodi', 'WG', 85, {pass: 85, tackle: 82, strength: 70}, {nickname: 'Choclo', nationalTeam: 'seleção', note: 'também joga de centro', altPos: ['CE']}, 78),
   mkPlayer('Luiz Miguel', 'CE', 80, {speed: 95, sidestep: 93, agility: 90}, {nickname: 'LuizMi', note: 'também joga de ponta', altPos: ['WG']}, 66),
-  mkPlayer('Nico Allo', 'CE', 66, {}, {}, 64),
+  mkPlayer('Nico Allo', 'CE', 66, {}, {age: 25}, 64),
   mkPlayer('Diego Argaña', 'CE', 66, {}, {}, 63),
   mkPlayer('Marcelo Villaroel', 'CE', 66, {}, {nickname: 'Negro'}, 60),
   mkPlayer('Mario Domec', 'CE', 60, {}, {}, 48),
