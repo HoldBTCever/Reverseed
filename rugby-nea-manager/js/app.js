@@ -269,6 +269,10 @@ const I18N = {
     subsNoneLeft: 'Ya usaste las {max} sustituciones disponibles.',
     subsBankEmpty: 'No hay suplentes disponibles para esa posición.',
     subChangeLog: 'Cambio en {team}: entra {in}, sale {out}.',
+    medBloodLog: '🩸 Corte en {player} ({team}): sale al bloodbin, entra {in} de forma temporal.',
+    medHiaLog: '🏥 Golpe en la cabeza de {player} ({team}): va a la evaluación HIA, entra {in} de forma temporal.',
+    medHiaFailLog: '⛔ {player} ({team}) no pasó la evaluación HIA y no vuelve más a la cancha.',
+    medReturnLog: '✅ {player} ({team}) vuelve a la cancha.',
     diaDeJogo: 'Día de partido — {comp} — {round}',
     casaVs: '{home} (local) vs {away} (visitante)',
     mataDesempate: 'Playoffs: en caso de empate, el partido va a tiempo suplementario hasta que salga un ganador.',
@@ -487,6 +491,10 @@ const I18N = {
     subsNoneLeft: 'Você já usou as {max} substituições disponíveis.',
     subsBankEmpty: 'Não tem reserva disponível pra essa posição.',
     subChangeLog: 'Substituição no {team}: entra {in}, sai {out}.',
+    medBloodLog: '🩸 Corte em {player} ({team}): sai pro sangue, entra {in} temporariamente.',
+    medHiaLog: '🏥 Pancada na cabeça de {player} ({team}): vai fazer avaliação de HIA, entra {in} temporariamente.',
+    medHiaFailLog: '⛔ {player} ({team}) não passou na avaliação de HIA e não volta mais pro jogo.',
+    medReturnLog: '✅ {player} ({team}) volta pro jogo.',
     diaDeJogo: 'Dia de jogo — {comp} — {round}',
     casaVs: '{home} (casa) vs {away} (visitante)',
     mataDesempate: 'Mata-mata: em caso de empate, a partida vai para a prorrogação até sair um vencedor.',
@@ -2963,8 +2971,9 @@ function renderLive() {
         tickIndex++;
         const t = ticks[tickIndex - 1];
         applyMinute(t.minute);
-        scoreHomeEl.textContent = t.scoreA;
-        scoreAwayEl.textContent = t.scoreB;
+        handleMedicalTickEvents();
+        scoreHomeEl.textContent = ticks[tickIndex - 1].scoreA;
+        scoreAwayEl.textContent = ticks[tickIndex - 1].scoreB;
         clockEl.textContent = t.minute + "'";
       }
       const curr = ticks[Math.min(tickIndex, ticks.length - 1)] || {pos: 50};
@@ -3003,6 +3012,7 @@ function renderLive() {
       tickIndex++;
       const t = ticks[tickIndex - 1];
       applyMinute(t.minute);
+      handleMedicalTickEvents();
     }
     scoreHomeEl.textContent = result.scoreA;
     scoreAwayEl.textContent = result.scoreB;
@@ -3030,16 +3040,15 @@ function renderLive() {
     };
   }
 
-  function performSubstitution(outId, inPlayer) {
-    if (subsUsed >= MAX_SUBS) return;
-    const idx = mySquad.findIndex(p => p.id === outId);
-    if (idx === -1) return;
-    const outPlayer = mySquad[idx];
+  // Troca genérica num dos dois lados (usada tanto pela substituição manual
+  // quanto pelos eventos médicos automáticos abaixo): recalcula o "futuro" da
+  // partida via resumeState e funde o resultado no que já está em tela.
+  function performLiveSub(squadArr, outId, inPlayer, logText) {
+    const idx = squadArr.findIndex(p => p.id === outId);
+    if (idx === -1) return null;
+    const outPlayer = squadArr[idx];
     const newPlayer = {...inPlayer, posId: outPlayer.posId, position: outPlayer.position, group: outPlayer.group, number: outPlayer.number};
-    mySquad[idx] = newPlayer;
-    playedPlayersById[newPlayer.id] = newPlayer;
-    subsUsed++;
-    subbedOffIds.add(outPlayer.id);
+    squadArr[idx] = newPlayer;
 
     const resumeState = currentResumeState();
     const newSegment = simulateMatch(
@@ -3057,11 +3066,11 @@ function renderLive() {
       if (!logByMinute[l.minute]) logByMinute[l.minute] = [];
       logByMinute[l.minute].push(l.text);
     });
-    const subTeamName = isHome ? homeTeam.name : awayTeam.name;
-    const subText = t('subChangeLog', {team: subTeamName, in: inPlayer.name, out: outPlayer.name});
-    if (!logByMinute[currentMinute]) logByMinute[currentMinute] = [];
-    logByMinute[currentMinute].push(subText);
-    pushLog(currentMinute, subText);
+    if (logText) {
+      if (!logByMinute[currentMinute]) logByMinute[currentMinute] = [];
+      logByMinute[currentMinute].push(logText);
+      pushLog(currentMinute, logText);
+    }
 
     result.scorersA = result.scorersA.filter(s => s.minute <= currentMinute).concat(newSegment.scorersA);
     result.scorersB = result.scorersB.filter(s => s.minute <= currentMinute).concat(newSegment.scorersB);
@@ -3069,6 +3078,109 @@ function renderLive() {
     const lastTick = ticks[ticks.length - 1];
     if (lastTick) { result.scoreA = lastTick.scoreA; result.scoreB = lastTick.scoreB; }
     if (newSegment.motm) result.motm = newSegment.motm;
+
+    return {outPlayer, newPlayer, currentMinute};
+  }
+
+  function performSubstitution(outId, inPlayer) {
+    if (subsUsed >= MAX_SUBS) return;
+    const outPlayerRef = mySquad.find(p => p.id === outId);
+    if (!outPlayerRef) return;
+    const subTeamName = isHome ? homeTeam.name : awayTeam.name;
+    const subText = t('subChangeLog', {team: subTeamName, in: inPlayer.name, out: outPlayerRef.name});
+    const res = performLiveSub(mySquad, outId, inPlayer, subText);
+    if (!res) return;
+    playedPlayersById[res.newPlayer.id] = res.newPlayer;
+    subsUsed++;
+    subbedOffIds.add(res.outPlayer.id);
+  }
+
+  // ---- Eventos médicos automáticos (sangue / HIA) --------------------------
+  // No rugby de verdade existem duas saídas TEMPORÁRIAS (não contam como
+  // substituição definitiva, não usam uma das 8 trocas do técnico):
+  //  - Bloodbin: corte que não para de sangrar a tempo — sai, se trata, e
+  //    sempre volta depois de um tempo (aqui, ~14').
+  //  - HIA (Head Injury Assessment): pancada na cabeça — sai pra avaliação
+  //    (~12'); se "passa" no teste volta a jogar, se "reprova" a saída vira
+  //    definitiva (o substituto fica em campo, mas sem gastar uma das 8).
+  // Só times com elenco real (banco de verdade) entram nesse sorteio.
+  function pickBestBenchFor(benchList, squadArr, posId) {
+    const free = benchList.filter(p => !squadArr.some(m => m.id === p.id));
+    const specialists = free.filter(p => canPlay(p, posId));
+    const pool = specialists.length ? specialists : (FRONT_ROW_POS.has(posId) ? [] : free);
+    if (!pool.length) return null;
+    return pool.reduce((best, p) => (p.rating > best.rating ? p : best), pool[0]);
+  }
+
+  const pendingMedicalReturns = []; // {side, tempPlayerId, originalPlayer, returnAtTick, kind}
+  const pendingMedicalCount = {home: 0, away: 0};
+  const BLOOD_DURATION_TICKS = 7; // ~14' (2' por tick)
+  const HIA_DURATION_TICKS = 6; // ~12'
+  const HIA_PASS_CHANCE = 0.7;
+
+  function squadForSide(side) { return side === 'home' ? homeSquad : awaySquad; }
+  function teamNameForSide(side) { return side === 'home' ? homeTeam.name : awayTeam.name; }
+  function benchForSide(side) {
+    const teamId = side === 'home' ? homeId : awayId;
+    if (!getRealRoster(teamId)) return [];
+    if (teamId === c.teamId) return myBench;
+    return rosterWithStatus(teamId).filter(p => p.status === 'reserva');
+  }
+
+  function tryTriggerMedicalEvent() {
+    const sides = Math.random() < 0.5 ? ['home', 'away'] : ['away', 'home'];
+    for (const side of sides) {
+      const teamId = side === 'home' ? homeId : awayId;
+      if (!getRealRoster(teamId) || pendingMedicalCount[side] > 0) continue;
+      const roll = Math.random();
+      let kind = null;
+      if (roll < 0.006) kind = 'blood';
+      else if (roll < 0.010) kind = 'hia';
+      if (!kind) continue;
+
+      const squadArr = squadForSide(side);
+      const victim = squadArr[Math.floor(Math.random() * squadArr.length)];
+      const replacement = pickBestBenchFor(benchForSide(side), squadArr, victim.posId);
+      if (!replacement) continue; // sem cobertura no banco pra essa posição
+
+      const logText = t(kind === 'blood' ? 'medBloodLog' : 'medHiaLog', {team: teamNameForSide(side), player: victim.name, in: replacement.name});
+      const res = performLiveSub(squadArr, victim.id, replacement, logText);
+      if (!res) continue;
+      if (teamId === c.teamId) playedPlayersById[res.newPlayer.id] = res.newPlayer;
+      pendingMedicalCount[side]++;
+      pendingMedicalReturns.push({
+        side, tempPlayerId: res.newPlayer.id, originalPlayer: res.outPlayer,
+        returnAtTick: tickIndex + (kind === 'blood' ? BLOOD_DURATION_TICKS : HIA_DURATION_TICKS),
+        kind,
+      });
+      return; // só 1 evento médico por tick, pra não empilhar re-simulações
+    }
+  }
+
+  function processMedicalReturns() {
+    for (let i = pendingMedicalReturns.length - 1; i >= 0; i--) {
+      const ev = pendingMedicalReturns[i];
+      if (ev.returnAtTick > tickIndex) continue;
+      pendingMedicalReturns.splice(i, 1);
+      pendingMedicalCount[ev.side]--;
+      const teamId = ev.side === 'home' ? homeId : awayId;
+      if (ev.kind === 'hia' && Math.random() >= HIA_PASS_CHANCE) {
+        const logText = t('medHiaFailLog', {team: teamNameForSide(ev.side), player: ev.originalPlayer.name});
+        if (!logByMinute[tickIndex * 2]) logByMinute[tickIndex * 2] = [];
+        logByMinute[tickIndex * 2].push(logText);
+        pushLog(tickIndex * 2, logText);
+        continue; // não volta: o substituto fica em campo em definitivo
+      }
+      const logText = t('medReturnLog', {team: teamNameForSide(ev.side), player: ev.originalPlayer.name});
+      const res = performLiveSub(squadForSide(ev.side), ev.tempPlayerId, ev.originalPlayer, logText);
+      if (res && teamId === c.teamId) playedPlayersById[res.newPlayer.id] = res.newPlayer;
+    }
+  }
+
+  function handleMedicalTickEvents() {
+    if (tickIndex === 0) return;
+    processMedicalReturns();
+    tryTriggerMedicalEvent();
   }
 
   const subsBtn = document.getElementById('subsBtn');
