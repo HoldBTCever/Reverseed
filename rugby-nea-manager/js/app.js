@@ -640,7 +640,9 @@ function crestStyle(team) {
 }
 function crestContent(team) {
   const identity = teamIdentity(team.id);
-  return identity && identity.mascotEmoji ? identity.mascotEmoji : crestCode(team);
+  if (identity && identity.mascotEmoji) return identity.mascotEmoji;
+  if (identity && identity.initials) return identity.initials;
+  return crestCode(team);
 }
 // Linha com apelido/mascote do clube (quando documentado) pra mostrar junto
 // do nome do time — ex.: "El Tractor Amarillo" · 🦉 La Lechuza.

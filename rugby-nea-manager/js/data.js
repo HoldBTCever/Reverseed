@@ -131,13 +131,13 @@ export const LEAGUES = [
       // ou menos força só por trocar de campeonato).
       team('ARG-TAR', 'Taraguy', '#1A1A1A', 86, 84, 86),
       team('ARG-ARA', 'Aranduroga', '#1A1A1A', 83, 81, 83),
-      team('ARG-REG', 'Regatas', '#1565C0', 67, 66, 69),
+      team('ARG-REG', 'Regatas', '#E53935', 67, 66, 69),
       team('ARG-CUR', 'Curda', '#F9A825', 82, 81, 80),
       team('ARG-SNJ', 'San José', '#0D47A1', 80, 79, 78),
       team('ARG-SIX', 'Sixty', '#4FC3F7', 64, 63, 66),
       team('ARG-CAP', 'Capri', '#C62828', 55, 54, 58),
       team('ARG-CNE', 'Curne', '#FFEB3B', 82, 81, 81),
-      team('ARG-AGU', 'Aguará', '#283593', 61, 60, 63),
+      team('ARG-AGU', 'Aguará', '#64B5F6', 61, 60, 63),
       team('ARG-SNP', 'San Patricio', '#B71C1C', 79, 78, 80),
     ],
   },
@@ -195,22 +195,24 @@ export function getTeam(id) {
   return teamById[id];
 }
 
-// Identidade de clube: cores duplas (a `color` do time já é a primeira delas),
-// mascote e apelido popular — só documentados pros clubes que o usuário
-// confirmou; os demais seguem só com a cor única (`team.color`) que já
-// tinham, sem crest de duas cores nem mascote/apelido inventados. Curda e San
-// José entram duas vezes (ARG-* e PAR-*) porque disputam duas ligas com o
-// MESMO clube/plantel — a identidade tem que ser idêntica nas duas.
+// Identidade de clube: cores (duas ou três, a `color` do time já é a
+// primeira delas), mascote, apelido popular e sigla própria (`initials`,
+// quando o clube usa uma diferente do código de 3 letras derivado do id) —
+// só documentados pros clubes que o usuário confirmou; os demais seguem só
+// com a cor única (`team.color`) que já tinham, sem crest de duas cores nem
+// mascote/apelido/sigla inventados. Curda e San José entram duas vezes
+// (ARG-* e PAR-*) porque disputam duas ligas com o MESMO clube/plantel — a
+// identidade tem que ser idêntica nas duas.
 export const TEAM_IDENTITY = {
-  'ARG-CUR': {colors: ['#F9A825', '#1A1A1A'], mascotEmoji: '🦉', mascotName: {es: 'La Lechuza', pt: 'A Coruja'}, nickname: {es: 'El Tractor Amarillo', pt: 'O Trator Amarelo'}},
-  'PAR-CUR': {colors: ['#F9A825', '#1A1A1A'], mascotEmoji: '🦉', mascotName: {es: 'La Lechuza', pt: 'A Coruja'}, nickname: {es: 'El Tractor Amarillo', pt: 'O Trator Amarelo'}},
-  'ARG-AGU': {colors: ['#283593', '#1A1A1A']},
-  'ARG-SNJ': {colors: ['#0D47A1', '#FFFFFF']},
-  'PAR-SNJ': {colors: ['#0D47A1', '#FFFFFF']},
+  'ARG-CUR': {colors: ['#F9A825', '#1A1A1A'], mascotEmoji: '🦉', mascotName: {es: 'El Búho', pt: 'A Coruja'}, nickname: {es: 'El Tractor Amarillo', pt: 'O Trator Amarelo'}},
+  'PAR-CUR': {colors: ['#F9A825', '#1A1A1A'], mascotEmoji: '🦉', mascotName: {es: 'El Búho', pt: 'A Coruja'}, nickname: {es: 'El Tractor Amarillo', pt: 'O Trator Amarelo'}},
+  'ARG-AGU': {colors: ['#64B5F6', '#0D1B4C'], mascotEmoji: '🐻', mascotName: {es: 'El Oso', pt: 'O Urso'}},
+  'ARG-SNJ': {colors: ['#0D47A1', '#FFFFFF'], mascotEmoji: '🐶', mascotName: {es: 'El Bulldog', pt: 'O Bulldog'}},
+  'PAR-SNJ': {colors: ['#0D47A1', '#FFFFFF'], mascotEmoji: '🐶', mascotName: {es: 'El Bulldog', pt: 'O Bulldog'}},
   'PAR-ASU': {colors: ['#6D4C29', '#F9A825']},
-  'PAR-CRI': {colors: ['#1B5E20', '#1A1A1A']},
-  'PAR-STC': {colors: ['#1976D2', '#1A1A1A']},
-  'PAR-LUQ': {colors: ['#FBC02D', '#6D4C29']},
+  'PAR-CRI': {colors: ['#1B5E20', '#1A1A1A'], mascotEmoji: '🦤', mascotName: {es: 'El Avestruz', pt: 'O Avestruz'}},
+  'PAR-STC': {colors: ['#1976D2', '#1A1A1A'], mascotEmoji: '🦏', mascotName: {es: 'El Rinoceronte', pt: 'O Rinoceronte'}},
+  'PAR-LUQ': {colors: ['#FBC02D', '#6D4C29'], mascotEmoji: '🐷', mascotName: {es: 'El Chancho', pt: 'O Porco'}},
   'ARG-TAR': {colors: ['#1A1A1A', '#FFFFFF'], mascotEmoji: '🐊', mascotName: {es: 'El Yacaré', pt: 'O Jacaré'}},
   'ARG-ARA': {colors: ['#1A1A1A', '#FFFFFF'], mascotEmoji: '🦓', mascotName: {es: 'La Cebra', pt: 'A Zebra'}},
   'ARG-SIX': {colors: ['#4FC3F7', '#FFFFFF'], mascotEmoji: '🦌', mascotName: {es: 'El Ciervo', pt: 'O Veado'}},
@@ -220,6 +222,7 @@ export const TEAM_IDENTITY = {
   'ARG-SNP': {colors: ['#B71C1C', '#1A1A1A']},
   'PAR-FDM': {colors: ['#D32F2F', '#F9A825', '#1A1A1A'], mascotEmoji: '🐃', mascotName: {es: 'El Búfalo', pt: 'O Búfalo'}},
   'PAR-VHA': {colors: ['#2E7D32', '#FFFFFF']},
+  'ARG-REG': {colors: ['#E53935', '#FFFFFF'], initials: 'CRR'},
 };
 
 export function teamIdentity(teamId) {
