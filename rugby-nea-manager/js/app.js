@@ -119,12 +119,10 @@ const I18N = {
     champion: '¡Campeón! 🏆',
     runnerUp: 'Subcampeón',
     positionLeague: '{pos}º lugar',
-    positionGroup: '{pos}º en el Grupo {g}',
-    groupA: 'Grupo A',
-    groupB: 'Grupo B',
+    positionGroup: '{pos}º — {label}',
     standingsTitle: 'Tabla de Posiciones',
     roundLabel: 'Fecha {n}',
-    groupPhaseRound: 'Fase de Grupos — Fecha {n}',
+    groupPhaseRound: 'Fase de {term} — Fecha {n}',
     currentSuffix: ' (actual)',
     fixtureTitle: 'Fixture — Ida y Vuelta',
     dipTitle: 'Entrenamiento individual (DIP)',
@@ -341,12 +339,10 @@ const I18N = {
     champion: 'Campeão! 🏆',
     runnerUp: 'Vice-campeão',
     positionLeague: '{pos}º lugar',
-    positionGroup: '{pos}º no Grupo {g}',
-    groupA: 'Grupo A',
-    groupB: 'Grupo B',
+    positionGroup: '{pos}º — {label}',
     standingsTitle: 'Tabela de Classificação',
     roundLabel: 'Rodada {n}',
-    groupPhaseRound: 'Fase de Grupos — Rodada {n}',
+    groupPhaseRound: 'Fase de {term} — Rodada {n}',
     currentSuffix: ' (atual)',
     fixtureTitle: 'Fixture — Turno e Returno',
     dipTitle: 'Treino individual (DIP)',
@@ -633,10 +629,13 @@ function crestStyle(team) {
   const identity = teamIdentity(team.id);
   if (!identity) return `background:${team.color}`;
   const colors = identity.colors;
-  if (colors.length === 1) return `background:${colors[0]}`;
-  const step = 100 / colors.length;
-  const stops = colors.map((c, i) => `${c} ${Math.round(i * step)}%, ${c} ${Math.round((i + 1) * step)}%`).join(', ');
-  return `background:linear-gradient(135deg, ${stops})`;
+  const bg = colors.length === 1
+    ? `background:${colors[0]}`
+    : `background:linear-gradient(135deg, ${colors.map((c, i) => `${c} ${Math.round(i * (100 / colors.length))}%, ${c} ${Math.round((i + 1) * (100 / colors.length))}%`).join(', ')})`;
+  // textColor: só pra clubes de cor clara sem mascote (ex.: Mendoza RC, só
+  // branco) — sem isso o código de 3 letras/sigla (branco por padrão) fica
+  // ilegível sobre o crest. Não é uma cor de identidade, é só legibilidade.
+  return identity.textColor ? `${bg}; color:${identity.textColor}` : bg;
 }
 function crestContent(team) {
   const identity = teamIdentity(team.id);
@@ -816,9 +815,20 @@ function buildGroupCompetition(league, teamId) {
 
   return {
     teamId, league: league.id, stage: 'groups',
-    groupOf, groupFixtures, groupStandings,
+    groupOf, groupFixtures, groupStandings, groupTerm: league.groupTerm || 'Grupo',
     currentRoundIndex: 0, roundsElapsed: 0, roundsElapsedBaseline: 0, knockoutRounds: [],
   };
+}
+
+// "Grupo A"/"Zona 1" — o termo ('Grupo' ou 'Zona', ver league.groupTerm) e o
+// número/letra variam por competição; "Grupo"/"Zona" são grafados igual em
+// espanhol e português, então não precisa de chave de i18n pra isso.
+function groupDisplayName(c, g) {
+  if (c.groupTerm === 'Zona') {
+    const idx = Object.keys(c.groupStandings).indexOf(g);
+    return `Zona ${idx + 1}`;
+  }
+  return `${c.groupTerm || 'Grupo'} ${g}`;
 }
 
 function buildCompetition(teamId) {
@@ -908,10 +918,10 @@ function activeRoundMatches(c) {
     return round ? round.matches : null;
   }
   if (c.stage === 'groups') {
-    const a = c.groupFixtures.A[c.currentRoundIndex];
-    const b = c.groupFixtures.B[c.currentRoundIndex];
-    if (!a && !b) return null;
-    return [...(a ? a.matches : []), ...(b ? b.matches : [])];
+    const idx = c.currentRoundIndex;
+    const rounds = Object.values(c.groupFixtures).map(fx => fx[idx]).filter(Boolean);
+    if (!rounds.length) return null;
+    return rounds.flatMap(r => r.matches);
   }
   if (c.stage === 'knockout') {
     const round = c.knockoutRounds[c.currentRoundIndex];
@@ -927,8 +937,9 @@ function activeRoundName(c) {
   }
   if (c.stage === 'groups') {
     const idx = c.currentRoundIndex;
-    const r = c.groupFixtures.A[idx] || c.groupFixtures.B[idx];
-    return r ? t('groupPhaseRound', {n: idx + 1}) : null;
+    const r = Object.values(c.groupFixtures).some(fx => fx[idx]);
+    const term = c.groupTerm === 'Zona' ? 'Zonas' : 'Grupos';
+    return r ? t('groupPhaseRound', {term, n: idx + 1}) : null;
   }
   if (c.stage === 'knockout') {
     const round = c.knockoutRounds[c.currentRoundIndex];
@@ -1291,13 +1302,20 @@ function startKnockoutFromLeague(c) {
   c.knockoutRounds = [{name: knockoutStageName(matches.length, lang), matches}];
 }
 
+// Generaliza pra qualquer número de grupos (2 no Paraguaio, 4 no Torneo del
+// Interior): pega os 2 melhores de CADA grupo e cruza o 1º de um grupo com o
+// 2º do PRÓXIMO grupo (nunca o 2º do mesmo grupo), evitando reencontro de
+// zona logo na primeira rodada do mata-mata. Com 2 grupos, isso reproduz
+// exatamente o cruzamento de sempre (1ºA x 2ºB, 1ºB x 2ºA).
 function startKnockoutFromGroups(c) {
-  const topA = sortedStandings(c.groupStandings.A).slice(0, 2).map(r => r.teamId);
-  const topB = sortedStandings(c.groupStandings.B).slice(0, 2).map(r => r.teamId);
-  const matches = [
-    {home: topA[0], away: topB[1], played: false, scoreHome: null, scoreAway: null},
-    {home: topB[0], away: topA[1], played: false, scoreHome: null, scoreAway: null},
-  ];
+  const groupKeys = Object.keys(c.groupStandings);
+  const top2ByGroup = groupKeys.map(g => sortedStandings(c.groupStandings[g]).slice(0, 2).map(r => r.teamId));
+  const n = groupKeys.length;
+  const matches = top2ByGroup.map((top2, i) => ({
+    home: top2[0],
+    away: top2ByGroup[(i + 1) % n][1],
+    played: false, scoreHome: null, scoreAway: null,
+  }));
   c.stage = 'knockout';
   c.currentRoundIndex = 0;
   c.knockoutRounds = [{name: knockoutStageName(matches.length, lang), matches}];
@@ -1333,7 +1351,7 @@ function afterRoundAdvance(c) {
     if (c.currentRoundIndex < c.fixture.length) return;
     startKnockoutFromLeague(c);
   } else if (c.stage === 'groups') {
-    const maxLen = Math.max(c.groupFixtures.A.length, c.groupFixtures.B.length);
+    const maxLen = Math.max(...Object.values(c.groupFixtures).map(f => f.length));
     if (c.currentRoundIndex < maxLen) return;
     startKnockoutFromGroups(c);
   } else if (c.stage === 'knockout') {
@@ -1375,7 +1393,7 @@ function competitionStatusLabel(c) {
     const g = c.groupOf[c.teamId];
     const rows = sortedStandings(c.groupStandings[g]);
     const pos = rows.findIndex(r => r.teamId === c.teamId) + 1;
-    return t('positionGroup', {pos, g});
+    return t('positionGroup', {pos, label: groupDisplayName(c, g)});
   }
   return knockoutStatusLabel(c);
 }
@@ -1517,7 +1535,7 @@ function trainingFocusForWeekday(d) {
 // conforme é gerada).
 function totalRoundsKnown(c) {
   if (c.stage === 'league') return c.fixture.length;
-  if (c.stage === 'groups') return Math.max(c.groupFixtures.A.length, c.groupFixtures.B.length);
+  if (c.stage === 'groups') return Math.max(...Object.values(c.groupFixtures).map(f => f.length));
   if (c.stage === 'knockout') return c.knockoutRounds.length;
   return 0;
 }
@@ -1677,10 +1695,9 @@ function renderCompetitionStandingsBlock(c) {
     body += `<div class="card">${renderTableHtml(sortedStandings(c.standings), c.teamId)}</div>`;
   }
   if (c.groupStandings) {
-    body += `
-      <div class="card"><h3>${t('groupA')}</h3>${renderTableHtml(sortedStandings(c.groupStandings.A), c.teamId)}</div>
-      <div class="card"><h3>${t('groupB')}</h3>${renderTableHtml(sortedStandings(c.groupStandings.B), c.teamId)}</div>
-    `;
+    body += Object.keys(c.groupStandings).map(g => `
+      <div class="card"><h3>${groupDisplayName(c, g)}</h3>${renderTableHtml(sortedStandings(c.groupStandings[g]), c.teamId)}</div>
+    `).join('');
   }
   if (c.stage === 'knockout' && c.knockoutRounds.length) {
     body += renderBracketHtml(c);
@@ -1732,12 +1749,11 @@ function renderFixture() {
     if (c.fixture) {
       renderRoundRobinInto(list, c.fixture, c);
     } else if (c.groupFixtures) {
-      const titleA = document.createElement('h3'); titleA.textContent = t('groupA');
-      list.appendChild(titleA);
-      renderRoundRobinInto(list, c.groupFixtures.A, c);
-      const titleB = document.createElement('h3'); titleB.textContent = t('groupB');
-      list.appendChild(titleB);
-      renderRoundRobinInto(list, c.groupFixtures.B, c);
+      Object.keys(c.groupFixtures).forEach(g => {
+        const title = document.createElement('h3'); title.textContent = groupDisplayName(c, g);
+        list.appendChild(title);
+        renderRoundRobinInto(list, c.groupFixtures[g], c);
+      });
     }
     if (c.stage === 'knockout' && c.knockoutRounds.length) {
       const bracketWrap = document.createElement('div');

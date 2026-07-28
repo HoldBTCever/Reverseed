@@ -169,20 +169,43 @@ export const LEAGUES = [
   {
     id: 'interior',
     name: 'Torneio do Interior',
-    country: 'Argentina (Corrientes)',
-    // Competição regional entre clubes de cidades do interior de Corrientes.
-    // O Curne disputa o NEA argentino e também este torneio ao mesmo tempo
-    // com o MESMO plantel — mesmo ataque/defesa/físico usado no NEA, sendo
-    // ainda assim o favorito aqui por ser um campeonato mais fraco.
+    country: 'Argentina',
+    // Torneo del Interior real (UAR): clubes de fora de Buenos Aires,
+    // divididos em 4 zonas de 4 times — os dois melhores de cada zona
+    // avançam às quartas de final (ver groupTerm/groups). Dentro de cada
+    // zona, a ORDEM dos times já reflete a força real informada (1º = mais
+    // forte), com uma diferença de nível pequena entre eles — não representa
+    // um campeonato "fraco" tipo os times fictícios que existiam antes.
+    // O Curne disputa o NEA argentino e este torneio ao mesmo tempo com o
+    // MESMO plantel — por isso mantém o mesmo ataque/defesa/físico do NEA.
+    groupTerm: 'Zona',
+    groups: {
+      A: ['INT-TUC', 'INT-GER', 'INT-MAR', 'INT-MDZ'],
+      B: ['INT-TAL', 'INT-CAE', 'INT-URC', 'INT-CNE'],
+      C: ['INT-SFE', 'INT-JCC', 'INT-CAT', 'INT-UNC'],
+      D: ['INT-JCR', 'INT-DUE', 'INT-TAB', 'INT-OLD'],
+    },
     teams: [
+      // Zona 1
+      team('INT-TUC', 'Tucumán Rugby', '#1B4332', 86, 84, 85),
+      team('INT-GER', 'GER', '#0D3B66', 83, 81, 82),
+      team('INT-MAR', 'Marista RC', '#C62828', 80, 78, 79),
+      team('INT-MDZ', 'Mendoza RC', '#424242', 77, 75, 78),
+      // Zona 2
+      team('INT-TAL', 'Tala RC', '#0D3B66', 88, 86, 85),
+      team('INT-CAE', 'Club Atlético Estudiantes', '#1A1A1A', 86, 84, 83),
+      team('INT-URC', 'Uru Curé RC', '#0D1B4C', 84, 82, 82),
       team('INT-CNE', 'Curne', '#FFEB3B', 82, 81, 81),
-      team('INT-MER', 'Mercedes RC', '#FDD835', 78, 76, 77),
-      team('INT-GOY', 'Goya RC', '#1B4332', 77, 75, 76),
-      team('INT-STM', 'Santo Tomé RC', '#C62828', 70, 69, 72),
-      team('INT-PLB', 'Paso de los Libres RC', '#6A1B9A', 69, 68, 71),
-      team('INT-BVI', 'Bella Vista RC', '#0D3B66', 62, 61, 65),
-      team('INT-ITZ', 'Ituzaingó RC', '#2E7D32', 61, 60, 64),
-      team('INT-CCT', 'Curuzú Cuatiá RC', '#1A1A1A', 58, 57, 62),
+      // Zona 3
+      team('INT-SFE', 'Santa Fe Rugby', '#0D47A1', 88, 86, 85),
+      team('INT-JCC', 'Jockey Club de Córdoba', '#C62828', 86, 84, 84),
+      team('INT-CAT', 'Córdoba Athletic', '#0D1B4C', 84, 82, 83),
+      team('INT-UNC', 'Universitario de Córdoba', '#C62828', 82, 80, 81),
+      // Zona 4
+      team('INT-JCR', 'Jockey Club de Rosario', '#1B4332', 90, 88, 87),
+      team('INT-DUE', 'Duendes RC', '#2E7D32', 88, 86, 85),
+      team('INT-TAB', 'La Tablada RC', '#C62828', 83, 81, 82),
+      team('INT-OLD', 'Old Resian', '#C62828', 80, 78, 80),
     ],
   },
 ];
@@ -223,13 +246,28 @@ export const TEAM_IDENTITY = {
   'PAR-FDM': {colors: ['#D32F2F', '#F9A825', '#1A1A1A'], mascotEmoji: '🐃', mascotName: {es: 'El Búfalo', pt: 'O Búfalo'}},
   'PAR-VHA': {colors: ['#2E7D32', '#FFFFFF']},
   'ARG-REG': {colors: ['#E53935', '#FFFFFF'], initials: 'CRR'},
-  'INT-MER': {colors: ['#FDD835', '#D32F2F'], mascotEmoji: '👑', mascotName: {es: 'La Corona', pt: 'A Coroa'}},
-  'INT-GOY': {colors: ['#1B4332', '#FFFFFF', '#1A1A1A']},
-  'INT-ITZ': {colors: ['#2E7D32', '#1565C0', '#FBC02D'], mascotEmoji: '🌳', mascotName: {es: 'El Árbol', pt: 'A Árvore'}},
-  'INT-CCT': {colors: ['#FFFFFF', '#81D4FA', '#1A1A1A'], mascotEmoji: '🍃', mascotName: {es: 'La Hoja', pt: 'A Folha'}},
-  'INT-BVI': {colors: ['#0D3B66', '#FBC02D'], initials: 'CRBV'},
-  'INT-STM': {colors: ['#C62828', '#0D1B4C']},
-  'INT-PLB': {colors: ['#6A1B9A', '#2E7D32']},
+  // Zona 1
+  'INT-TUC': {colors: ['#1B4332', '#1A1A1A']},
+  'INT-GER': {colors: ['#0D3B66', '#FBC02D']},
+  'INT-MAR': {colors: ['#FFFFFF', '#C62828', '#0D1B4C']},
+  // Mendoza RC só tem branco como cor real — textColor é só uma necessidade
+  // prática de legibilidade (número/sigla branca não pode ficar sobre fundo
+  // branco), não representa uma segunda cor de identidade inventada.
+  'INT-MDZ': {colors: ['#FFFFFF'], textColor: '#1A1A1A'},
+  // Zona 2
+  'INT-TAL': {colors: ['#0D3B66', '#FFFFFF']},
+  'INT-CAE': {colors: ['#1A1A1A', '#FFFFFF', '#FBC02D']},
+  'INT-URC': {colors: ['#0D1B4C', '#757575']},
+  // Zona 3
+  'INT-SFE': {colors: ['#FFFFFF', '#C62828', '#0D47A1']},
+  'INT-JCC': {colors: ['#C62828', '#FFFFFF'], mascotEmoji: '🐴', mascotName: {es: 'El Caballo', pt: 'O Cavalo'}},
+  'INT-CAT': {colors: ['#0D1B4C', '#C62828']},
+  'INT-UNC': {colors: ['#C62828', '#FFFFFF']},
+  // Zona 4
+  'INT-JCR': {colors: ['#1B4332', '#FFFFFF'], mascotEmoji: '🐴', mascotName: {es: 'El Caballo', pt: 'O Cavalo'}},
+  'INT-DUE': {colors: ['#2E7D32', '#1A1A1A'], mascotEmoji: '👻', mascotName: {es: 'El Fantasma', pt: 'O Fantasma'}},
+  'INT-TAB': {colors: ['#C62828', '#0D1B4C']},
+  'INT-OLD': {colors: ['#C62828', '#FFFFFF', '#0D1B4C']},
 };
 
 export function teamIdentity(teamId) {
