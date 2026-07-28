@@ -1,26 +1,31 @@
 import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS} from './data.js';
-import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, zoneForPos, defaultGamePlan} from './engine.js';
+import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, zoneForPos, defaultGamePlan} from './engine.js';
 import {MatchRenderer, renderFormationHtml} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
 import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier} from './realSquads.js';
 
-const SAVE_KEY = 'rugbyNeaSave_v10';
+const SAVE_KEY = 'rugbyNeaSave_v11';
 
-// Plano de jogo padrão do Curda, extraído do "Tablero de Mando Territorial:
-// Curda vs Taraguy" (documento real usado pelo clube). Serve de ponto de
-// partida quando o manager assume o Curda; pode ser editado livremente na
-// tela de Tática. Times sem plano configurado jogam com defaultGamePlan()
-// (equilibrado em toda zona, sem efeito).
+// Plano de jogo padrão do Curda, extraído dos documentos táticos reais do
+// clube: "Tablero de Mando Territorial" (zonas/códigos), "Plan de Juego
+// Febrero 2026" (zonas mais precisas 0-22/22-40/40-80/80-ingoal + os 3
+// sistemas de jogo Argentina/Irlanda/Sudáfrica + glossário de códigos) e
+// "Plan Defensivo de Juego" (pilar de defesa dominante — "estar antes",
+// pared conectada, tackle dominante). Serve de ponto de partida quando o
+// manager assume o Curda; pode ser editado livremente na tela de Tática.
+// Times sem plano configurado jogam com defaultGamePlan() (sem sistema,
+// equilibrado em toda zona, sem efeito nenhum).
 function curdaDefaultGamePlan() {
   return {
+    system: 'sudafrica', // identidade "Dominar el contacto" do clube
     zones: {
-      red: {style: 'chute', code: 'AVIÓN'},
-      orange: {style: 'equilibrado', code: 'PASTO/BOMBA'},
-      green: {style: 'forwards', code: 'BURRO'},
+      red: {style: 'chute', code: 'AVIÓN/TORMENTA/T1'},
+      orange: {style: 'chute', code: 'TORMENTA/T1/BOMBA'},
+      green: {style: 'forwards', code: 'IRLANDA/BURRO'},
       yellow: {style: 'forwards', code: 'SUDAFRICA'},
     },
-    pillars: {disciplina: 75, posse: 75, fisicalidade: 85},
+    pillars: {disciplina: 75, posse: 75, fisicalidade: 85, defesa: 85},
   };
 }
 
@@ -87,20 +92,28 @@ const I18N = {
     taticaTitle: 'Táctica — {team}',
     taticaHelp: 'Definí el plan de juego por zona del campo, igual que el "tablero de mando territorial" que usan los clubes de verdad: cada zona tiene un estilo propio, que se aplica en la simulación en vivo (y se ve en la franja de colores arriba de la cancha, con el código de la jugada activa).',
     zonaVermelha: 'Zona Roja (0-22 propia)',
-    zonaLaranja: 'Zona Naranja (22-50)',
-    zonaVerde: 'Zona Verde (50-22 rival)',
-    zonaDourada: 'Zona Dorada (22-Ingoal)',
+    zonaLaranja: 'Zona Naranja (22-40)',
+    zonaVerde: 'Zona Verde (40-80)',
+    zonaDourada: 'Zona Dorada (80-Ingoal)',
     estiloDeJogo: 'Estilo de juego',
     codigoComunicacao: 'Código de comunicación',
     codigoPlaceholder: 'ej: AVIÓN',
     estiloChute: 'Salida por el pie',
     estiloEquilibrado: 'Equilibrado',
     estiloForwards: 'Forwards / juego corrido',
+    sistemaTitle: 'Sistema de juego',
+    sistemaHelp: 'La identidad táctica general del equipo, además del estilo por zona — cada sistema tiene su propia formación de apoyo. Se aplica en todo el partido.',
+    sistema_ninguno: 'Ninguno (solo estilo por zona)',
+    sistema_argentina: 'Argentina — Juego de Control (pocos pases, mucho pie, muy disciplinado)',
+    sistema_irlanda: 'Irlanda — Juego de Fases (mucho volumen, ocupa todo el ancho, arriesgado)',
+    sistema_sudafrica: 'Sudáfrica — Juego Frontal (penetrante, domina el contacto, pases cortos)',
+    formacaoApoio: 'Formación de apoyo: {f}',
     pilaresTitle: 'Pilares de identidad',
     pilaresHelp: 'Modificadores fijos para todo el partido, sin importar la zona.',
     pilar_disciplina: 'Disciplina de zona',
     pilar_posse: 'Posesión y control',
     pilar_fisicalidade: 'Fisicalidad absoluta',
+    pilar_defesa: 'Defensa dominante (estar antes, pared, tackle)',
     resetarPlano: 'Restablecer a equilibrado',
     carregarPlanoCurda: 'Cargar plan del Tablero de Mando (Curda)',
     pdfUploadTitle: 'Enviar prancheta táctica en PDF',
@@ -250,20 +263,28 @@ const I18N = {
     taticaTitle: 'Tática — {team}',
     taticaHelp: 'Defina o plano de jogo por zona do campo, igual ao "tablero de mando territorial" que os clubes de verdade usam: cada zona tem um estilo próprio, aplicado na simulação ao vivo (e visível na faixa colorida acima do campo, com o código da jogada em vigor).',
     zonaVermelha: 'Zona Vermelha (0-22 própria)',
-    zonaLaranja: 'Zona Laranja (22-50)',
-    zonaVerde: 'Zona Verde (50-22 rival)',
-    zonaDourada: 'Zona Dourada (22-Ingoal)',
+    zonaLaranja: 'Zona Laranja (22-40)',
+    zonaVerde: 'Zona Verde (40-80)',
+    zonaDourada: 'Zona Dourada (80-Ingoal)',
     estiloDeJogo: 'Estilo de jogo',
     codigoComunicacao: 'Código de comunicação',
     codigoPlaceholder: 'ex: AVIÃO',
     estiloChute: 'Saída pelo chute',
     estiloEquilibrado: 'Equilibrado',
     estiloForwards: 'Forwards / jogo corrido',
+    sistemaTitle: 'Sistema de jogo',
+    sistemaHelp: 'A identidade tática geral do time, além do estilo por zona — cada sistema tem sua própria formação de apoio. Vale pra partida inteira.',
+    sistema_ninguno: 'Nenhum (só estilo por zona)',
+    sistema_argentina: 'Argentina — Jogo de Controle (poucos passes, muito pé, bem disciplinado)',
+    sistema_irlanda: 'Irlanda — Jogo de Fases (muito volume, ocupa toda a largura, arriscado)',
+    sistema_sudafrica: 'Sudáfrica — Jogo Frontal (penetrante, domina o contato, passes curtos)',
+    formacaoApoio: 'Formação de apoio: {f}',
     pilaresTitle: 'Pilares de identidade',
     pilaresHelp: 'Modificadores fixos pra partida inteira, independente da zona.',
     pilar_disciplina: 'Disciplina de zona',
     pilar_posse: 'Posse e controle',
     pilar_fisicalidade: 'Fisicalidade absoluta',
+    pilar_defesa: 'Defesa dominante (estar antes, pared, tackle)',
     resetarPlano: 'Resetar pra equilibrado',
     carregarPlanoCurda: 'Carregar plano do Tablero de Mando (Curda)',
     pdfUploadTitle: 'Enviar prancheta tática em PDF',
@@ -1683,6 +1704,8 @@ const ZONE_STYLE_LABEL_KEY = {chute: 'estiloChute', equilibrado: 'estiloEquilibr
 
 function ensureGamePlan() {
   if (!state.gamePlan) state.gamePlan = defaultGamePlan();
+  if (!state.gamePlan.system) state.gamePlan.system = 'ninguno';
+  if (state.gamePlan.pillars.defesa == null) state.gamePlan.pillars.defesa = 50;
   if (!state.gamePlanPdfs) state.gamePlanPdfs = [];
   return state.gamePlan;
 }
@@ -1700,6 +1723,14 @@ function renderTactics() {
   content.innerHTML = `
     <h1>${t('taticaTitle', {team: myTeam.name})}</h1>
     <p class="muted">${t('taticaHelp')}</p>
+    <div class="card">
+      <h3>${t('sistemaTitle')}</h3>
+      <p class="muted">${t('sistemaHelp')}</p>
+      <select class="systemSelect" id="systemSelect">
+        ${Object.keys(PLAY_SYSTEMS).map(s => `<option value="${s}" ${plan.system === s ? 'selected' : ''}>${t('sistema_' + s)}</option>`).join('')}
+      </select>
+      ${plan.system !== 'ninguno' ? `<p class="muted systemFormation">${t('formacaoApoio', {f: PLAY_SYSTEMS[plan.system].formation})}</p>` : ''}
+    </div>
     <div class="zoneGrid">
       ${ZONE_KEYS.map(z => `
         <div class="zoneCard" style="border-top: 4px solid ${ZONE_COLORS[z]}">
@@ -1709,14 +1740,17 @@ function renderTactics() {
             ${Object.keys(ZONE_STYLES).map(s => `<option value="${s}" ${plan.zones[z].style === s ? 'selected' : ''}>${t(ZONE_STYLE_LABEL_KEY[s])}</option>`).join('')}
           </select>
           <label class="zoneFieldLabel">${t('codigoComunicacao')}</label>
-          <input type="text" class="zoneCodeInput" data-zone="${z}" maxlength="18" value="${escapeHtmlAttr(plan.zones[z].code)}" placeholder="${t('codigoPlaceholder')}" />
+          <input type="text" class="zoneCodeInput" list="playCodesList" data-zone="${z}" maxlength="24" value="${escapeHtmlAttr(plan.zones[z].code)}" placeholder="${t('codigoPlaceholder')}" />
         </div>
       `).join('')}
+      <datalist id="playCodesList">
+        ${PLAY_CODES.map(c => `<option value="${c}"></option>`).join('')}
+      </datalist>
     </div>
     <div class="card">
       <h3>${t('pilaresTitle')}</h3>
       <p class="muted">${t('pilaresHelp')}</p>
-      ${['disciplina', 'posse', 'fisicalidade'].map(p => `
+      ${['disciplina', 'posse', 'fisicalidade', 'defesa'].map(p => `
         <div class="pillarRow">
           <label>${t('pilar_' + p)} <span class="pillarVal" data-pillar-val="${p}">${plan.pillars[p]}</span></label>
           <input type="range" min="0" max="100" step="5" class="pillarSlider" data-pillar="${p}" value="${plan.pillars[p]}" />
@@ -1744,6 +1778,11 @@ function renderTactics() {
     </div>
   `;
 
+  document.getElementById('systemSelect').addEventListener('change', e => {
+    ensureGamePlan().system = e.target.value;
+    saveState();
+    renderTactics();
+  });
   Array.from(document.querySelectorAll('.zoneStyleSelect')).forEach(sel => {
     sel.addEventListener('change', () => {
       ensureGamePlan().zones[sel.dataset.zone].style = sel.value;
@@ -2031,20 +2070,21 @@ function renderLive() {
 
   function updateTacticalBanner(pos) {
     const info = renderer.getActiveZoneInfo(pos);
-    if (!info.code && info.style === 'equilibrado') {
+    if (!info.code && info.style === 'equilibrado' && info.system === 'ninguno') {
       tacticalBannerEl.classList.remove('show');
       lastBannerKey = null;
       return;
     }
-    const bannerKey = `${info.team.id}|${info.zoneKey}|${info.style}|${info.code}`;
+    const bannerKey = `${info.team.id}|${info.zoneKey}|${info.style}|${info.code}|${info.system}`;
     if (bannerKey === lastBannerKey) return;
     lastBannerKey = bannerKey;
     const styleLabel = t(ZONE_STYLE_LABEL_KEY[info.style] || 'estiloEquilibrado');
     const zoneLabel = t(ZONE_LABEL_KEY[info.zoneKey]);
+    const systemLabel = info.system !== 'ninguno' ? ` <span class="tacticalSystem">· ${t('sistema_' + info.system).split(' — ')[0]}</span>` : '';
     tacticalBannerEl.style.borderColor = ZONE_COLORS[info.zoneKey];
     tacticalBannerEl.innerHTML = `
       <span class="crestSmall" style="background:${info.team.color}">${crestCode(info.team)}</span>
-      <b>${zoneLabel}</b> — ${styleLabel}${info.code ? ` · <span class="tacticalCode">${escapeHtmlAttr(info.code)}</span>` : ''}
+      <b>${zoneLabel}</b> — ${styleLabel}${info.code ? ` · <span class="tacticalCode">${escapeHtmlAttr(info.code)}</span>` : ''}${systemLabel}
     `;
     tacticalBannerEl.classList.add('show');
   }

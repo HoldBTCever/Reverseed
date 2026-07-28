@@ -321,10 +321,12 @@ canvas#pitch {
 }
 .zoneCard h3 { margin: 0 0 4px; font-size: 14px; }
 .zoneFieldLabel { font-size: 11px; color: var(--muted); margin-top: 6px; }
-.zoneStyleSelect, .zoneCodeInput {
+.zoneStyleSelect, .zoneCodeInput, .systemSelect {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 6px; font-size: 12px; width: 100%;
 }
+.systemSelect { max-width: 480px; }
+.systemFormation { margin-top: 8px; margin-bottom: 0; font-size: 12px; }
 .pillarRow { margin-bottom: 12px; }
 .pillarRow label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
 .pillarVal { color: var(--accent); font-weight: 700; }
@@ -348,3 +350,4 @@ canvas#pitch {
 .tacticalBanner.show { display: flex; }
 .tacticalBanner .crestSmall { width: 22px; height: 22px; border-radius: 50%; display:flex; align-items:center; justify-content:center; font-size: 9px; font-weight: 800; color:#fff; flex-shrink: 0; }
 .tacticalCode { font-weight: 800; letter-spacing: 0.03em; color: var(--accent); }
+.tacticalSystem { color: var(--muted); font-size: 12px; }

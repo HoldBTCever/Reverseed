@@ -231,7 +231,7 @@ export class MatchRenderer {
     const {marginX, fieldW, marginY} = fieldGeom;
     const y = marginY - 14;
     const h = 6;
-    const bounds = [0, 0.22, 0.50, 0.78, 1];
+    const bounds = [0, 0.22, 0.40, 0.80, 1];
     const keys = ['red', 'orange', 'green', 'yellow'];
     keys.forEach((k, i) => {
       const x0 = marginX + fieldW * bounds[i];
@@ -266,6 +266,7 @@ export class MatchRenderer {
       zoneKey,
       style: zoneConf ? zoneConf.style : 'equilibrado',
       code: zoneConf ? zoneConf.code : '',
+      system: plan && plan.system ? plan.system : 'ninguno',
     };
   }
 

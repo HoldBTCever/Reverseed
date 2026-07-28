@@ -27,24 +27,52 @@ const ZONE_STYLES = {
 
 // pos: 0 = try-line do time A, 100 = try-line do time B (ver simulateMatch).
 // "side" é de qual time estamos olhando a zona: as zonas de B são o espelho
-// das de A (perto de 100 = zona vermelha — própria try-line — de B).
+// das de A (perto de 100 = zona vermelha — própria try-line — de B). Faixas
+// oficiais do "Plan de Juego Febrero 2026" do Curda: 0-22 / 22-40 / 40-80 /
+// 80-ingoal (mais precisas que o tablero territorial anterior, 22/50/78).
 function zoneForPos(pos, side) {
   const p = side === 'B' ? 100 - pos : pos;
   if (p <= 22) return 'red';
-  if (p <= 50) return 'orange';
-  if (p <= 78) return 'green';
+  if (p <= 40) return 'orange';
+  if (p <= 80) return 'green';
   return 'yellow';
 }
 
+// ---- Sistema de jogo (identidade tática geral) -----------------------------
+// Além do estilo por zona, o "Plan de Juego" real do Curda descreve 3
+// sistemas completos que o time escala conforme o rival/momento — cada um
+// com uma formação de apoio própria e um jeito de jogar bem diferente.
+// Argentina = jogo de controle (poucos passes, chuta bastante, muito
+// disciplinado); Irlanda = jogo de fases (muito volume, joga a largura toda,
+// mais arriscado); Sudáfrica = jogo frontal (penetrante, domina o contato,
+// passes curtos e conservadores). Afeta a partida inteira, multiplicado
+// em cima do estilo de cada zona.
+const PLAY_SYSTEMS = {
+  ninguno: {attackMod: 1, defenseMod: 1, breakMod: 1, errorMod: 1, formation: '', label: ''},
+  argentina: {attackMod: 0.94, defenseMod: 1.10, breakMod: 0.82, errorMod: 0.78, formation: '1-3-3-1', label: 'Sistema Argentina — Juego de Control'},
+  irlanda: {attackMod: 1.07, defenseMod: 0.96, breakMod: 1.18, errorMod: 1.08, formation: '1-3-2-1+1', label: 'Sistema Irlanda — Juego de Fases'},
+  sudafrica: {attackMod: 1.08, defenseMod: 0.99, breakMod: 1.12, errorMod: 0.90, formation: '3-3-2+1', label: 'Sistema Sudáfrica — Juego Frontal'},
+};
+
+// Glossário real de códigos de jogada do Curda (tablero territorial + plan de
+// juego), oferecido como sugestão rápida na tela de Tática — o técnico pode
+// digitar qualquer outra coisa no campo de código.
+const PLAY_CODES = [
+  'AVIÓN', 'TORMENTA', 'T1', 'BOMBA', 'PASTO', 'HABILITO', 'FRANCIA',
+  'BURRO', 'BÚHO', 'GLASGOW-PANZA', 'SUDAFRICA', 'IRLANDA', 'ARGENTINA',
+  '90', '100', '1000', 'VERDE', 'AZUL', 'PUMA', 'TUCUMÁN', 'MARADONA',
+];
+
 function defaultGamePlan() {
   return {
+    system: 'ninguno',
     zones: {
       red: {style: 'equilibrado', code: ''},
       orange: {style: 'equilibrado', code: ''},
       green: {style: 'equilibrado', code: ''},
       yellow: {style: 'equilibrado', code: ''},
     },
-    pillars: {disciplina: 50, posse: 50, fisicalidade: 50},
+    pillars: {disciplina: 50, posse: 50, fisicalidade: 50, defesa: 50},
   };
 }
 
@@ -52,7 +80,7 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
-export {TACTICS, ZONE_KEYS, ZONE_STYLES, zoneForPos, defaultGamePlan};
+export {TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, zoneForPos, defaultGamePlan};
 
 function rand(min, max) {
   return Math.random() * (max - min) + min;
@@ -218,6 +246,20 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
   const fisicalidadeFactorA = clamp(1 + (planA.pillars.fisicalidade - 50) * 0.004, 0.7, 1.4);
   const fisicalidadeFactorB = clamp(1 + (planB.pillars.fisicalidade - 50) * 0.004, 0.7, 1.4);
 
+  // Defesa dominante (plan defensivo real: "estar antes", pared conectada,
+  // tackle dominante): aumenta o roubo de bola do próprio time e dificulta o
+  // quiebre de línea do rival contra essa defesa.
+  const defesaGuardA = clamp(1 - ((planA.pillars.defesa != null ? planA.pillars.defesa : 50) - 50) * 0.005, 0.5, 1.3);
+  const defesaGuardB = clamp(1 - ((planB.pillars.defesa != null ? planB.pillars.defesa : 50) - 50) * 0.005, 0.5, 1.3);
+  const defesaBoostA = clamp(1 + ((planA.pillars.defesa != null ? planA.pillars.defesa : 50) - 50) * 0.006, 0.6, 1.6);
+  const defesaBoostB = clamp(1 + ((planB.pillars.defesa != null ? planB.pillars.defesa : 50) - 50) * 0.006, 0.6, 1.6);
+  turnoverChanceA *= defesaBoostA;
+  turnoverChanceB *= defesaBoostB;
+
+  // Sistema de jogo (identidade tática geral, além do estilo por zona).
+  const sysA = PLAY_SYSTEMS[planA.system] || PLAY_SYSTEMS.ninguno;
+  const sysB = PLAY_SYSTEMS[planB.system] || PLAY_SYSTEMS.ninguno;
+
   let pos = 50; // 0 = try-line de A (perigo p/ A), 100 = try-line de B (perigo p/ B)
   let scoreA = 0;
   let scoreB = 0;
@@ -261,10 +303,10 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     const styleA = ZONE_STYLES[planA.zones[zoneA].style] || ZONE_STYLES.equilibrado;
     const styleB = ZONE_STYLES[planB.zones[zoneB].style] || ZONE_STYLES.equilibrado;
 
-    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.attackMod;
-    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.defenseMod;
-    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.attackMod;
-    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.defenseMod;
+    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.attackMod * sysA.attackMod;
+    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.defenseMod * sysA.defenseMod;
+    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.attackMod * sysB.attackMod;
+    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.defenseMod * sysB.defenseMod;
 
     let push = ((effAttackA - effDefenseB) - (effAttackB - effDefenseA)) * 0.14;
     push += rand(-9, 9);
@@ -272,34 +314,40 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     let eventHandled = false;
 
     // Quiebre de línea, más probable con líneas rápidas (y menos con líneas
-    // lentas) — o estilo/fisicalidade da zona ativa também pesa.
-    const breakChanceA = breakChance(paceA) * styleA.breakMod * fisicalidadeFactorA;
-    const breakChanceB = breakChance(paceB) * styleB.breakMod * fisicalidadeFactorB;
+    // lentas) — o estilo/fisicalidade/sistema da zona ativa também pesa,
+    // assim como a defesa dominante do rival (pared conectada dificulta).
+    const breakChanceA = breakChance(paceA) * styleA.breakMod * sysA.breakMod * fisicalidadeFactorA * defesaGuardB;
+    const breakChanceB = breakChance(paceB) * styleB.breakMod * sysB.breakMod * fisicalidadeFactorB * defesaGuardA;
+    const codeSuffix = (planCode, zoneKey) => {
+      const code = planCode && planCode.zones[zoneKey] && planCode.zones[zoneKey].code;
+      return code ? ` (código ${code.split('/')[0].trim()})` : '';
+    };
     if (Math.random() < breakChanceA) {
       push += rand(15, 26);
-      addLog(minute, `¡${fastestBackA.name} rompe la línea con velocidad y avanza para ${teamA.name}!`);
+      addLog(minute, `¡${fastestBackA.name} rompe la línea con velocidad y avanza para ${teamA.name}!${codeSuffix(planA, zoneA)}`);
     } else if (Math.random() < breakChanceB) {
       push -= rand(15, 26);
-      addLog(minute, `¡${fastestBackB.name} rompe la línea con velocidad y avanza para ${teamB.name}!`);
+      addLog(minute, `¡${fastestBackB.name} rompe la línea con velocidad y avanza para ${teamB.name}!${codeSuffix(planB, zoneB)}`);
     }
 
     // Turnover/jackal: robo de la pelota en el tackle, muy dependiente del
     // especialista defensivo (normalmente un ala).
+    const dominantSuffix = defesa => (defesa != null && defesa >= 70) ? ' (tackle dominante)' : '';
     if (!eventHandled && Math.random() < turnoverChanceA) {
       push += rand(6, 14);
-      addLog(minute, `¡${turnoverForwardA.name} le roba la pelota al rival en el tackle para ${teamA.name}!`);
+      addLog(minute, `¡${turnoverForwardA.name} le roba la pelota al rival en el tackle para ${teamA.name}!${dominantSuffix(planA.pillars.defesa)}`);
       eventHandled = true;
     } else if (!eventHandled && Math.random() < turnoverChanceB) {
       push -= rand(6, 14);
-      addLog(minute, `¡${turnoverForwardB.name} le roba la pelota al rival en el tackle para ${teamB.name}!`);
+      addLog(minute, `¡${turnoverForwardB.name} le roba la pelota al rival en el tackle para ${teamB.name}!${dominantSuffix(planB.pillars.defesa)}`);
       eventHandled = true;
     }
 
     // Error de manos: concentrado en el 9 y el 10, que son quienes más tocan la
     // pelota. El cansancio (fatigueA/B < 1 en el segundo tiempo) suma más
     // errores de mano, reflejando peores decisiones con el cuerpo pesado.
-    const handlingErrorA_eff = handlingErrorBaseA * styleA.errorMod + (1 - fatigueA) * 0.20;
-    const handlingErrorB_eff = handlingErrorBaseB * styleB.errorMod + (1 - fatigueB) * 0.20;
+    const handlingErrorA_eff = handlingErrorBaseA * styleA.errorMod * sysA.errorMod + (1 - fatigueA) * 0.20;
+    const handlingErrorB_eff = handlingErrorBaseB * styleB.errorMod * sysB.errorMod + (1 - fatigueB) * 0.20;
     if (!eventHandled && push > 0 && Math.random() < handlingErrorA_eff) {
       const culprit = pickHandlingCulprit(scrumHalfA, flyHalfA);
       addLog(minute, `Knock-on de ${teamA.name}: a ${culprit.name} se le escapa la pelota en el pase.`);
