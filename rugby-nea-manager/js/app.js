@@ -114,6 +114,12 @@ const I18N = {
     seasonOver: '¡Temporada terminada! Mirá la tabla final.',
     dashboardTitle: 'Panel — {team}',
     dashboardDualNote: '{team} disputa dos competencias al mismo tiempo — estate atento a las dos agendas y rotá el plantel cuando los partidos coincidan.',
+    copaArgentinaTitle: '🏆 Copa Argentina',
+    copaIda: 'Ida',
+    copaVolta: 'Vuelta',
+    copaAgregado: 'Global: {my} - {opp}',
+    copaCampeao: 'Campeón',
+    copaVice: 'Subcampeón',
     notQualified: 'No se clasificó para los playoffs',
     eliminated: 'Eliminado',
     champion: '¡Campeón! 🏆',
@@ -334,6 +340,12 @@ const I18N = {
     seasonOver: 'Temporada encerrada! Confira a tabela final.',
     dashboardTitle: 'Painel — {team}',
     dashboardDualNote: 'O {team} disputa duas competições ao mesmo tempo — fique de olho nas duas agendas e reveze o elenco quando os jogos coincidirem.',
+    copaArgentinaTitle: '🏆 Copa Argentina',
+    copaIda: 'Ida',
+    copaVolta: 'Volta',
+    copaAgregado: 'Agregado: {my} - {opp}',
+    copaCampeao: 'Campeão',
+    copaVice: 'Vice-campeão',
     notQualified: 'Não se classificou para o mata-mata',
     eliminated: 'Eliminado',
     champion: 'Campeão! 🏆',
@@ -1398,6 +1410,96 @@ function competitionStatusLabel(c) {
   return knockoutStatusLabel(c);
 }
 
+// ---- Copa Argentina (Torneo del Interior x Top 14 URBA) -------------------
+// O campeão do Torneo del Interior enfrenta o campeão do Top 14 (URBA) numa
+// final de ida e volta. Só existe pro clube gerenciado se ELE MESMO vencer
+// uma dessas duas competições — a outra é simulada inteira em segundo plano
+// (sem o usuário jogar nada nela) só pra descobrir quem é o rival.
+const COPA_ARGENTINA_PAIR = {interior: 'top14', top14: 'interior'};
+
+// Quem já é o campeão de uma competição em fase de mata-mata (final já
+// disputada), independente de qual time é o "meu" — usado pra descobrir o
+// rival da Copa Argentina simulando a OUTRA competição do zero.
+function knockoutChampionId(c) {
+  const last = c.knockoutRounds[c.knockoutRounds.length - 1];
+  if (!last || last.matches.length !== 1 || !last.matches[0].played) return null;
+  const final = last.matches[0];
+  return final.scoreHome > final.scoreAway ? final.home : final.away;
+}
+
+// Resolve uma liga inteira (fixture + mata-mata) via simulação instantânea
+// de fundo, só pra saber quem seria o campeão — usada pra achar o rival da
+// Copa Argentina na competição que o clube gerenciado NÃO disputa.
+function simulateEntireLeagueForChampion(leagueId) {
+  const league = LEAGUES.find(l => l.id === leagueId);
+  const c = buildCompetition(league.teams[0].id);
+  if (c.stage === 'league') {
+    c.fixture.forEach(round => round.matches.forEach(m => {
+      const {scoreHome, scoreAway} = simulateOtherMatch(m.home, m.away);
+      m.played = true; m.scoreHome = scoreHome; m.scoreAway = scoreAway;
+      applyResult(c.standings, m.home, m.away, scoreHome, scoreAway);
+    }));
+    startKnockoutFromLeague(c);
+  } else {
+    Object.entries(c.groupFixtures).forEach(([g, fixture]) => {
+      fixture.forEach(round => round.matches.forEach(m => {
+        const {scoreHome, scoreAway} = simulateOtherMatch(m.home, m.away);
+        m.played = true; m.scoreHome = scoreHome; m.scoreAway = scoreAway;
+        applyResult(c.groupStandings[g], m.home, m.away, scoreHome, scoreAway);
+      }));
+    });
+    startKnockoutFromGroups(c);
+  }
+  while (true) {
+    const round = c.knockoutRounds[c.knockoutRounds.length - 1];
+    round.matches.forEach(m => {
+      if (m.played) return;
+      let {scoreHome, scoreAway} = simulateOtherMatch(m.home, m.away);
+      if (scoreHome === scoreAway) [scoreHome, scoreAway] = breakTie(scoreHome, scoreAway);
+      m.played = true; m.scoreHome = scoreHome; m.scoreAway = scoreAway;
+    });
+    if (round.matches.length === 1) break;
+    c.knockoutRounds.push({name: '', matches: nextKnockoutRound(round.matches)});
+  }
+  return knockoutChampionId(c);
+}
+
+function buildCopaArgentina(myTeamId, opponentId) {
+  return {
+    myTeamId, opponentId,
+    legs: [
+      {home: myTeamId, away: opponentId, played: false, scoreHome: null, scoreAway: null},
+      {home: opponentId, away: myTeamId, played: false, scoreHome: null, scoreAway: null},
+    ],
+  };
+}
+
+// Chamada depois de toda rodada finalizada — dispara a Copa Argentina se o
+// clube gerenciado acabou de ser campeão do Interior ou do Top 14 (só uma
+// vez por partida salva).
+function maybeTriggerCopaArgentina(key, c) {
+  if (!COPA_ARGENTINA_PAIR[key] || state.copaArgentina) return;
+  if (c.stage !== 'knockout' || knockoutChampionId(c) !== c.teamId) return;
+  const opponentId = simulateEntireLeagueForChampion(COPA_ARGENTINA_PAIR[key]);
+  state.copaArgentina = buildCopaArgentina(c.teamId, opponentId);
+}
+
+function copaArgentinaAggregate(copa) {
+  let myTotal = 0, oppTotal = 0;
+  copa.legs.forEach(leg => {
+    if (leg.scoreHome == null) return;
+    if (leg.home === copa.myTeamId) { myTotal += leg.scoreHome; oppTotal += leg.scoreAway; }
+    else { myTotal += leg.scoreAway; oppTotal += leg.scoreHome; }
+  });
+  return {myTotal, oppTotal};
+}
+
+function copaArgentinaChampion(copa) {
+  const {myTotal, oppTotal} = copaArgentinaAggregate(copa);
+  if (myTotal !== oppTotal) return myTotal > oppTotal ? copa.myTeamId : copa.opponentId;
+  return Math.random() < 0.5 ? copa.myTeamId : copa.opponentId;
+}
+
 function render() {
   if (!state) {
     renderTeamSelect();
@@ -1426,6 +1528,7 @@ function render() {
   else if (currentView === 'selection') renderSelection();
   else if (currentView === 'matchday') renderMatchday();
   else if (currentView === 'live') renderLive();
+  else if (currentView === 'copaLive') renderCopaArgentinaLive();
 }
 
 function renderTeamSelect() {
@@ -1626,6 +1729,35 @@ function renderAgenda() {
   });
 }
 
+function renderCopaArgentinaCardHtml() {
+  const copa = state.copaArgentina;
+  if (!copa) return '';
+  const myTeam = teamById[copa.myTeamId];
+  const oppTeam = teamById[copa.opponentId];
+  const {myTotal, oppTotal} = copaArgentinaAggregate(copa);
+
+  const legsHtml = copa.legs.map((leg, i) => {
+    const homeTeam = teamById[leg.home];
+    const awayTeam = teamById[leg.away];
+    const label = i === 0 ? t('copaIda') : t('copaVolta');
+    const scoreText = leg.played ? `${leg.scoreHome} - ${leg.scoreAway}` : t('pending');
+    return `<p>${label}: ${homeTeam.name} <span class="muted">vs</span> ${awayTeam.name} — <b>${scoreText}</b></p>`;
+  }).join('');
+
+  const statusHtml = copa.championId
+    ? `<p><b>${copa.championId === copa.myTeamId ? t('copaCampeao') : t('copaVice')}</b>: ${teamById[copa.championId].name}</p>`
+    : `<button class="playBtn goCopaBtn">${t('prepareMatch')}</button>`;
+
+  return `
+    <div class="card">
+      <h3>${t('copaArgentinaTitle')} <span class="muted">— ${myTeam.name} vs ${oppTeam.name}</span></h3>
+      ${legsHtml}
+      <p class="muted">${t('copaAgregado', {my: myTotal, opp: oppTotal})}</p>
+      ${statusHtml}
+    </div>
+  `;
+}
+
 function renderDashboard() {
   const myTeam = teamById[state.myTeamId];
   const keys = Object.keys(state.competitions);
@@ -1678,7 +1810,16 @@ function renderDashboard() {
     </div>
     ${keys.length > 1 ? `<p class="muted">${t('dashboardDualNote', {team: myTeam.name})}</p>` : ''}
     ${cardsHtml}
+    ${renderCopaArgentinaCardHtml()}
   `;
+
+  const goCopaBtn = document.querySelector('.goCopaBtn');
+  if (goCopaBtn) {
+    goCopaBtn.addEventListener('click', () => {
+      currentView = 'copaLive';
+      render();
+    });
+  }
 
   Array.from(document.querySelectorAll('.goMatchdayBtn')).forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2643,6 +2784,163 @@ function renderNationalFriendlyLive(opponent) {
   });
 }
 
+// Uma perna (ida ou volta) da final da Copa Argentina — mesmo padrão
+// autocontido do amistoso da seleção (não mexe em state.competitions),
+// usando o plantel real de cada clube (squadOf) em vez de uma escalação
+// avulsa.
+function renderCopaArgentinaLive() {
+  const copa = state.copaArgentina;
+  const legIndex = copa.legs.findIndex(l => !l.played);
+  const leg = copa.legs[legIndex];
+  const homeTeam = teamById[leg.home];
+  const awayTeam = teamById[leg.away];
+  const homeSquad = squadOf(leg.home);
+  const awaySquad = squadOf(leg.away);
+  const result = simulateMatch(homeTeam, homeSquad, 'equilibrado', awayTeam, awaySquad, 'equilibrado');
+
+  content.innerHTML = `
+    <div id="matchWrap">
+      <h1>${t('copaArgentinaTitle')} — ${legIndex === 0 ? t('copaIda') : t('copaVolta')}</h1>
+      <div id="scoreboard">
+        <div class="side"><span class="crestSmall" style="${crestStyle(homeTeam)}">${crestContent(homeTeam)}</span>${homeTeam.name}</div>
+        <div class="center">
+          <div class="clock" id="clockEl">0'</div>
+          <div class="scoreNum"><span id="scoreHomeEl">0</span> - <span id="scoreAwayEl">0</span></div>
+        </div>
+        <div class="side">${awayTeam.name}<span class="crestSmall" style="${crestStyle(awayTeam)}">${crestContent(awayTeam)}</span></div>
+      </div>
+      <canvas id="pitch"></canvas>
+      <div id="matchControls">
+        <button class="ctrlBtn active" id="playPauseBtn">${t('pausar')}</button>
+        <button class="ctrlBtn" data-speed="1">1x</button>
+        <button class="ctrlBtn" data-speed="2">2x</button>
+        <button class="ctrlBtn" data-speed="4">4x</button>
+        <button class="ctrlBtn" id="skipBtn">${t('adiantar')}</button>
+      </div>
+      <div id="ticker"></div>
+      <div id="copaLegDone" class="card" style="display:none">
+        <h3>${t('fimDeJogo')}</h3>
+        <p class="finalScoreSmall"></p>
+        <button class="playBtn" id="backToDashboardFromCopaBtn">${t('continuar')}</button>
+      </div>
+    </div>
+  `;
+
+  const canvas = document.getElementById('pitch');
+  const renderer = new MatchRenderer(canvas, homeTeam, awayTeam);
+  renderer.resize();
+  window.addEventListener('resize', () => renderer.resize());
+
+  const ticker = document.getElementById('ticker');
+  const clockEl = document.getElementById('clockEl');
+  const scoreHomeEl = document.getElementById('scoreHomeEl');
+  const scoreAwayEl = document.getElementById('scoreAwayEl');
+
+  const ticks = result.ticks;
+  const logByMinute = {};
+  result.log.forEach(l => {
+    if (!logByMinute[l.minute]) logByMinute[l.minute] = [];
+    logByMinute[l.minute].push(l.text);
+  });
+
+  let tickIndex = 0;
+  let playing = true;
+  let speed = 1;
+  const baseMsPerTick = 650;
+  let lastTime = performance.now();
+  let accum = 0;
+
+  function pushLog(minute, text) {
+    const line = document.createElement('div');
+    line.className = 'tickerLine';
+    line.innerHTML = `<span class="min">${minute}'</span>${text}`;
+    ticker.prepend(line);
+  }
+
+  function applyMinute(minute) {
+    if (logByMinute[minute]) logByMinute[minute].forEach(txt => pushLog(minute, txt));
+  }
+
+  applyMinute(0);
+
+  function finish() {
+    playing = false;
+    matchAnim = null;
+    leg.played = true;
+    leg.scoreHome = result.scoreA;
+    leg.scoreAway = result.scoreB;
+    if (copa.legs.every(l => l.played)) copa.championId = copaArgentinaChampion(copa);
+    saveState();
+    const doneCard = document.getElementById('copaLegDone');
+    doneCard.style.display = '';
+    doneCard.querySelector('.finalScoreSmall').textContent = `${homeTeam.name} ${result.scoreA} - ${result.scoreB} ${awayTeam.name}`;
+    document.getElementById('backToDashboardFromCopaBtn').addEventListener('click', () => {
+      currentView = 'dashboard';
+      render();
+    });
+  }
+
+  function step(now) {
+    if (!matchAnim || matchAnim.stopped) return;
+    const dt = now - lastTime;
+    lastTime = now;
+    if (playing) {
+      accum += dt * speed;
+      const msPerTick = baseMsPerTick;
+      while (accum >= msPerTick && tickIndex < ticks.length) {
+        accum -= msPerTick;
+        tickIndex++;
+        const tk = ticks[tickIndex - 1];
+        applyMinute(tk.minute);
+        scoreHomeEl.textContent = tk.scoreA;
+        scoreAwayEl.textContent = tk.scoreB;
+        clockEl.textContent = tk.minute + "'";
+      }
+      const curr = ticks[Math.min(tickIndex, ticks.length - 1)] || {pos: 50};
+      const prev = ticks[Math.max(tickIndex - 1, 0)] || {pos: 50};
+      const frac = Math.min(1, accum / baseMsPerTick);
+      const interpPos = prev.pos + (curr.pos - prev.pos) * frac;
+      renderer.draw(interpPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent);
+      if (tickIndex >= ticks.length) {
+        finish();
+        return;
+      }
+    } else {
+      renderer.draw(renderer.currentPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent);
+    }
+    matchAnim.raf = requestAnimationFrame(step);
+  }
+
+  matchAnim = {stopped: false, raf: null};
+  matchAnim.raf = requestAnimationFrame(step);
+
+  document.getElementById('playPauseBtn').addEventListener('click', e => {
+    playing = !playing;
+    e.target.textContent = playing ? t('pausar') : t('continuarPlay');
+  });
+
+  Array.from(document.querySelectorAll('[data-speed]')).forEach(btn => {
+    btn.addEventListener('click', () => {
+      speed = Number(btn.dataset.speed);
+      Array.from(document.querySelectorAll('[data-speed]')).forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+
+  document.getElementById('skipBtn').addEventListener('click', () => {
+    while (tickIndex < ticks.length) {
+      tickIndex++;
+      const tk = ticks[tickIndex - 1];
+      applyMinute(tk.minute);
+    }
+    scoreHomeEl.textContent = result.scoreA;
+    scoreAwayEl.textContent = result.scoreB;
+    clockEl.textContent = "80'";
+    renderer.draw(50, result.scoreA, result.scoreB, "80'");
+    if (matchAnim) { matchAnim.stopped = true; cancelAnimationFrame(matchAnim.raf); }
+    finish();
+  });
+}
+
 // Torneio aleatório: Paraguay + 3 seleções sorteadas, mata-mata instantâneo
 // (semis + final, sem animação ao vivo — só o resultado de cada jogo).
 function runRandomTournament() {
@@ -3419,6 +3717,7 @@ function finalizeRound() {
   }
 
   afterRoundAdvance(c);
+  maybeTriggerCopaArgentina(key, c);
   pendingMatchResult = null;
   pendingMyXV = null;
   currentView = 'dashboard';

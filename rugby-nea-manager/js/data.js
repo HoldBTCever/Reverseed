@@ -208,6 +208,30 @@ export const LEAGUES = [
       team('INT-OLD', 'Old Resian', '#C62828', 80, 78, 80),
     ],
   },
+  {
+    id: 'top14',
+    name: 'Top 14 (URBA)',
+    country: 'Argentina',
+    // Campeonato de clubes de Buenos Aires (URBA) — os 14 clubes históricos
+    // do Top 14 real, disputando turno e returno numa tabela só (como o
+    // NEA); os 8 melhores avançam ao mata-mata (quartas/semi/final).
+    teams: [
+      team('BUE-SIC', 'San Isidro Club (SIC)', '#4FC3F7', 90, 88, 87),
+      team('BUE-CAS', 'CASI', '#4FC3F7', 89, 87, 86),
+      team('BUE-ALU', 'Alumni', '#C62828', 88, 86, 85),
+      team('BUE-NEW', 'Newman', '#800020', 87, 85, 85),
+      team('BUE-HIN', 'Hindú', '#4FC3F7', 86, 84, 84),
+      team('BUE-BEL', 'Belgrano (BAC)', '#6D4C29', 85, 83, 83),
+      team('BUE-RBV', 'Regatas Bella Vista (CRBV)', '#0D47A1', 84, 82, 82),
+      team('BUE-CHA', 'Champagnat', '#0D3B66', 83, 81, 82),
+      team('BUE-LPL', 'La Plata RC', '#0D3B66', 82, 80, 81),
+      team('BUE-BAC', 'Buenos Aires (BACRC)', '#0D1B4C', 81, 79, 80),
+      team('BUE-CUB', 'CUBA', '#0D1B4C', 80, 78, 79),
+      team('BUE-CAR', 'Club Atlético del Rosario (CAR)', '#800020', 78, 76, 77),
+      team('BUE-TIL', 'Los Tilos', '#81C784', 76, 74, 76),
+      team('BUE-MAT', 'Los Matreros', '#C62828', 75, 73, 75),
+    ],
+  },
 ];
 
 export const TEAMS = LEAGUES.flatMap(l => l.teams);
@@ -253,7 +277,7 @@ export const TEAM_IDENTITY = {
   // Mendoza RC só tem branco como cor real — textColor é só uma necessidade
   // prática de legibilidade (número/sigla branca não pode ficar sobre fundo
   // branco), não representa uma segunda cor de identidade inventada.
-  'INT-MDZ': {colors: ['#FFFFFF'], textColor: '#1A1A1A'},
+  'INT-MDZ': {colors: ['#FFFFFF'], textColor: '#1A1A1A', mascotEmoji: '🐰', mascotName: {es: 'El Conejo', pt: 'O Coelho'}},
   // Zona 2
   'INT-TAL': {colors: ['#0D3B66', '#FFFFFF']},
   'INT-CAE': {colors: ['#1A1A1A', '#FFFFFF', '#FBC02D']},
@@ -268,6 +292,21 @@ export const TEAM_IDENTITY = {
   'INT-DUE': {colors: ['#2E7D32', '#1A1A1A'], mascotEmoji: '👻', mascotName: {es: 'El Fantasma', pt: 'O Fantasma'}},
   'INT-TAB': {colors: ['#C62828', '#0D1B4C']},
   'INT-OLD': {colors: ['#C62828', '#FFFFFF', '#0D1B4C']},
+  // Top 14 (URBA)
+  'BUE-CAS': {colors: ['#4FC3F7', '#FFFFFF'], initials: 'CASI'},
+  'BUE-SIC': {colors: ['#4FC3F7', '#FFFFFF', '#1A1A1A'], initials: 'SIC'},
+  'BUE-BAC': {colors: ['#0D1B4C', '#C62828'], initials: 'BACRC'},
+  'BUE-HIN': {colors: ['#4FC3F7', '#FBC02D']},
+  'BUE-NEW': {colors: ['#800020', '#D4AF37'], mascotEmoji: '🦁', mascotName: {es: 'El León', pt: 'O Leão'}},
+  'BUE-ALU': {colors: ['#C62828', '#FFFFFF', '#1A1A1A'], initials: 'A.A'},
+  'BUE-CUB': {colors: ['#FFFFFF', '#0D1B4C', '#1A1A1A'], initials: 'CUBA'},
+  'BUE-CAR': {colors: ['#800020', '#4FC3F7'], initials: 'CAR'},
+  'BUE-LPL': {colors: ['#0D3B66', '#FBC02D']},
+  'BUE-CHA': {colors: ['#0D3B66', '#FFFFFF', '#D4AF37']},
+  'BUE-RBV': {colors: ['#0D47A1', '#FBC02D'], initials: 'CRBV'},
+  'BUE-BEL': {colors: ['#6D4C29', '#F9A825'], initials: 'BAC'},
+  'BUE-TIL': {colors: ['#81C784', '#FBC02D'], initials: 'LT'},
+  'BUE-MAT': {colors: ['#C62828', '#FFFFFF'], initials: 'RCLM'},
 };
 
 export function teamIdentity(teamId) {
