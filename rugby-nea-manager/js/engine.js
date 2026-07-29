@@ -32,8 +32,13 @@ const TACTICS = {
 // jogada, só decorativo/visual.
 const ZONE_KEYS = ['red', 'orange', 'green', 'yellow'];
 
+// chute tinha attackMod/defenseMod quase espelhados (0.94/1.06 ~ soma zero
+// no push, ver TACTICS acima) — a saída pelo chute perto da própria try-line
+// ficava, na prática, pior do que não escolher nada. defenseMod bem mais
+// alto corrige isso: jogar seguro ali realmente ajuda a sair da própria
+// zona de perigo, não é só "abrir mão do ataque à toa".
 const ZONE_STYLES = {
-  chute: {attackMod: 0.94, defenseMod: 1.06, breakMod: 0.82, errorMod: 0.88, label: 'Saída pelo chute'},
+  chute: {attackMod: 0.94, defenseMod: 1.16, breakMod: 0.80, errorMod: 0.85, label: 'Saída pelo chute'},
   equilibrado: {attackMod: 1.0, defenseMod: 1.0, breakMod: 1.0, errorMod: 1.0, label: 'Equilibrado'},
   forwards: {attackMod: 1.08, defenseMod: 0.95, breakMod: 1.22, errorMod: 1.14, label: 'Forwards / jogo corrido'},
 };
@@ -60,11 +65,19 @@ function zoneForPos(pos, side) {
 // mais arriscado); Sudáfrica = jogo frontal (penetrante, domina o contato,
 // passes curtos e conservadores). Afeta a partida inteira, multiplicado
 // em cima do estilo de cada zona.
+// attackMod/defenseMod entram no push com o mesmo sinal (ver TACTICS acima)
+// — o Sistema Argentina original (0.94/1.10) quase se anulava (~+4% líquido)
+// e mal se diferenciava de jogar sem sistema nenhum, apesar de ter uma
+// identidade clara (controle/território, não velocidade de linha). Por
+// isso o defenseMod dele é bem mais alto que o custo do attackMod, e ganhou
+// concedeBreakMod (reduz a quebra de linha do RIVAL contra esse sistema,
+// não só a própria) — sem isso, "jogar seguro" só se auto-limitava sem
+// nenhum ganho defensivo real em troca.
 const PLAY_SYSTEMS = {
-  ninguno: {attackMod: 1, defenseMod: 1, breakMod: 1, errorMod: 1, formation: '', label: ''},
-  argentina: {attackMod: 0.94, defenseMod: 1.10, breakMod: 0.82, errorMod: 0.78, formation: '1-3-3-1', label: 'Sistema Argentina — Juego de Control'},
-  irlanda: {attackMod: 1.07, defenseMod: 0.96, breakMod: 1.18, errorMod: 1.08, formation: '1-3-2-1+1', label: 'Sistema Irlanda — Juego de Fases'},
-  sudafrica: {attackMod: 1.08, defenseMod: 0.99, breakMod: 1.12, errorMod: 0.90, formation: '3-3-2+1', label: 'Sistema Sudáfrica — Juego Frontal'},
+  ninguno: {attackMod: 1, defenseMod: 1, breakMod: 1, concedeBreakMod: 1, errorMod: 1, formation: '', label: ''},
+  argentina: {attackMod: 0.95, defenseMod: 1.14, breakMod: 0.82, concedeBreakMod: 0.85, errorMod: 0.78, formation: '1-3-3-1', label: 'Sistema Argentina — Juego de Control'},
+  irlanda: {attackMod: 1.09, defenseMod: 0.95, breakMod: 1.18, concedeBreakMod: 1.05, errorMod: 1.08, formation: '1-3-2-1+1', label: 'Sistema Irlanda — Juego de Fases'},
+  sudafrica: {attackMod: 1.10, defenseMod: 1.02, breakMod: 1.14, concedeBreakMod: 0.95, errorMod: 0.90, formation: '3-3-2+1', label: 'Sistema Sudáfrica — Juego Frontal'},
 };
 
 // Glossário real de códigos de jogada do Curda (tablero territorial + plan de
@@ -357,11 +370,14 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
   let redChanceB = 0.0025 * disciplineFactor(disciplineAvgB) * tacticObjB.cardMod;
 
   // Pilares do plano de jogo: modificadores fixos pra partida inteira (não
-  // dependem de zona). Disciplina de zona reduz cartões; posse e controle
-  // reduz erro de mão próprio e a chance do rival roubar a bola no tackle;
-  // fisicalidade absoluta aumenta a chance de quiebre de línea do time.
-  const disciplinaGuardA = clamp(1 - (planA.pillars.disciplina - 50) * 0.006, 0.5, 1.3);
-  const disciplinaGuardB = clamp(1 - (planB.pillars.disciplina - 50) * 0.006, 0.5, 1.3);
+  // dependem de zona). Disciplina reduz cartões — coeficiente dobrado (era
+  // 0.006) porque cartão já é um evento raro por natureza; com o coeficiente
+  // antigo, nem o extremo 0/100 do pilar mudava o placar médio de forma
+  // perceptível. Posse e controle reduz erro de mão próprio e a chance do
+  // rival roubar a bola no tackle; fisicalidade absoluta aumenta a chance de
+  // quiebre de línea do time.
+  const disciplinaGuardA = clamp(1 - (planA.pillars.disciplina - 50) * 0.012, 0.35, 1.5);
+  const disciplinaGuardB = clamp(1 - (planB.pillars.disciplina - 50) * 0.012, 0.35, 1.5);
   yellowChanceA *= disciplinaGuardA; redChanceA *= disciplinaGuardA;
   yellowChanceB *= disciplinaGuardB; redChanceB *= disciplinaGuardB;
 
@@ -449,10 +465,10 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     // Quiebre de línea, más probable con líneas rápidas (y menos con líneas
     // lentas) — o estilo/fisicalidade/sistema da zona ativa também pesa,
     // assim como a defesa dominante do rival (pared conectada dificulta) e a
-    // tática de cada time (breakMod pro próprio ataque, concedeBreakMod do
-    // rival pra quanto a própria defesa segura).
-    const breakChanceA = breakChance(paceA) * styleA.breakMod * sysA.breakMod * fisicalidadeFactorA * defesaGuardB * tacticObjA.breakMod * tacticObjB.concedeBreakMod;
-    const breakChanceB = breakChance(paceB) * styleB.breakMod * sysB.breakMod * fisicalidadeFactorB * defesaGuardA * tacticObjB.breakMod * tacticObjA.concedeBreakMod;
+    // tática/sistema de cada time (breakMod pro próprio ataque,
+    // concedeBreakMod do rival pra quanto a própria defesa segura).
+    const breakChanceA = breakChance(paceA) * styleA.breakMod * sysA.breakMod * fisicalidadeFactorA * defesaGuardB * tacticObjA.breakMod * tacticObjB.concedeBreakMod * sysB.concedeBreakMod;
+    const breakChanceB = breakChance(paceB) * styleB.breakMod * sysB.breakMod * fisicalidadeFactorB * defesaGuardA * tacticObjB.breakMod * tacticObjA.concedeBreakMod * sysA.concedeBreakMod;
     const codeSuffix = (planCode, zoneKey) => {
       const code = planCode && planCode.zones[zoneKey] && planCode.zones[zoneKey].code;
       return code ? ` (código ${code.split('/')[0].trim()})` : '';
