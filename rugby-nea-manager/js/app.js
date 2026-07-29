@@ -16,12 +16,21 @@ const PARAGUAY_TEAM = {id: 'SEL-PAR', name: 'Selección Paraguay', color: '#D32F
 // no meio, Brasil/Peru/Colômbia mais fracos).
 const NATIONAL_TEAMS = [
   {id: 'NT-ARG', name: 'Argentina XV', color: '#75AADB', attack: 94, defense: 92, stamina: 90},
-  {id: 'NT-URU', name: 'Uruguay', color: '#0038A8', attack: 85, defense: 84, stamina: 82},
-  {id: 'NT-CHI', name: 'Chile', color: '#D52B1E', attack: 83, defense: 82, stamina: 81},
+  {id: 'NT-URU', name: 'Uruguay XV', color: '#0038A8', attack: 85, defense: 84, stamina: 82},
+  {id: 'NT-CHI', name: 'Chile XV', color: '#D52B1E', attack: 83, defense: 82, stamina: 81},
   {id: 'NT-BRA', name: 'Brasil', color: '#009739', attack: 74, defense: 73, stamina: 76},
   {id: 'NT-PER', name: 'Perú', color: '#D91023', attack: 68, defense: 66, stamina: 70},
   {id: 'NT-COL', name: 'Colombia', color: '#FCD116', attack: 65, defense: 64, stamina: 68},
 ];
+
+// ---- Américas Rugby Championship (ARC) -------------------------------------
+// Torneio real: Argentina XV, Uruguay XV, Chile XV e a Seleção Paraguay, todos
+// contra todos (turno único, 3 rodadas) — ver startArc/finishArcRound. Enquanto
+// durar, os jogadores convocados (meta.nationalTeam, mesmo pool do
+// getParaguaySquad) ficam indisponíveis pros clubes de origem, no NEA e no
+// Paraguaio (ver arcCalledUpIds, usado em clashInfoFor e na tela de Plantel) —
+// esse é o "impacto no plantel" que o torneio causa nos clubes convocantes.
+const ARC_TEAMS = [PARAGUAY_TEAM, ...NATIONAL_TEAMS.filter(t => ['NT-ARG', 'NT-URU', 'NT-CHI'].includes(t.id))];
 
 const SAVE_KEY = 'rugbyNeaSave_v15';
 
@@ -210,6 +219,13 @@ const I18N = {
     selecaoTorneioTitle: '🏆 Resultado del torneo',
     selecaoSemifinal: 'Semifinal',
     selecaoFinal: 'Final',
+    arcTitle: 'Américas Rugby Championship',
+    arcIntro: 'Argentina XV, Uruguay XV, Chile XV y la Selección Paraguay se enfrentan todos contra todos. Mientras el torneo esté en curso, los jugadores convocados no están disponibles para sus clubes de origen.',
+    arcIniciar: 'Iniciar torneo',
+    arcJogarRodada: 'Jugar Fecha {n}',
+    arcCampeao: 'Campeón del ARC: {champion}',
+    convocadoSelecao: 'Convocado a la Selección',
+    arcConvocadosNota: '⚠️ Algunos jugadores están convocados al Américas Rugby Championship y no están disponibles para el club mientras dure el torneo.',
     captacaoTitle: 'Captación de promesas',
     captacaoHelp: 'De vez en cuando aparece una promesa revelada en un club chico del Paraguayo, lista para ser invitada al Curda — el jugador decide si acepta o no.',
     captacaoVazio: 'Ninguna promesa disponible por ahora. Volvé a mirar después de la próxima fecha.',
@@ -448,6 +464,13 @@ const I18N = {
     selecaoTorneioTitle: '🏆 Resultado do torneio',
     selecaoSemifinal: 'Semifinal',
     selecaoFinal: 'Final',
+    arcTitle: 'Américas Rugby Championship',
+    arcIntro: 'Argentina XV, Uruguai XV, Chile XV e a Seleção Paraguai se enfrentam todos contra todos. Enquanto o torneio estiver rolando, os jogadores convocados ficam indisponíveis pros clubes de origem.',
+    arcIniciar: 'Iniciar torneio',
+    arcJogarRodada: 'Jogar Rodada {n}',
+    arcCampeao: 'Campeão do ARC: {champion}',
+    convocadoSelecao: 'Convocado à Seleção',
+    arcConvocadosNota: '⚠️ Alguns jogadores estão convocados pro Américas Rugby Championship e ficam indisponíveis pro clube enquanto o torneio durar.',
     captacaoTitle: 'Captação de promessas',
     captacaoHelp: 'De vez em quando surge uma promessa revelada num clube menor do Paraguaio, pronta pra ser convidada pro Curda — o jogador decide se aceita ou não.',
     captacaoVazio: 'Nenhuma promessa disponível por enquanto. Volte a olhar depois da próxima rodada.',
@@ -680,6 +703,10 @@ function applyStaticTranslations() {
 }
 
 const teamById = Object.fromEntries(TEAMS.map(t => [t.id, t]));
+// Seleções (amistosos avulsos e o ARC) não são clubes de LEAGUES/TEAMS, mas
+// precisam estar em teamById pra reaproveitar renderTableHtml/
+// renderRoundRobinInto/crestStyle sem duplicar essa renderização.
+[PARAGUAY_TEAM, ...NATIONAL_TEAMS].forEach(nt => { teamById[nt.id] = nt; });
 function crestCode(team) {
   return team.id.slice(-3);
 }
@@ -1064,7 +1091,7 @@ function competitionBlockedReason(key) {
 function progressOf(x) {
   return x.roundsElapsed - (x.roundsElapsedBaseline || 0);
 }
-function clashInfoFor(key, match) {
+function scheduleClashInfoFor(key, match) {
   const c = comp(key);
   const otherKey = otherCompetitionKey(key);
   const empty = {excludedIds: new Set(), doubleHeaderIds: new Set()};
@@ -1076,6 +1103,28 @@ function clashInfoFor(key, match) {
     return {excludedIds: new Set(), doubleHeaderIds: new Set(sibling.ids)};
   }
   return {excludedIds: new Set(sibling.ids), doubleHeaderIds: new Set()};
+}
+
+// IDs de jogadores atualmente convocados pro Américas Rugby Championship
+// (mesmo pool do getParaguaySquad — titulares + banco), indisponíveis pros
+// clubes de origem enquanto o torneio não terminar (ver ARC_TEAMS/startArc).
+function arcCalledUpIds() {
+  if (!state.arc || state.arc.finished) return new Set();
+  const {xv, bench} = getParaguaySquad();
+  return new Set([...xv, ...bench].map(p => p.id));
+}
+
+// Junta choque de agenda (entre as duas competições do clube dual) com a
+// convocação pro ARC — as duas causas de indisponibilidade se combinam numa
+// única lista de excludedIds pra quem monta a escalação.
+function clashInfoFor(key, match) {
+  const base = scheduleClashInfoFor(key, match);
+  const arcIds = arcCalledUpIds();
+  if (!arcIds.size) return base;
+  return {
+    excludedIds: new Set([...base.excludedIds, ...arcIds]),
+    doubleHeaderIds: base.doubleHeaderIds,
+  };
 }
 
 // Condição efetiva usada numa partida específica: igual à condição atual do
@@ -2358,7 +2407,10 @@ function conditionCell(value) {
 
 function statusCell(p) {
   if (p.status === 'lesionado') return `<span style="color:var(--accent-2)">${t('lesionado', {label: p.meta.injuryLabel})}</span>`;
-  if (p.status === 'indisponivel') return `<span style="color:var(--accent-2)">${t('indisponivel')}</span>`;
+  if (p.status === 'indisponivel') {
+    const label = arcCalledUpIds().has(p.id) ? t('convocadoSelecao') : t('indisponivel');
+    return `<span style="color:var(--accent-2)">${label}</span>`;
+  }
   if (p.status === 'titular') return `<b>${t('titular', {n: p.number})}</b>`;
   return `<span class="muted">${t('reserva')}</span>`;
 }
@@ -2478,7 +2530,7 @@ function renderLineoutGroupHtml() {
 }
 
 function renderRealSquad() {
-  const myOptions = {conditionOf: currentConditionOf, metaOverrides: state.playerOverrides, skillOverrides: state.skillGrowth};
+  const myOptions = {conditionOf: currentConditionOf, metaOverrides: state.playerOverrides, skillOverrides: state.skillGrowth, excludedIds: arcCalledUpIds()};
   let rows = rosterWithStatus(state.myTeamId, myOptions);
   if (squadSortMode === 'position') rows = sortRowsByPosition(rows);
   const {xv} = formationDataFor(state.myTeamId, myOptions);
@@ -3207,18 +3259,97 @@ function renderTactics() {
 }
 
 // ---- Tela de Seleção: elenco do Paraguay + amistosos/torneios aleatórios --
+// Começa o Américas Rugby Championship: turno único (3 rodadas) entre as 4
+// seleções do ARC_TEAMS. generateFixture devolve turno+returno (ida e volta);
+// o torneio real é só "todos contra todos" uma vez, então usa só a primeira
+// metade (as primeiras n-1 rodadas) — mesmo ajuste feito pras chaves
+// Ouro/Descenso do torneio paraguaio (ver startSuperGroupsFromLeague).
+function startArc() {
+  const ids = ARC_TEAMS.map(t => t.id);
+  state.arc = {
+    fixture: generateFixture(ids).slice(0, ids.length - 1),
+    standings: initialStandings(ids),
+    currentRoundIndex: 0,
+    finished: false,
+  };
+  saveState();
+}
+
+// Confronto entre duas seleções que NÃO a do Paraguay (resolvido em segundo
+// plano, sem animação — só a seleção paraguaia joga ao vivo, ver
+// renderNationalFriendlyLive/finishArcRound).
+function simulateArcMatch(homeId, awayId) {
+  const home = teamById[homeId];
+  const away = teamById[awayId];
+  const r = simulateMatch(home, generateSquad(home), 'equilibrado', away, generateSquad(away), 'equilibrado', undefined, undefined, undefined, {
+    neutralVenue: true,
+    weather: rollWeather(),
+  });
+  return {scoreHome: r.scoreA, scoreAway: r.scoreB};
+}
+
+// Fecha a rodada atual do ARC: aplica o resultado (já jogado ao vivo) da
+// partida do Paraguay, resolve em segundo plano o outro confronto da rodada,
+// atualiza a tabela e avança pra próxima rodada (ou marca o torneio
+// encerrado, liberando os convocados de volta pros clubes — ver
+// arcCalledUpIds).
+function finishArcRound(scorePY, scoreOpp) {
+  const arc = state.arc;
+  const round = arc.fixture[arc.currentRoundIndex];
+  round.matches.forEach(m => {
+    if (m.home === PARAGUAY_TEAM.id || m.away === PARAGUAY_TEAM.id) {
+      const homeIsPY = m.home === PARAGUAY_TEAM.id;
+      m.scoreHome = homeIsPY ? scorePY : scoreOpp;
+      m.scoreAway = homeIsPY ? scoreOpp : scorePY;
+    } else {
+      const r = simulateArcMatch(m.home, m.away);
+      m.scoreHome = r.scoreHome;
+      m.scoreAway = r.scoreAway;
+    }
+    m.played = true;
+    applyResult(arc.standings, m.home, m.away, m.scoreHome, m.scoreAway);
+  });
+  arc.currentRoundIndex++;
+  if (arc.currentRoundIndex >= arc.fixture.length) arc.finished = true;
+  saveState();
+}
+
+function arcChampionName() {
+  if (!state.arc || !state.arc.finished) return '';
+  const ranked = sortedStandings(state.arc.standings);
+  return teamById[ranked[0].teamId].name;
+}
+
 function renderSelection() {
   state.nationalTeamMatches = state.nationalTeamMatches || [];
   const {xv, bench} = getParaguaySquad();
   const history = state.nationalTeamMatches.slice().reverse().slice(0, 12);
+  const arc = state.arc;
 
   const rosterRows = [
     ...xv.map(p => ({...p, status: 'titular'})),
     ...bench,
   ];
 
+  const arcSectionHtml = `
+    <div class="card">
+      <h3>${t('arcTitle')}</h3>
+      ${!arc ? `
+        <p class="muted">${t('arcIntro')}</p>
+        <button class="playBtn" id="startArcBtn">${t('arcIniciar')}</button>
+      ` : `
+        <div class="tableScroll">${renderTableHtml(sortedStandings(arc.standings), PARAGUAY_TEAM.id)}</div>
+        <div id="arcFixtureList"></div>
+        ${arc.finished
+          ? `<p class="muted">🏆 ${t('arcCampeao', {champion: escapeHtmlAttr(arcChampionName())})}</p>`
+          : `<button class="playBtn" id="playArcRoundBtn">${t('arcJogarRodada', {n: arc.currentRoundIndex + 1})}</button>`}
+      `}
+    </div>
+  `;
+
   content.innerHTML = `
     <h1>${t('selecaoTitle')}</h1>
+    ${arcSectionHtml}
     ${renderFormationHtml(xv, bench, PARAGUAY_TEAM.color, t('selecaoEscalacao'))}
     <div class="card">
       <h3>${t('selecaoConvocados')}</h3>
@@ -3274,11 +3405,29 @@ function renderSelection() {
     renderNationalFriendlyLive(opponent);
   });
   document.getElementById('randomTournamentBtn').addEventListener('click', runRandomTournament);
+
+  if (arc) {
+    const fakeC = {teamId: PARAGUAY_TEAM.id, stage: 'league', currentRoundIndex: arc.currentRoundIndex};
+    renderRoundRobinInto(document.getElementById('arcFixtureList'), arc.fixture, fakeC);
+  }
+  document.getElementById('startArcBtn')?.addEventListener('click', () => {
+    startArc();
+    renderSelection();
+  });
+  document.getElementById('playArcRoundBtn')?.addEventListener('click', () => {
+    const round = arc.fixture[arc.currentRoundIndex];
+    const pyMatch = round.matches.find(m => m.home === PARAGUAY_TEAM.id || m.away === PARAGUAY_TEAM.id);
+    const oppId = pyMatch.home === PARAGUAY_TEAM.id ? pyMatch.away : pyMatch.home;
+    renderNationalFriendlyLive(teamById[oppId], true);
+  });
 }
 
 // Amistoso ao vivo da Seleção, com a mesma animação 2D usada nas partidas de
-// clube — mas autocontido (não mexe em currentView/competições).
-function renderNationalFriendlyLive(opponent) {
+// clube — mas autocontido (não mexe em currentView/competições). isArcRound
+// reaproveita a mesma partida ao vivo pra rodada do Paraguay no ARC: no lugar
+// de virar um amistoso solto no histórico, alimenta a tabela do torneio (ver
+// finishArcRound).
+function renderNationalFriendlyLive(opponent, isArcRound = false) {
   const {xv: paraguaySquad} = getParaguaySquad();
   const opponentSquad = generateSquad(opponent);
   // Amistoso de seleção: campo neutro, sem histórico de forma rastreado
@@ -3355,14 +3504,18 @@ function renderNationalFriendlyLive(opponent) {
   function finish() {
     playing = false;
     matchAnim = null;
-    state.nationalTeamMatches = state.nationalTeamMatches || [];
-    state.nationalTeamMatches.push({
-      opponent: opponent.name,
-      scorePY: result.scoreA,
-      scoreOpp: result.scoreB,
-      label: t('selecaoAmistosoLabel'),
-    });
-    saveState();
+    if (isArcRound) {
+      finishArcRound(result.scoreA, result.scoreB);
+    } else {
+      state.nationalTeamMatches = state.nationalTeamMatches || [];
+      state.nationalTeamMatches.push({
+        opponent: opponent.name,
+        scorePY: result.scoreA,
+        scoreOpp: result.scoreB,
+        label: t('selecaoAmistosoLabel'),
+      });
+      saveState();
+    }
     const doneCard = document.getElementById('nationalFriendlyDone');
     doneCard.style.display = '';
     doneCard.querySelector('.finalScoreSmall').textContent = `${PARAGUAY_TEAM.name} ${result.scoreA} - ${result.scoreB} ${opponent.name}`;
@@ -3696,9 +3849,17 @@ function renderMatchday() {
   const manualXV = isRealRoster ? resolveManualXV(c.teamId, myOptions) : null;
   const effectiveXV = manualXV || autoXV;
 
-  const clashNote = excludedIds.size
+  // Distingue as duas causas de exclusão pra mostrar a nota certa: choque de
+  // agenda (mesma data, local diferente) é um aviso de UM jogo só; convocação
+  // pro ARC vale por várias rodadas seguidas, então merece uma nota própria
+  // (ver arcCalledUpIds/clashInfoFor, que juntam as duas na mesma excludedIds).
+  const arcIds = arcCalledUpIds();
+  const scheduleExcludedCount = [...excludedIds].filter(id => !arcIds.has(id)).length;
+  const hasArcExclusion = [...excludedIds].some(id => arcIds.has(id));
+  const clashNote = scheduleExcludedCount
     ? `<p class="muted">${t('excluidoHoje')}</p>`
     : (doubleHeaderIds.size ? `<p class="muted">${t('jogoDuplo')}</p>` : '');
+  const arcNote = hasArcExclusion ? `<p class="muted">${t('arcConvocadosNota')}</p>` : '';
 
   content.innerHTML = `
     <h1>${t('diaDeJogo', {comp: competitionLabel(key), round: roundName})}</h1>
@@ -3707,6 +3868,7 @@ function renderMatchday() {
       <p class="muted">${t('statsLine', {a: opp.attack, d: opp.defense, s: opp.stamina})}</p>
       ${c.stage === 'knockout' ? `<p class="muted">${t('mataDesempate')}</p>` : ''}
       ${clashNote}
+      ${arcNote}
       <h3>${t('escolhaTatica')}</h3>
       <div class="tacticOptions" id="tacticOptions">
         <button class="tacticBtn" data-t="agresivo"><b>${t('taticaAgresivo')}</b><span>${t('taticaAgresivoDesc')}</span></button>
