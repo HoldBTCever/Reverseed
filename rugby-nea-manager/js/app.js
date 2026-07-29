@@ -2421,7 +2421,7 @@ function renderRealSquad() {
   const myOptions = {conditionOf: currentConditionOf, metaOverrides: state.playerOverrides, skillOverrides: state.skillGrowth};
   let rows = rosterWithStatus(state.myTeamId, myOptions);
   if (squadSortMode === 'position') rows = sortRowsByPosition(rows);
-  const {xv, bench} = formationDataFor(state.myTeamId, myOptions);
+  const {xv} = formationDataFor(state.myTeamId, myOptions);
   const myTeam = teamById[state.myTeamId];
   const rowHtml = p => `
     <tr class="squadRow ${p.status === 'lesionado' ? 'injuredRow' : ''}" data-player="${p.id}">
@@ -2463,7 +2463,7 @@ function renderRealSquad() {
 
   content.innerHTML = `
     <h1>${t('elencoTitle', {team: myTeam.name})}</h1>
-    ${renderSquadFormationEditorHtml(state.myTeamId, myOptions, myTeam.color, bench, xv)}
+    ${renderSquadFormationEditorHtml(state.myTeamId, myOptions, myTeam.color, xv)}
     <p class="muted">${t('explicacaoCategorias')}</p>
     <p class="muted">${t('explicacaoPrimeiraLinea')}</p>
     <p class="muted">${t('explicacaoCondicao')}</p>
@@ -2793,9 +2793,14 @@ function shortPlayerName(name) {
 // línea (pilar/hooker) só mostra especialistas daquele posto específico (sem
 // improviso); as demais posições mostram primeiro quem joga ali (posto
 // natural ou alternativo) e, em seguida, todo o resto do elenco disponível.
-function renderLineupEditorHtml(teamId, myOptions, teamColor, bench) {
+function renderLineupEditorHtml(teamId, myOptions, teamColor) {
   const eligible = manualEligiblePlayers(teamId, myOptions);
   const byId = Object.fromEntries(eligible.map(p => [p.id, p]));
+  // Reservas recalculadas a partir da escalação manual ATUAL (não da
+  // automática) — senão quem acabou de ser trocado pra dentro/fora do
+  // titular continuava (ou sumia) errado na lista de reservas embaixo.
+  const startingIds = new Set((manualSlots || []).filter(Boolean));
+  const bench = eligible.filter(p => !startingIds.has(p.id)).sort((a, b) => b.rating - a.rating);
 
   const shirts = POSITIONS.map((slot, idx) => {
     const posId = slot.id;
@@ -2892,10 +2897,14 @@ function squadFormSlots(teamId, autoXV) {
 // Campo clicável igual ao de Dia de Jogo, só que na tela de Plantel — edita
 // direto o preset Time A, sem precisar entrar numa partida específica pra
 // mexer na escalação preferida do time.
-function renderSquadFormationEditorHtml(teamId, myOptions, teamColor, bench, autoXV) {
+function renderSquadFormationEditorHtml(teamId, myOptions, teamColor, autoXV) {
   const eligible = manualEligiblePlayers(teamId, myOptions);
   const byId = Object.fromEntries(eligible.map(p => [p.id, p]));
   const slots = squadFormSlots(teamId, autoXV);
+  // Reservas recalculadas a partir da escalação ATUAL (não da automática) —
+  // mesma correção aplicada ao editor de Dia de Jogo.
+  const startingIds = new Set(slots.filter(Boolean));
+  const bench = eligible.filter(p => !startingIds.has(p.id)).sort((a, b) => b.rating - a.rating);
 
   const shirts = POSITIONS.map((slot, idx) => {
     const posId = slot.id;
@@ -3647,7 +3656,7 @@ function renderMatchday() {
       <button class="playBtn" id="startMatchBtn">${t('comecarPartida')}</button>
     </div>
     ${isRealRoster ? '' : renderFormationHtml(effectiveXV, bench, myTeam.color, t('escalacaoHoje'))}
-    ${isRealRoster ? renderLineupEditorHtml(c.teamId, myOptions, myTeam.color, bench) : ''}
+    ${isRealRoster ? renderLineupEditorHtml(c.teamId, myOptions, myTeam.color) : ''}
   `;
 
   const opts = document.getElementById('tacticOptions');
