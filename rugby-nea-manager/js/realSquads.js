@@ -740,9 +740,9 @@ function curatedM18Players() {
       note: 'Categoria M18 do Curda, sob comando de Dante Legui — já debutou no time titular por ter boa qualidade',
       youthCategory: 'M18',
     }),
-    // Lael: centro/ponta da M18, 16 anos, bom potencial, ótima frequência de
+    // Gael: centro/ponta da M18, 16 anos, bom potencial, ótima frequência de
     // treino e determinação.
-    mkPlayer('Lael', 'CE', 65, {determination: 87}, {
+    mkPlayer('Gael', 'CE', 65, {determination: 87}, {
       age: 'M18',
       potential: 'alto',
       trainingFrequency: 19,
@@ -752,6 +752,13 @@ function curatedM18Players() {
     }),
   ];
 }
+
+// Nomes antigos de destaques que foram corrigidos depois — usado só pra
+// achar e RENOMEAR a entrada errada em saves que já a receberam (ver
+// ensureCuratedYouthPlayers), em vez de deixar as duas penduradas.
+const RENAMED_YOUTH_PLAYERS = {
+  'Gael': ['Lael'],
+};
 
 // Plantel inicial das 4 categorias, chamado uma vez ao começar um jogo novo
 // como o Curda.
@@ -767,22 +774,29 @@ export function createInitialYouthAcademy() {
 
 // Encaixa os destaques nomeados da M18 (ver curatedM18Players) numa
 // academia de um save JÁ EXISTENTE, criado antes de um destaque ser
-// adicionado — substitui o primeiro slot gerado proceduralmente disponível
-// (nunca mexe num destaque nomeado que já esteja lá). Devolve o MESMO
-// objeto recebido se nada precisou mudar, pra quem chama saber se vale a
-// pena salvar de novo.
+// adicionado (ou antes de um nome ser corrigido) — substitui o primeiro
+// slot gerado proceduralmente disponível (nunca mexe num destaque nomeado
+// que já esteja lá certo). Se o destaque já está presente com um nome
+// ANTIGO (ver RENAMED_YOUTH_PLAYERS), renomeia essa mesma entrada em vez de
+// adicionar uma segunda. Devolve o MESMO objeto recebido se nada precisou
+// mudar, pra quem chama saber se vale a pena salvar de novo.
 export function ensureCuratedYouthPlayers(academy) {
   if (!academy || !academy.M18) return academy;
   const curated = curatedM18Players();
   const curatedNames = new Set(curated.map(p => p.name));
-  const missing = curated.filter(p => !academy.M18.some(existing => existing.name === p.name));
-  if (!missing.length) return academy;
+  const allOldNames = new Set(Object.values(RENAMED_YOUTH_PLAYERS).flat());
   const m18 = [...academy.M18];
-  missing.forEach(player => {
-    const freeIdx = m18.findIndex(existing => !curatedNames.has(existing.name));
-    if (freeIdx !== -1) m18[freeIdx] = player;
+  let changed = false;
+  curated.forEach(player => {
+    if (m18.some(existing => existing.name === player.name)) return; // já está certo
+    const oldNames = RENAMED_YOUTH_PLAYERS[player.name] || [];
+    const renameIdx = m18.findIndex(existing => oldNames.includes(existing.name));
+    const targetIdx = renameIdx !== -1
+      ? renameIdx
+      : m18.findIndex(existing => !curatedNames.has(existing.name) && !allOldNames.has(existing.name));
+    if (targetIdx !== -1) { m18[targetIdx] = player; changed = true; }
   });
-  return {...academy, M18: m18};
+  return changed ? {...academy, M18: m18} : academy;
 }
 
 // Função pura: recebe o estado atual da academia e devolve a nova academia
