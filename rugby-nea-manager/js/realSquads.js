@@ -202,7 +202,7 @@ const CURDA_ROSTER = [
   // Centro (ordem: Nacho, Urbieta, Choclo, Orrego, LuizMi, Nico Allo, Argaña, Negro, Joaco, Fabiño, Mario)
   mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 96}, {nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado; recusa convocações da seleção pra se manter fiel só ao Curda', refusesNationalTeam: true}, 91),
   mkPlayer('Sebas Urbieta', 'CE', 83, {}, {age: 34, nationalTeam: 'seleção'}, 83),
-  mkPlayer('Gianfranco Parodi', 'CE', 85, {pass: 85, tackle: 82, strength: 70}, {nickname: 'Choclo', nationalTeam: 'seleção', note: 'titular da seleção como centro; também joga de ponta', altPos: ['WG']}, 84),
+  mkPlayer('Gianfranco Parodi', 'CE', 85, {pass: 85, tackle: 82, strength: 70}, {nickname: 'Choclo', nationalTeam: 'seleção', altPos: ['WG']}, 84),
   mkPlayer('Luiz Miguel', 'CE', 80, {speed: 95, sidestep: 93, agility: 90}, {nickname: 'LuizMi', note: 'também joga de ponta', altPos: ['WG']}, 66),
   mkPlayer('Nico Allo', 'CE', 66, {}, {age: 25}, 64),
   mkPlayer('Diego Argaña', 'CE', 66, {}, {}, 63),
@@ -232,28 +232,28 @@ const CURDA_ROSTER = [
 const SANJOSE_ROSTER = [
   // Convocados do NEA (time principal) — titulares
   mkPlayer('Nicolás Cáceres', 'PI', 78),
-  mkPlayer('Agustín Benítez', 'HK', 84, {}, {nationalTeam: 'seleção', note: 'titular da seleção na estreia internacional, disputa a titularidade com Jordi Chávez (Santa Clara)'}, 84),
+  mkPlayer('Agustín Benítez', 'HK', 84, {}, {nationalTeam: 'seleção'}, 84),
   mkPlayer('Rodolfo Rivadeneira', 'HK', 80, {}, {nationalTeam: 'seleção'}, 80),
   mkPlayer('Nahuel Kacerosky', 'SL', 86, {}, {nationalTeam: 'seleção'}, 86),
   mkPlayer('Ignacio Martínez', 'SL', 76),
-  mkPlayer('Ariel Núñez', 'AL', 88, {}, {nationalTeam: 'seleção', note: 'capitão da seleção paraguaia'}, 88),
+  mkPlayer('Ariel Núñez', 'AL', 88, {}, {nationalTeam: 'seleção'}, 88),
   mkPlayer('Francisco Bareiro', 'AL', 79, {}, {nationalTeam: 'seleção'}, 79),
   mkPlayer('Mateo Rodríguez', 'N8', 82),
   mkPlayer('Gonzalo Bareiro', 'MS', 81, {}, {nationalTeam: 'seleção'}, 81),
-  mkPlayer('Joaquín Lamas', 'AP', 82, {}, {nationalTeam: 'seleção', note: 'possível parente de Paco Lamas'}, 82),
+  mkPlayer('Joaquín Lamas', 'AP', 82, {}, {nationalTeam: 'seleção'}, 82),
   mkPlayer('Santiago Álvarez', 'WG', 83),
-  mkPlayer('Thomas Guzmán', 'AP', 87, {}, {nationalTeam: 'seleção', note: 'titular da seleção como abertura'}, 87),
+  mkPlayer('Thomas Guzmán', 'AP', 87, {}, {nationalTeam: 'seleção'}, 87),
   mkPlayer('Patricio Cabrera', 'CE', 82, {}, {nationalTeam: 'seleção'}, 82),
   mkPlayer('Juan Chilavert', 'WG', 83, {}, {nationalTeam: 'seleção'}, 83),
   mkPlayer('Santiago Espínola', 'FB', 79),
-  mkPlayer('Juan Martín Sebriano', 'AL', 86, {}, {nationalTeam: 'seleção', note: 'titular da seleção'}, 86),
-  mkPlayer('Rafael Bareiro', 'N8', 78, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 78),
-  mkPlayer('Juan González', 'WG', 78, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 78),
-  mkPlayer('Ramiro Amarilla', 'CE', 78, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 78),
+  mkPlayer('Juan Martín Sebriano', 'AL', 86, {}, {nationalTeam: 'seleção'}, 86),
+  mkPlayer('Rafael Bareiro', 'N8', 78, {}, {nationalTeam: 'seleção'}, 78),
+  mkPlayer('Juan González', 'WG', 78, {}, {nationalTeam: 'seleção'}, 78),
+  mkPlayer('Ramiro Amarilla', 'CE', 78, {}, {nationalTeam: 'seleção'}, 78),
   // Convocados do NEA — banco
   mkPlayer('Emilio Gorostiaga', 'PI', 68),
   mkPlayer('César Pérez', 'PI', 78, {}, {nationalTeam: 'seleção'}, 78),
-  mkPlayer('Enrique Quinteros', 'PI', 87, {}, {nationalTeam: 'seleção', note: 'titular da seleção'}, 87),
+  mkPlayer('Enrique Quinteros', 'PI', 87, {}, {nationalTeam: 'seleção'}, 87),
   mkPlayer('Adrián León', 'SL', 74, {}, {note: 'joga NEA e Apertura no mesmo fim de semana'}),
   mkPlayer('Nicolás Arias', 'SL', 73, {}, {note: 'joga NEA e Apertura no mesmo fim de semana'}),
   mkPlayer('Jerónimo Arrellaga', 'AL', 75, {}, {note: 'joga NEA e Apertura no mesmo fim de semana'}),
@@ -265,7 +265,7 @@ const SANJOSE_ROSTER = [
   mkPlayer('Marcelo Fretes', 'HK', 63),
   mkPlayer('Rubén Guerrero', 'SL', 65),
   mkPlayer('Sharif Ruiz', 'SL', 61),
-  mkPlayer('Carlos Martins', 'SL', 86, {}, {nationalTeam: 'seleção', note: 'titular da seleção'}, 86),
+  mkPlayer('Carlos Martins', 'SL', 86, {}, {nationalTeam: 'seleção'}, 86),
   mkPlayer('Bruno Sánchez', 'AL', 64),
   mkPlayer('Bruno Cabriza', 'N8', 67),
   mkPlayer('Giovani Salgueiro', 'MS', 68),
@@ -415,47 +415,47 @@ const DUENDES_ROSTER = [
 // lista geral de convocados, não numa escalação titular) têm a posição
 // estimada, sinalizada em nota.
 const CRISTO_REY_KNOWN = [
-  mkPlayer('Camilo Blasco', 'PI', 87, {}, {nationalTeam: 'seleção', note: 'titular fixo da seleção paraguaia, camisa 1'}, 87),
-  mkPlayer('Rodrigo Robadin', 'N8', 74, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas; também esteve na base M18'}, 74),
-  mkPlayer('Ignacio Vega', 'CE', 75, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 75),
+  mkPlayer('Camilo Blasco', 'PI', 87, {}, {nationalTeam: 'seleção'}, 87),
+  mkPlayer('Rodrigo Robadin', 'N8', 74, {}, {nationalTeam: 'seleção'}, 74),
+  mkPlayer('Ignacio Vega', 'CE', 75, {}, {nationalTeam: 'seleção'}, 75),
 ];
 const CRISTO_REY_ROSTER = buildPartialRealRoster('PAR-CRI', CRISTO_REY_KNOWN, {
   PI: 3, HK: 2, SL: 3, AL: 3, N8: 1, MS: 2, AP: 2, CE: 2, WG: 3, FB: 2,
 }, 41);
 
 const SANTA_CLARA_KNOWN = [
-  mkPlayer('Jordi Chávez', 'HK', 84, {}, {nationalTeam: 'seleção', note: 'disputa a titularidade na seleção com Agustín Benítez (San José)'}, 84),
-  mkPlayer('Gastón Salvi', 'PI', 80, {}, {nationalTeam: 'seleção', note: 'reserva fixo da seleção (cobertura de primeira linha)'}, 80),
-  mkPlayer('Alejandro Heyn', 'WG', 76, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 76),
+  mkPlayer('Jordi Chávez', 'HK', 84, {}, {nationalTeam: 'seleção'}, 84),
+  mkPlayer('Gastón Salvi', 'PI', 80, {}, {nationalTeam: 'seleção'}, 80),
+  mkPlayer('Alejandro Heyn', 'WG', 76, {}, {nationalTeam: 'seleção'}, 76),
 ];
 const SANTA_CLARA_ROSTER = buildPartialRealRoster('PAR-STC', SANTA_CLARA_KNOWN, {
   PI: 3, HK: 1, SL: 3, AL: 3, N8: 2, MS: 2, AP: 2, CE: 3, WG: 2, FB: 2,
 }, 47);
 
 const BELGRANO_ATH_KNOWN = [
-  mkPlayer('Mateo Gasparotti', 'PI', 76, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 76),
+  mkPlayer('Mateo Gasparotti', 'PI', 76, {}, {nationalTeam: 'seleção'}, 76),
 ];
 const BELGRANO_ATH_ROSTER = buildPartialRealRoster('BUE-BEL', BELGRANO_ATH_KNOWN, {
   PI: 3, HK: 2, SL: 3, AL: 3, N8: 2, MS: 2, AP: 2, CE: 3, WG: 3, FB: 2,
 }, 83);
 
 const SANTA_FE_KNOWN = [
-  mkPlayer('Gonzalo del Pazo', 'SL', 76, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 76),
-  mkPlayer('Juan Cruz Strada', 'CE', 76, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 76),
+  mkPlayer('Gonzalo del Pazo', 'SL', 76, {}, {nationalTeam: 'seleção'}, 76),
+  mkPlayer('Juan Cruz Strada', 'CE', 76, {}, {nationalTeam: 'seleção'}, 76),
 ];
 const SANTA_FE_ROSTER = buildPartialRealRoster('INT-SFE', SANTA_FE_KNOWN, {
   PI: 4, HK: 2, SL: 2, AL: 3, N8: 2, MS: 2, AP: 2, CE: 2, WG: 3, FB: 2,
 }, 81);
 
 const CAE_KNOWN = [
-  mkPlayer('Juan Mernes', 'HK', 77, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 77),
+  mkPlayer('Juan Mernes', 'HK', 77, {}, {nationalTeam: 'seleção'}, 77),
 ];
 const CAE_ROSTER = buildPartialRealRoster('INT-CAE', CAE_KNOWN, {
   PI: 4, HK: 1, SL: 3, AL: 3, N8: 2, MS: 2, AP: 2, CE: 3, WG: 3, FB: 2,
 }, 84);
 
 const CHAMPAGNAT_KNOWN = [
-  mkPlayer('Matías Muniagurria', 'AP', 76, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 76),
+  mkPlayer('Matías Muniagurria', 'AP', 76, {}, {nationalTeam: 'seleção'}, 76),
 ];
 const CHAMPAGNAT_ROSTER = buildPartialRealRoster('BUE-CHA', CHAMPAGNAT_KNOWN, {
   PI: 4, HK: 2, SL: 3, AL: 3, N8: 2, MS: 2, AP: 1, CE: 3, WG: 3, FB: 2,
