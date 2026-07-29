@@ -703,18 +703,6 @@ function crestContent(team) {
   if (identity && identity.initials) return identity.initials;
   return crestCode(team);
 }
-// Linha com mascote do clube (quando documentado) pra mostrar junto
-// do nome do time — ex.: 🦉 La Lechuza.
-function teamIdentityLine(team) {
-  const identity = teamIdentity(team.id);
-  if (!identity) return '';
-  const parts = [];
-  if (identity.mascotName) {
-    const mascot = identity.mascotName[lang] || identity.mascotName.es;
-    parts.push(`${identity.mascotEmoji || ''} ${escapeHtmlAttr(mascot)}`.trim());
-  }
-  return parts.length ? `<div class="teamIdentityLine muted">${parts.join(' · ')}</div>` : '';
-}
 const squadCache = {};
 function squadOf(teamId, options) {
   const realRoster = getRealRoster(teamId);
@@ -1809,7 +1797,6 @@ function renderTeamSelect() {
       card.innerHTML = `
         <div class="teamCrest" style="${crestStyle(team)}">${crestContent(team)}</div>
         <div class="teamName">${team.name}</div>
-        ${teamIdentityLine(team)}
         <div class="teamStats">${t('statsLine', {a: team.attack, d: team.defense, s: team.stamina})}</div>
         ${dual ? `<div class="teamStats muted">${t('dualLeague')}</div>` : ''}
       `;
@@ -2064,7 +2051,6 @@ function renderDashboard() {
       <div class="teamCrest dashboardCrest" style="${crestStyle(myTeam)}">${crestContent(myTeam)}</div>
       <div>
         <h1>${t('dashboardTitle', {team: myTeam.name})}</h1>
-        ${teamIdentityLine(myTeam)}
       </div>
     </div>
     ${keys.length > 1 ? `<p class="muted">${t('dashboardDualNote', {team: myTeam.name})}</p>` : ''}
