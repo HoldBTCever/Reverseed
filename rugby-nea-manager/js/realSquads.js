@@ -285,6 +285,22 @@ const SANJOSE_ROSTER = [
   mkPlayer('Paco Lamas', 'FB', 88, {}, {captain: true, note: 'melhor jogador do San José; nascido em Buenos Aires, o San José às vezes busca reforços na Argentina', nationality: 'Argentina', yearsInParaguay: 3}, 90),
 ];
 
+// San José também disputa duas competições ao mesmo tempo (NEA + Apertura
+// paraguaio) com o mesmo plantel — reforça um pouco mais a profundidade
+// (mesmo esquema do Curne acima) pra ficar no patamar de elenco "em dobro".
+{
+  const sanjoseExtraRng = mulberry32(seedFromString('ARG-SNJ-extra'));
+  const sanjoseExtraUsed = new Set(SANJOSE_ROSTER.map(p => p.name));
+  Object.entries({MS: 2, AP: 1, FB: 1}).forEach(([posId, count]) => {
+    for (let i = 0; i < count; i++) {
+      const name = randomName(sanjoseExtraRng, sanjoseExtraUsed);
+      const variance = Math.floor(sanjoseExtraRng() * 16) - 8;
+      const overall = Math.max(32, Math.min(96, 61 + variance));
+      SANJOSE_ROSTER.push(mkPlayer(name, posId, overall, {}, {generated: true}));
+    }
+  });
+}
+
 // Elenco do Curne, mesmo clube que disputa o NEA argentino e também o
 // Torneio do Interior (competição regional própria, times de cidades do
 // interior de Corrientes) — mesmo plantel nos dois lados, igual ao esquema
@@ -330,6 +346,25 @@ const CURNE_ROSTER = [
   mkPlayer('Bautista Ojeda', 'SL', 57, {}, {age: 19}),
   mkPlayer('Thiago Núñez', 'CE', 59, {}, {age: 18}),
 ];
+
+// Curne disputa duas competições ao mesmo tempo (NEA + Torneio do Interior)
+// com o mesmo plantel, igual Curda e San José — precisa de um elenco "em
+// dobro" (~2x o tamanho de um clube de liga única) pra cobrir Time A e Time
+// B em caso de choque de agenda no mesmo dia em locais diferentes. Reforça
+// a profundidade com jogadores fictícios extras (mesmo gerador de nomes
+// genéricos usado em buildPartialRealRoster) até chegar nesse tamanho.
+{
+  const curneExtraRng = mulberry32(seedFromString('ARG-CNE-extra'));
+  const curneExtraUsed = new Set(CURNE_ROSTER.map(p => p.name));
+  Object.entries({PI: 2, HK: 1, SL: 2, AL: 2, N8: 1, MS: 1, AP: 1, WG: 3, CE: 2, FB: 1}).forEach(([posId, count]) => {
+    for (let i = 0; i < count; i++) {
+      const name = randomName(curneExtraRng, curneExtraUsed);
+      const variance = Math.floor(curneExtraRng() * 16) - 8;
+      const overall = Math.max(32, Math.min(96, 70 + variance));
+      CURNE_ROSTER.push(mkPlayer(name, posId, overall, {}, {generated: true}));
+    }
+  });
+}
 
 // Elenco do Duendes RC (Torneio do Interior), a partir das duas listas de
 // convocados enviadas pelo usuário: "Duendes Rugby Club" (time titular) e
