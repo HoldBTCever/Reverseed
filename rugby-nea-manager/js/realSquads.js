@@ -148,7 +148,14 @@ function rescaleRosterToTeamBase(roster, teamId) {
   const team = TEAMS.find(t => t.id === teamId);
   if (!team) return roster;
   const targetAvg = (team.attack + team.defense + team.stamina) / 3;
-  const currentAvg = roster.reduce((s, p) => s + p.rating, 0) / roster.length;
+  // Ancora no XV TITULAR (quem realmente entra em campo), não no plantel
+  // completo — senão reforços de banco fraco (ex.: jogadores de baixa
+  // frequência de treino) "puxam" a média geral pra baixo e o cálculo
+  // compensa inflando os titulares pra cima, destorcendo justamente o time
+  // que efetivamente joga (foi o que aconteceu ao adicionar os jogadores de
+  // baixa frequência: o XV subiu de volta de 70 pra 75 de overall médio).
+  const xv = pickStartingXV(roster, {});
+  const currentAvg = xv.reduce((s, p) => s + p.rating, 0) / xv.length;
   const factor = (targetAvg - 30) / (currentAvg - 30);
   return roster.map(p => {
     const skills = {};
