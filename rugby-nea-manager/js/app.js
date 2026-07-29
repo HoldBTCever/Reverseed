@@ -703,16 +703,12 @@ function crestContent(team) {
   if (identity && identity.initials) return identity.initials;
   return crestCode(team);
 }
-// Linha com apelido/mascote do clube (quando documentado) pra mostrar junto
-// do nome do time — ex.: "El Tractor Amarillo" · 🦉 La Lechuza.
+// Linha com mascote do clube (quando documentado) pra mostrar junto
+// do nome do time — ex.: 🦉 La Lechuza.
 function teamIdentityLine(team) {
   const identity = teamIdentity(team.id);
   if (!identity) return '';
   const parts = [];
-  if (identity.nickname) {
-    const nick = identity.nickname[lang] || identity.nickname.es;
-    parts.push(`«${escapeHtmlAttr(nick)}»`);
-  }
   if (identity.mascotName) {
     const mascot = identity.mascotName[lang] || identity.mascotName.es;
     parts.push(`${identity.mascotEmoji || ''} ${escapeHtmlAttr(mascot)}`.trim());
