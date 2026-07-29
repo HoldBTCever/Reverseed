@@ -259,7 +259,6 @@ const I18N = {
     colMental: 'Mental',
     colFisico: 'Físico',
     colBio: 'Bio',
-    colObs: 'Obs',
     comissaoTecnica: 'Cuerpo técnico',
     forwardsTitle: 'Forwards (overall {n})',
     backsTitle: 'Backs (overall {n})',
@@ -495,7 +494,6 @@ const I18N = {
     colMental: 'Mental',
     colFisico: 'Físico',
     colBio: 'Bio',
-    colObs: 'Obs',
     comissaoTecnica: 'Comissão técnica',
     forwardsTitle: 'Forwards (overall {n})',
     backsTitle: 'Backs (overall {n})',
@@ -2258,16 +2256,6 @@ function conditionCell(value) {
   return `<td class="${cls}" title="${t('condicaoFisica', {v})}"><span class="ratingBar"><span style="width:${v}%"></span></span>${v}%</td>`;
 }
 
-function metaBadges(meta) {
-  const parts = [];
-  if (meta.nationalTeam) parts.push(meta.nationalTeam);
-  if (meta.age) parts.push(t('anos', {age: meta.age}));
-  if (meta.potential) parts.push(t('potencial', {p: meta.potential}));
-  if (meta.dynamicInjury) parts.push(t('lesaoFadigaBadge'));
-  if (meta.note) parts.push(meta.note);
-  return parts.join(' · ');
-}
-
 function statusCell(p) {
   if (p.status === 'lesionado') return `<span style="color:var(--accent-2)">${t('lesionado', {label: p.meta.injuryLabel})}</span>`;
   if (p.status === 'indisponivel') return `<span style="color:var(--accent-2)">${t('indisponivel')}</span>`;
@@ -2406,9 +2394,8 @@ function renderRealSquad() {
       ${categoryCell(p.skills, 'mental')}
       ${categoryCell(p.skills, 'físico')}
       <td class="posCol">${p.heightCm ? `${p.heightCm}cm/${p.weightKg}kg` : '—'}</td>
-      <td class="posCol">${metaBadges(p.meta)}</td>
     </tr>
-    ${skillDetailHtml(p, 10)}
+    ${skillDetailHtml(p, 9)}
   `;
   const headHtml = `
     <tr>
@@ -2417,7 +2404,6 @@ function renderRealSquad() {
       <th title="${t('colMental')}: ${SKILL_CATEGORIES.mental.map(k => skillLabel(k)).join(', ')}">${t('colMental')}</th>
       <th title="${t('colFisico')}: ${SKILL_CATEGORIES.físico.map(k => skillLabel(k)).join(', ')}">${t('colFisico')}</th>
       <th>${t('colBio')}</th>
-      <th>${t('colObs')}</th>
     </tr>
   `;
   const staff = getStaff(state.myTeamId);
