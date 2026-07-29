@@ -172,21 +172,23 @@ export const LEAGUES = [
     // Força do campeonato paraguaio: Curda e San José usam o mesmo
     // ataque/defesa/físico do NEA (mesmo plantel), calibrado pelo ranking
     // real de clubes argentinos — bem mais modesto do que a antiga força
-    // "de elite" que tinham antes. Os demais clubes paraguaios (sem dado
-    // real disponível, já que não disputam ligas argentinas) foram
-    // reescalados na mesma proporção a partir desses dois times-âncora,
-    // preservando a hierarquia: Luque e Santa Clara formam o segundo
-    // escalão; Cristo Rey e Asunción vêm um pouco atrás disso; Presidente
-    // Franco e Fernando de la Mora fecham a tabela.
+    // "de elite" que tinham antes NO CONTEXTO ARGENTINO, mas ainda assim são
+    // disparados os dois times mais fortes do Paraguai (por isso costumam
+    // ganhar o nacional). Os demais clubes paraguaios (sem dado real
+    // disponível, já que não disputam ligas argentinas) ficam num patamar
+    // bem mais baixo, equivalente a um "time B" do Curda — não um segundo
+    // escalão próximo: Luque e Santa Clara formam o melhor desse grupo mais
+    // fraco; Cristo Rey e Asunción vêm atrás disso; Presidente Franco e
+    // Fernando de la Mora fecham a tabela.
     teams: [
       team('PAR-SNJ', 'San José', '#0D47A1', 64, 63, 62),
       team('PAR-CUR', 'Curda', '#F9A825', 62, 61, 60),
-      team('PAR-STC', 'Santa Clara', '#1976D2', 62, 60, 61),
-      team('PAR-LUQ', 'Luque', '#FBC02D', 62, 60, 61),
-      team('PAR-ASU', 'Asunción', '#6D4C29', 55, 54, 57),
-      team('PAR-VHA', 'Presidente Franco (PFRC)', '#2E7D32', 51, 49, 55),
-      team('PAR-CRI', 'Cristo Rey', '#1B5E20', 55, 54, 57),
-      team('PAR-FDM', 'Fernando de la Mora', '#D32F2F', 50, 48, 54),
+      team('PAR-STC', 'Santa Clara', '#1976D2', 48, 46, 47),
+      team('PAR-LUQ', 'Luque', '#FBC02D', 48, 46, 47),
+      team('PAR-ASU', 'Asunción', '#6D4C29', 41, 40, 43),
+      team('PAR-VHA', 'Presidente Franco (PFRC)', '#2E7D32', 35, 33, 39),
+      team('PAR-CRI', 'Cristo Rey', '#1B5E20', 41, 40, 43),
+      team('PAR-FDM', 'Fernando de la Mora', '#D32F2F', 35, 33, 39),
     ],
   },
   {
