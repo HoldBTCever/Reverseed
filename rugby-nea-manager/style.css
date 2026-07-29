@@ -339,6 +339,19 @@ canvas#pitch {
   margin-top: 14px; padding: 12px; background: var(--panel-2); border: 1px solid var(--border);
   border-radius: 8px;
 }
+.lineupPickerFloating {
+  position: fixed;
+  margin-top: 0;
+  z-index: 1000;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.lineupPickerBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: transparent;
+}
 .lineupPicker h4 { margin: 0 0 8px; }
 .lineupPickGroupLabel { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 10px 0 4px; }
 .lineupPickList { display: flex; flex-direction: column; gap: 4px; }

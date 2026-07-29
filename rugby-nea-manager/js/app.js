@@ -762,6 +762,7 @@ let pendingMyXV = null; // escalação (jogadores inteiros) usada na partida em 
 let manualSlots = null; // array de 15 playerIds (ou null nalguma posição = automático) em edição na tela de Dia de Jogo
 let manualSlotsSignature = null; // identifica pra qual partida o manualSlots atual pertence, pra resetar ao mudar de jogo
 let openLineupSlot = null; // índice (0-14) do slot com o seletor de jogador aberto no campo clicável, ou null se fechado
+let lineupPickerAnchor = null; // {x, y} do clique que abriu o seletor, pra flutuar o popup perto do cursor
 
 function loadState() {
   try {
@@ -2722,8 +2723,18 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor, bench) {
         <span class="muted">${effectiveOverallAt(p, posId)} · ${Math.round(p.condition)}%</span>
       </button>
     `;
+    const popupW = Math.min(300, window.innerWidth - 24);
+    const popupMaxH = Math.min(420, window.innerHeight - 24);
+    const anchor = lineupPickerAnchor || {x: window.innerWidth / 2, y: window.innerHeight / 2};
+    let left = anchor.x + 14;
+    let top = anchor.y + 14;
+    if (left + popupW > window.innerWidth - 12) left = anchor.x - popupW - 14;
+    left = Math.max(12, Math.min(left, window.innerWidth - popupW - 12));
+    if (top + popupMaxH > window.innerHeight - 12) top = window.innerHeight - popupMaxH - 12;
+    top = Math.max(12, top);
+
     pickerHtml = `
-      <div class="lineupPicker">
+      <div class="lineupPicker lineupPickerFloating" style="left:${left}px; top:${top}px; width:${popupW}px; max-height:${popupMaxH}px;">
         <h4>#${idx + 1} ${POS_LABEL[posId]}</h4>
         ${!specialists.length ? `<p class="muted">${t('convocacaoEmergencia')}</p>` : `
           <div class="lineupPickGroupLabel">${t('especialistas')}</div>
@@ -2759,6 +2770,7 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor, bench) {
         <div class="pitchLine" style="top:100%"></div>
         ${shirts}
       </div>
+      ${openLineupSlot != null ? '<div class="lineupPickerBackdrop" id="lineupPickerBackdrop"></div>' : ''}
       ${pickerHtml}
       ${renderBenchSectionHtml(bench, teamColor)}
     </div>
@@ -3392,6 +3404,7 @@ function renderMatchday() {
     manualSlots = null;
     manualSlotsSignature = sig;
     openLineupSlot = null;
+    lineupPickerAnchor = null;
   }
 
   const isRealRoster = !!getRealRoster(c.teamId);
@@ -3439,9 +3452,15 @@ function renderMatchday() {
 
   if (isRealRoster) {
     Array.from(document.querySelectorAll('.lineupShirtBtn')).forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (ev) => {
         const idx = Number(btn.dataset.slot);
-        openLineupSlot = openLineupSlot === idx ? null : idx;
+        if (openLineupSlot === idx) {
+          openLineupSlot = null;
+          lineupPickerAnchor = null;
+        } else {
+          openLineupSlot = idx;
+          lineupPickerAnchor = {x: ev.clientX, y: ev.clientY};
+        }
         renderMatchday();
       });
     });
@@ -3453,6 +3472,7 @@ function renderMatchday() {
         if (dupIdx !== -1) manualSlots[dupIdx] = manualSlots[idx];
         manualSlots[idx] = newId;
         openLineupSlot = null;
+        lineupPickerAnchor = null;
         renderMatchday();
       });
     });
@@ -3460,12 +3480,22 @@ function renderMatchday() {
     if (closePickerBtn) {
       closePickerBtn.addEventListener('click', () => {
         openLineupSlot = null;
+        lineupPickerAnchor = null;
+        renderMatchday();
+      });
+    }
+    const pickerBackdrop = document.getElementById('lineupPickerBackdrop');
+    if (pickerBackdrop) {
+      pickerBackdrop.addEventListener('click', () => {
+        openLineupSlot = null;
+        lineupPickerAnchor = null;
         renderMatchday();
       });
     }
     document.getElementById('lineupAutoBtn').addEventListener('click', () => {
       manualSlots = slotsFromXV(autoXV);
       openLineupSlot = null;
+      lineupPickerAnchor = null;
       renderMatchday();
     });
     document.getElementById('lineupSaveABtn').addEventListener('click', () => {
