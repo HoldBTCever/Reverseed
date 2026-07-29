@@ -1,5 +1,5 @@
 import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS, teamIdentity, TRAINING_TYPES} from './data.js';
-import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, zoneForPos, defaultGamePlan, pickLineoutUnit} from './engine.js';
+import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, WEATHER_TYPES, zoneForPos, defaultGamePlan, pickLineoutUnit, rollWeather} from './engine.js';
 import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
@@ -288,6 +288,10 @@ const I18N = {
     medReturnLog: '✅ {player} ({team}) vuelve a la cancha.',
     diaDeJogo: 'Día de partido — {comp} — {round}',
     casaVs: '{home} (local) vs {away} (visitante)',
+    weatherLine: 'Clima: {weather}',
+    weatherSeco: '☀️ Tiempo firme',
+    weatherChuva: '🌧️ Lluvia',
+    weatherVento: '💨 Viento fuerte',
     mataDesempate: 'Playoffs: en caso de empate, el partido va a tiempo suplementario hasta que salga un ganador.',
     excluidoHoje: '⚠️ Algunos jugadores no están disponibles hoy: ya jugaron en la otra competencia el mismo día, en otra sede.',
     jogoDuplo: '⚠️ Doble partido el mismo día y sede: parte del equipo ya jugó más temprano y entra a la cancha más desgastado.',
@@ -523,6 +527,10 @@ const I18N = {
     medReturnLog: '✅ {player} ({team}) volta pro jogo.',
     diaDeJogo: 'Dia de jogo — {comp} — {round}',
     casaVs: '{home} (casa) vs {away} (visitante)',
+    weatherLine: 'Clima: {weather}',
+    weatherSeco: '☀️ Tempo firme',
+    weatherChuva: '🌧️ Chuva',
+    weatherVento: '💨 Vento forte',
     mataDesempate: 'Mata-mata: em caso de empate, a partida vai para a prorrogação até sair um vencedor.',
     excluidoHoje: '⚠️ Alguns jogadores estão indisponíveis hoje: já entraram em campo na outra competição no mesmo dia, em local diferente.',
     jogoDuplo: '⚠️ Jogo duplo no mesmo dia e local: parte do time já jogou mais cedo e entra em campo mais desgastada.',
@@ -912,6 +920,7 @@ function newGame(myTeamId) {
     gamePlan: (myTeamId === 'ARG-CUR' || myTeamId === 'PAR-CUR') ? curdaDefaultGamePlan() : defaultGamePlan(), // plano de jogo por zona de campo (ver tela de Tática)
     gamePlanPdfs: [], // [{id, name, size, uploadedAt}] — metadados dos PDFs táticos enviados (conteúdo binário fica no IndexedDB, ver pdfStore)
     nationalTeamMatches: [], // histórico de amistosos/torneios da Seleção Paraguay (ver renderSelection)
+    teamForm: {}, // {[teamId]: ['W'|'L'|'D', ...]} — últimos resultados de cada time (mais recente por último), atualizado em finalizeRound; alimenta o bônus/malus de moral (ver moraleModFromForm em engine.js)
     scoutingProspects: [], // promessas de clubes menores do Paraguaio disponíveis pra convidar (só time Curda)
     recruitedPlayers: [], // jogadores captados/formados que se juntaram ao Curda (fundidos em getRealRoster)
     youthAcademy: (myTeamId === 'ARG-CUR' || myTeamId === 'PAR-CUR') ? createInitialYouthAcademy() : null, // categorias M14/M15/M16/M18 do Curda, comandadas por Dante Legui
@@ -1541,21 +1550,57 @@ function breakTie(scoreHome, scoreAway) {
   return homeWins ? [scoreHome + 3, scoreAway] : [scoreHome, scoreAway + 3];
 }
 
+// Últimos resultados de um time (mais recente por último) — alimenta o
+// bônus/malus de moral da simulação (ver moraleModFromForm em engine.js).
+// Default [] pra saves antigos sem state.teamForm ainda.
+function teamFormFor(teamId) {
+  state.teamForm = state.teamForm || {};
+  return state.teamForm[teamId] || [];
+}
+
+// Registra o resultado (W/L/D) de AMBOS os times envolvidos — chamado de
+// applyMatchToStandings, o único ponto por onde passa todo resultado
+// confirmado do jogo (liga, grupos E mata-mata, já que moral não deveria
+// ignorar uma eliminação só porque a fase não tem tabela de pontos).
+// Guarda só os últimos 8 (moraleModFromForm usa os últimos 5).
+function recordTeamForm(homeId, awayId, scoreHome, scoreAway) {
+  state.teamForm = state.teamForm || {};
+  const codeHome = scoreHome > scoreAway ? 'W' : scoreHome < scoreAway ? 'L' : 'D';
+  const codeAway = scoreAway > scoreHome ? 'W' : scoreAway < scoreHome ? 'L' : 'D';
+  const push = (id, code) => {
+    const arr = state.teamForm[id] || (state.teamForm[id] = []);
+    arr.push(code);
+    if (arr.length > 8) arr.shift();
+  };
+  push(homeId, codeHome);
+  push(awayId, codeAway);
+}
+
+// Clima e vantagem de mandante entram igual pros dois lados: o mandante
+// (homeId, sempre o primeiro time por convenção — ver simulateMatch em
+// engine.js) ganha a vantagem de jogar em casa; moral vem do histórico
+// recente de cada time (teamFormFor); o clima é sorteado a cada partida.
 function simulateOtherMatch(homeId, awayId) {
   const home = teamById[homeId];
   const away = teamById[awayId];
-  const r = simulateMatch(home, squadOf(homeId), 'equilibrado', away, squadOf(awayId), 'equilibrado');
+  const r = simulateMatch(home, squadOf(homeId), 'equilibrado', away, squadOf(awayId), 'equilibrado', undefined, undefined, undefined, {
+    formA: teamFormFor(homeId),
+    formB: teamFormFor(awayId),
+    weather: rollWeather(),
+  });
   return {scoreHome: r.scoreA, scoreAway: r.scoreB};
 }
 
 function applyMatchToStandings(c, m, scoreHome, scoreAway) {
+  recordTeamForm(m.home, m.away, scoreHome, scoreAway);
   if (c.stage === 'league') {
     applyResult(c.standings, m.home, m.away, scoreHome, scoreAway);
   } else if (c.stage === 'groups') {
     const g = c.groupOf[m.home];
     applyResult(c.groupStandings[g], m.home, m.away, scoreHome, scoreAway);
   }
-  // estágio 'knockout' não tem tabela — só avanço de chaveamento.
+  // estágio 'knockout' não tem tabela — só avanço de chaveamento (mas o
+  // resultado ainda entra na moral via recordTeamForm acima).
 }
 
 function startKnockoutFromLeague(c) {
@@ -3000,7 +3045,12 @@ function renderSelection() {
 function renderNationalFriendlyLive(opponent) {
   const {xv: paraguaySquad} = getParaguaySquad();
   const opponentSquad = generateSquad(opponent);
-  const result = simulateMatch(PARAGUAY_TEAM, paraguaySquad, 'equilibrado', opponent, opponentSquad, 'equilibrado');
+  // Amistoso de seleção: campo neutro, sem histórico de forma rastreado
+  // pros adversários avulsos — só o clima entra, por sabor.
+  const result = simulateMatch(PARAGUAY_TEAM, paraguaySquad, 'equilibrado', opponent, opponentSquad, 'equilibrado', undefined, undefined, undefined, {
+    neutralVenue: true,
+    weather: rollWeather(),
+  });
 
   content.innerHTML = `
     <div id="matchWrap">
@@ -3156,7 +3206,13 @@ function renderCopaArgentinaLive() {
   const awayTeam = teamById[leg.away];
   const homeSquad = squadOf(leg.home);
   const awaySquad = squadOf(leg.away);
-  const result = simulateMatch(homeTeam, homeSquad, 'equilibrado', awayTeam, awaySquad, 'equilibrado');
+  // Ida e volta de verdade, com mandante real — mesma vantagem de
+  // mandante/moral/clima de qualquer outra partida de clube.
+  const result = simulateMatch(homeTeam, homeSquad, 'equilibrado', awayTeam, awaySquad, 'equilibrado', undefined, undefined, undefined, {
+    formA: teamFormFor(leg.home),
+    formB: teamFormFor(leg.away),
+    weather: rollWeather(),
+  });
 
   content.innerHTML = `
     <div id="matchWrap">
@@ -3315,7 +3371,11 @@ function runRandomTournament() {
   };
 
   function playInstant(teamA, teamB) {
-    const r = simulateMatch(teamA, squadFor(teamA), 'equilibrado', teamB, squadFor(teamB), 'equilibrado');
+    // Torneio relâmpago entre seleções: sempre campo neutro.
+    const r = simulateMatch(teamA, squadFor(teamA), 'equilibrado', teamB, squadFor(teamB), 'equilibrado', undefined, undefined, undefined, {
+      neutralVenue: true,
+      weather: rollWeather(),
+    });
     let scoreA = r.scoreA;
     let scoreB = r.scoreB;
     if (scoreA === scoreB) {
@@ -3528,6 +3588,11 @@ function pickOpponentTactic() {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+const WEATHER_I18N_KEY = {seco: 'weatherSeco', chuva: 'weatherChuva', vento: 'weatherVento'};
+function weatherLabelText(weatherKey) {
+  return t(WEATHER_I18N_KEY[weatherKey] || 'weatherSeco');
+}
+
 function renderLive() {
   const key = state.activeCompetition;
   const c = comp(key);
@@ -3591,10 +3656,21 @@ function renderLive() {
   const gamePlanHome = homeId === c.teamId ? myPlan : aiGamePlanFor(homeTeam);
   const gamePlanAway = awayId === c.teamId ? myPlan : aiGamePlanFor(awayTeam);
 
+  // Clima sorteado uma vez só pra partida toda — precisa ficar igual em
+  // qualquer recálculo por substituição ao vivo (ver performLiveSub, que
+  // reusa este mesmo matchContext). Vantagem de mandante e moral entram
+  // pelo mesmo matchContext, sempre relativo ao mandante real da partida.
+  const matchContext = {
+    formA: teamFormFor(homeId),
+    formB: teamFormFor(awayId),
+    weather: rollWeather(),
+  };
+
   const result = simulateMatch(
     homeTeam, homeSquad, tacticHome,
     awayTeam, awaySquad, tacticAway,
     gamePlanHome, gamePlanAway,
+    undefined, matchContext,
   );
 
   // Mata-mata não permite empate: se a simulação terminou empatada, resolve
@@ -3622,6 +3698,7 @@ function renderLive() {
         </div>
         <div class="side">${awayTeam.name}<span class="crestSmall" style="${crestStyle(awayTeam)}">${crestContent(awayTeam)}</span></div>
       </div>
+      <p class="muted weatherLine">${t('weatherLine', {weather: weatherLabelText(matchContext.weather)})}</p>
       <div id="tacticalBanner" class="tacticalBanner"></div>
       <canvas id="pitch"></canvas>
       <div id="matchControls">
@@ -3805,7 +3882,7 @@ function renderLive() {
       homeTeam, homeSquad, tacticHome,
       awayTeam, awaySquad, tacticAway,
       gamePlanHome, gamePlanAway,
-      resumeState,
+      resumeState, matchContext,
     );
     const currentMinute = resumeState.tick * 2;
 

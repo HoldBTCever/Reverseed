@@ -21,6 +21,72 @@ const TACTICS = {
   defensivo: {attackMod: 0.90, defenseMod: 1.14, breakMod: 0.82, concedeBreakMod: 0.85, errorMod: 0.84, cardMod: 0.85, label: 'Defensivo'},
 };
 
+// ---- Vantagem de mandante ---------------------------------------------
+// Efeito real e bem documentado do rugby: torcida, conhecimento do
+// gramado e zero desgaste de viagem pro mandante — o visitante chega mais
+// cansado e joga sob mais pressão (do público E do juiz local). Pequeno
+// mas consistente: attackMod/defenseMod entram no push do mesmo jeito que
+// tática/clima/moral (multiplicando effAttack/effDefense, escalados pelo
+// mesmo fator 0.14 do push) — NÃO como bônus fixo somado direto no push a
+// cada tick, que combinado (mesmo pequeno) vira um viés sistemático e não
+// aleatório repetido 40 vezes por partida, dominando qualquer outro fator.
+// Reduz cartão do mandante e aumenta o do visitante, melhora o
+// aproveitamento de chute do mandante, e aumenta um pouco o erro de mão do
+// visitante. Só se aplica quando a partida tem mandante de fato — amistosos
+// de seleção e torneios relâmpago são jogados em campo neutro (ver
+// matchContext.neutralVenue).
+const HOME_ADVANTAGE = {
+  attackMod: 1.03,
+  defenseMod: 1.03,
+  homeCardMod: 0.90,
+  awayCardMod: 1.10,
+  homeKickBonus: 3,
+  awayErrorMod: 1.06,
+};
+
+// ---- Clima -----------------------------------------------------------
+// Sorteado uma vez por partida (rollWeather, chamado fora daqui — em
+// app.js — pra persistir o mesmo clima entre os recálculos de substituição
+// ao vivo via resumeState). Chuva atrapalha bastante o jogo de mãos e o
+// chute e reduz a quebra de linha (bola molhada, grama pesada); vento
+// forte só prejudica o chute e um pouco o erro de mão; tempo firme é o
+// padrão, sem efeito nenhum. Afeta os dois times igualmente — não há lado
+// "favorecido" pelo clima, só handicapa o jogo como um todo.
+const WEATHER_TYPES = {
+  seco: {attackMod: 1, defenseMod: 1, errorMod: 1, breakMod: 1, kickMod: 1, label: 'Tempo firme'},
+  chuva: {attackMod: 0.93, defenseMod: 1.04, errorMod: 1.35, breakMod: 0.80, kickMod: 0.80, label: 'Chuva'},
+  vento: {attackMod: 0.97, defenseMod: 1.0, errorMod: 1.10, breakMod: 0.95, kickMod: 0.72, label: 'Vento forte'},
+};
+function rollWeather() {
+  const roll = Math.random();
+  if (roll < 0.18) return 'chuva';
+  if (roll < 0.32) return 'vento';
+  return 'seco';
+}
+
+// ---- Moral / sequência de resultados -----------------------------------
+// form: array com os últimos resultados do time (mais recente por último),
+// 'W'/'L'/'D' — ver state.teamForm em app.js, atualizado sempre que uma
+// partida é confirmada na tabela (finalizeRound). Sequência de vitórias dá
+// confiança (pequeno bônus geral no ataque/defesa); sequência de derrotas
+// prejudica — os últimos resultados pesam mais que os mais antigos, e o
+// efeito é sempre pequeno (no máximo ±6%): moral inclina a partida, nunca
+// decide sozinha.
+function moraleModFromForm(form) {
+  if (!form || !form.length) return 1;
+  const recent = form.slice(-5);
+  let score = 0;
+  let maxScore = 0;
+  recent.forEach((r, i) => {
+    const weight = i + 1;
+    if (r === 'W') score += weight;
+    else if (r === 'L') score -= weight;
+    maxScore += weight;
+  });
+  const norm = maxScore ? score / maxScore : 0; // -1..1
+  return clamp(1 + norm * 0.06, 0.94, 1.06);
+}
+
 // ---- Plano de jogo por zona de campo ---------------------------------------
 // Reflete o "tablero de mando territorial" que clubes de verdade usam pra
 // orientar a equipe conforme a bola entra em cada trecho do campo: perto da
@@ -106,7 +172,7 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
-export {TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, zoneForPos, defaultGamePlan, pickLineoutUnit};
+export {TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, WEATHER_TYPES, zoneForPos, defaultGamePlan, pickLineoutUnit, rollWeather};
 
 function rand(min, max) {
   return Math.random() * (max - min) + min;
@@ -234,9 +300,9 @@ function lineoutThrowerScore(thrower, isAway, bonus) {
 
 // Chute efetivo pra conversões/penais: combina técnica de chute com
 // compostura, que pesa mais nos minutos finais (momento de pressão).
-function kickEffective(player, tick) {
+function kickEffective(player, tick, weatherKickMod = 1) {
   const clutch = tick > 30 ? 0.28 : 0.15;
-  return player.skills.kicking * (1 - clutch) + player.skills.composure * clutch;
+  return (player.skills.kicking * (1 - clutch) + player.skills.composure * clutch) * weatherKickMod;
 }
 
 // Fator de cansaço dentro da própria partida: nos primeiros 40 minutos o time
@@ -308,11 +374,24 @@ function scrumTeamBaseScore(players, rivalAvgWeight) {
 // "futuro" da partida depois de uma substituição ao vivo, sem redigitar o que
 // já aconteceu. {pos, scoreA, scoreB, cardPenaltyA, cardPenaltyB, redCardA,
 // redCardB, tick} — tick é o último tick já concluído (0 = ainda não começou).
-export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB, gamePlanA, gamePlanB, resumeState) {
+//
+// matchContext (opcional): {neutralVenue, formA, formB, weather} — teamA é
+// sempre o mandante por convenção do resto do app (ver call sites), então
+// neutralVenue=true é o único jeito de desligar a vantagem de mandante
+// (amistosos de seleção, torneios relâmpago). formA/formB são os arrays de
+// resultados recentes de cada time (ver moraleModFromForm); weather é uma
+// chave de WEATHER_TYPES já sorteada fora daqui (rollWeather), pra ficar
+// igual em todos os recálculos de um resumeState da mesma partida.
+export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB, gamePlanA, gamePlanB, resumeState, matchContext = {}) {
   const planA = gamePlanA || defaultGamePlan();
   const planB = gamePlanB || defaultGamePlan();
   const tacticObjA = TACTICS[tacticA] || TACTICS.equilibrado;
   const tacticObjB = TACTICS[tacticB] || TACTICS.equilibrado;
+  const {neutralVenue = false, formA = null, formB = null, weather = 'seco'} = matchContext;
+  const weatherObj = WEATHER_TYPES[weather] || WEATHER_TYPES.seco;
+  const moraleModA = moraleModFromForm(formA);
+  const moraleModB = moraleModFromForm(formB);
+  const homeKickBonusA = neutralVenue ? 0 : HOME_ADVANTAGE.homeKickBonus;
 
   const sA = teamStrength(teamA, playersA, tacticA);
   const sB = teamStrength(teamB, playersB, tacticB);
@@ -360,14 +439,17 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
   // Disciplina reduz a chance de cartão (tanto amarelo quanto vermelho). A
   // tática também pesa aqui: agresivo pressiona mais e se disciplina menos
-  // (cardMod > 1), defensivo joga mais seguro (cardMod < 1).
+  // (cardMod > 1), defensivo joga mais seguro (cardMod < 1). O mandante
+  // também se disciplina melhor (juiz e torcida em casa), o visitante pior.
   const disciplineAvgA = teamSkillAvg(playersA, 'discipline');
   const disciplineAvgB = teamSkillAvg(playersB, 'discipline');
   const disciplineFactor = avg => Math.max(0.4, Math.min(1.1, 1.3 - avg / 100));
-  let yellowChanceA = 0.012 * disciplineFactor(disciplineAvgA) * tacticObjA.cardMod;
-  let yellowChanceB = 0.012 * disciplineFactor(disciplineAvgB) * tacticObjB.cardMod;
-  let redChanceA = 0.0025 * disciplineFactor(disciplineAvgA) * tacticObjA.cardMod;
-  let redChanceB = 0.0025 * disciplineFactor(disciplineAvgB) * tacticObjB.cardMod;
+  const homeCardModA = neutralVenue ? 1 : HOME_ADVANTAGE.homeCardMod;
+  const homeCardModB = neutralVenue ? 1 : HOME_ADVANTAGE.awayCardMod;
+  let yellowChanceA = 0.012 * disciplineFactor(disciplineAvgA) * tacticObjA.cardMod * homeCardModA;
+  let yellowChanceB = 0.012 * disciplineFactor(disciplineAvgB) * tacticObjB.cardMod * homeCardModB;
+  let redChanceA = 0.0025 * disciplineFactor(disciplineAvgA) * tacticObjA.cardMod * homeCardModA;
+  let redChanceB = 0.0025 * disciplineFactor(disciplineAvgB) * tacticObjB.cardMod * homeCardModB;
 
   // Pilares do plano de jogo: modificadores fixos pra partida inteira (não
   // dependem de zona). Disciplina reduz cartões — coeficiente dobrado (era
@@ -452,10 +534,12 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     const styleA = ZONE_STYLES[planA.zones[zoneA].style] || ZONE_STYLES.equilibrado;
     const styleB = ZONE_STYLES[planB.zones[zoneB].style] || ZONE_STYLES.equilibrado;
 
-    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.attackMod * sysA.attackMod;
-    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.defenseMod * sysA.defenseMod;
-    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.attackMod * sysB.attackMod;
-    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.defenseMod * sysB.defenseMod;
+    const homeAttackModA = neutralVenue ? 1 : HOME_ADVANTAGE.attackMod;
+    const homeDefenseModA = neutralVenue ? 1 : HOME_ADVANTAGE.defenseMod;
+    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.attackMod * sysA.attackMod * weatherObj.attackMod * moraleModA * homeAttackModA;
+    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.defenseMod * sysA.defenseMod * weatherObj.defenseMod * moraleModA * homeDefenseModA;
+    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.attackMod * sysB.attackMod * weatherObj.attackMod * moraleModB;
+    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.defenseMod * sysB.defenseMod * weatherObj.defenseMod * moraleModB;
 
     let push = ((effAttackA - effDefenseB) - (effAttackB - effDefenseA)) * 0.14;
     push += rand(-9, 9);
@@ -467,8 +551,8 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     // assim como a defesa dominante do rival (pared conectada dificulta) e a
     // tática/sistema de cada time (breakMod pro próprio ataque,
     // concedeBreakMod do rival pra quanto a própria defesa segura).
-    const breakChanceA = breakChance(paceA) * styleA.breakMod * sysA.breakMod * fisicalidadeFactorA * defesaGuardB * tacticObjA.breakMod * tacticObjB.concedeBreakMod * sysB.concedeBreakMod;
-    const breakChanceB = breakChance(paceB) * styleB.breakMod * sysB.breakMod * fisicalidadeFactorB * defesaGuardA * tacticObjB.breakMod * tacticObjA.concedeBreakMod * sysA.concedeBreakMod;
+    const breakChanceA = breakChance(paceA) * styleA.breakMod * sysA.breakMod * fisicalidadeFactorA * defesaGuardB * tacticObjA.breakMod * tacticObjB.concedeBreakMod * sysB.concedeBreakMod * weatherObj.breakMod;
+    const breakChanceB = breakChance(paceB) * styleB.breakMod * sysB.breakMod * fisicalidadeFactorB * defesaGuardA * tacticObjB.breakMod * tacticObjA.concedeBreakMod * sysA.concedeBreakMod * weatherObj.breakMod;
     const codeSuffix = (planCode, zoneKey) => {
       const code = planCode && planCode.zones[zoneKey] && planCode.zones[zoneKey].code;
       return code ? ` (código ${code.split('/')[0].trim()})` : '';
@@ -498,8 +582,11 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     // pelota. El cansancio (fatigueA/B < 1 en el segundo tiempo) suma más
     // errores de mano, reflejando peores decisiones con el cuerpo pesado. A
     // tática agresiva também erra mais (mais risco), a defensiva erra menos.
-    const handlingErrorA_eff = handlingErrorBaseA * styleA.errorMod * sysA.errorMod * tacticObjA.errorMod + (1 - fatigueA) * 0.20;
-    const handlingErrorB_eff = handlingErrorBaseB * styleB.errorMod * sysB.errorMod * tacticObjB.errorMod + (1 - fatigueB) * 0.20;
+    // Chuva/vento (weatherObj.errorMod) atrapalha os dois lados igual; o
+    // visitante ainda erra um pouco mais por jogar fora (pressão da torcida).
+    const homeErrorModB = neutralVenue ? 1 : HOME_ADVANTAGE.awayErrorMod;
+    const handlingErrorA_eff = handlingErrorBaseA * styleA.errorMod * sysA.errorMod * tacticObjA.errorMod * weatherObj.errorMod + (1 - fatigueA) * 0.20;
+    const handlingErrorB_eff = handlingErrorBaseB * styleB.errorMod * sysB.errorMod * tacticObjB.errorMod * weatherObj.errorMod * homeErrorModB + (1 - fatigueB) * 0.20;
     if (!eventHandled && push > 0 && Math.random() < handlingErrorA_eff) {
       const culprit = pickHandlingCulprit(scrumHalfA, flyHalfA);
       addLog(minute, `Knock-on de ${teamA.name}: a ${culprit.name} se le escapa la pelota en el pase.`);
@@ -609,13 +696,15 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       eventHandled = true;
     }
 
-    // Try
+    // Try — kickEffective já leva o vento/chuva embutido (weatherObj.kickMod);
+    // o mandante ainda ganha um bônus fixo de aproveitamento (torcida/campo
+    // conhecido), o visitante não.
     if (!eventHandled && pos >= 94 && Math.random() < 0.35) {
       const scorer = pick(playersA.filter(p => p.group === 'back'));
       scoreA += 5;
       scorersA.push({minute, player: scorer.name});
       addLog(minute, `¡TRY de ${teamA.name}! Anota ${scorer.name}.`);
-      if (Math.random() * 100 < kickEffective(kickerA, tick) * 0.9) {
+      if (Math.random() * 100 < (kickEffective(kickerA, tick, weatherObj.kickMod) + homeKickBonusA) * 0.9) {
         scoreA += 2;
         addLog(minute, `${kickerA.name} convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
       } else {
@@ -628,7 +717,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       scoreB += 5;
       scorersB.push({minute, player: scorer.name});
       addLog(minute, `¡TRY de ${teamB.name}! Anota ${scorer.name}.`);
-      if (Math.random() * 100 < kickEffective(kickerB, tick) * 0.9) {
+      if (Math.random() * 100 < kickEffective(kickerB, tick, weatherObj.kickMod) * 0.9) {
         scoreB += 2;
         addLog(minute, `${kickerB.name} convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
       } else {
@@ -640,7 +729,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
     // Penal
     if (!eventHandled && pos >= 72 && pos < 94 && Math.random() < 0.08) {
-      if (Math.random() * 100 < kickEffective(kickerA, tick) * 0.85) {
+      if (Math.random() * 100 < (kickEffective(kickerA, tick, weatherObj.kickMod) + homeKickBonusA) * 0.85) {
         scoreA += 3;
         addLog(minute, `Penal para ${teamA.name}. ${kickerA.name} patea y convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
       } else {
@@ -649,7 +738,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       pos = 50;
       eventHandled = true;
     } else if (!eventHandled && pos <= 28 && pos > 6 && Math.random() < 0.08) {
-      if (Math.random() * 100 < kickEffective(kickerB, tick) * 0.85) {
+      if (Math.random() * 100 < kickEffective(kickerB, tick, weatherObj.kickMod) * 0.85) {
         scoreB += 3;
         addLog(minute, `Penal para ${teamB.name}. ${kickerB.name} patea y convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
       } else {
@@ -705,5 +794,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     scorersB,
     cards,
     motm: motm ? motm.name : null,
+    weather,
+    weatherLabel: weatherObj.label,
   };
 }
