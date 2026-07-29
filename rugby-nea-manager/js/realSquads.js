@@ -197,6 +197,7 @@ const CURDA_ROSTER_RAW = [
   mkPlayer('Maxi Doldan', 'SL', 38, {}, {age: 18, note: 'juvenil'}, 38),
   mkPlayer('Bruno Vacotti', 'SL', 60, {}, {birthDate: '1986-10-16'}),
   mkPlayer('Elías Rodríguez', 'SL', 74, {strength: 82, speed: 76, determination: 88}, {note: 'muita garra, muito bom em quebrar tackles'}),
+  mkPlayer('Juan José Agüero', 'SL', 46, {}, {birthDate: '2001-07-15', nickname: 'Gato', trainingFrequency: 8, note: 'baixa frequência de treino; também joga de ala', altPos: ['AL']}, 46),
 
   // Terceira línea / ala (ordem: Alvaro, Charlie, Gonza, JP, Prolijo, René,
   // Achon, Cani, Joaco, Vic Torres, Fenocchi) — Charlie/Gonza/René/Prolijo/
@@ -214,6 +215,7 @@ const CURDA_ROSTER_RAW = [
   mkPlayer('Joaquín Alzueta', 'AL', 68, {}, {nickname: 'Joaco', age: 20, note: 'joga também de centro', altPos: ['CE']}, 59),
   {...mkPlayer('Vic Torres', 'AL', 61, {determination: 80}, {birthDate: '1997-05-13', age: 29, note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído', altPos: ['WG']}, 56), weightKg: 90, heightCm: 182},
   mkPlayer('Nico Fenocchi', 'AL', 53, {jump: 44, strength: 46}, {birthDate: '1988-11-10', altPos: ['SL']}, 53),
+  mkPlayer('Fernando Rettich', 'AL', 34, {}, {birthDate: '1973-10-09', trainingFrequency: 8, note: 'veterano do clube, baixa frequência de treino; também joga de segunda línea', altPos: ['SL']}, 34),
 
   // Oitavo (ordem: Marco Riquelme, Lautaro, Charlie)
   mkPlayer('Marcos Riquelme', 'N8', 78, {}, {birthDate: '1991-08-29', note: 'joga de 3ª línea, melhor como oitavo', altPos: ['AL']}, 78),
@@ -232,6 +234,7 @@ const CURDA_ROSTER_RAW = [
   mkPlayer('Benjamín Moratal', 'AP', 68, {}, {birthDate: '2005-04-25', note: 'usado como 9 ou 10', altPos: ['MS']}),
   mkPlayer('Julián Díaz', 'FB', 70, {kicking: 78, vision: 72, dropGoal: 60}, {age: 'jovem', potential: 'muito alto', note: 'também joga de apertura', altPos: ['AP']}),
   mkPlayer('Tiago Kirichenko', 'AP', 62, {reception: 82, positioning: 80, speed: 70, pass: 74}, {birthDate: '2007-06-28', age: 'jovem', altPos: ['FB']}),
+  mkPlayer('Juan Manuel Rettich', 'AP', 44, {}, {birthDate: '2005-07-30', trainingFrequency: 8, note: 'baixa frequência de treino; também joga de ponta', altPos: ['WG']}, 44),
 
   // Centro (ordem: Nacho, Urbieta, Choclo, Orrego, LuizMi, Nico Allo, Argaña, Negro, Joaco, Fabiño, Mario)
   mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 96}, {birthDate: '2002-01-30', nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado; recusa convocações da seleção pra se manter fiel só ao Curda', refusesNationalTeam: true}, 91),
@@ -253,6 +256,7 @@ const CURDA_ROSTER_RAW = [
   // Fullback (ordem: Mussi, Arturo, Horacio, Julián, Kirichenko, King)
   mkPlayer('Arturo López', 'FB', 90, {}, {birthDate: '2000-09-14', nationalTeam: 'seleção adulta'}),
   mkPlayer('Horacio Agüero', 'FB', 78, {kicking: 84, reception: 85}, {birthDate: '1995-05-05', note: 'ótima leitura de jogo e bons chutes'}),
+  mkPlayer('Ezequiel Rubin Ramirez', 'FB', 45, {}, {birthDate: '2002-10-23', trainingFrequency: 8, note: 'baixa frequência de treino; também joga de ponta', altPos: ['WG']}, 45),
 ];
 
 const CURDA_ROSTER = rescaleRosterToTeamBase(CURDA_ROSTER_RAW, 'ARG-CUR');
@@ -527,6 +531,7 @@ const CURDA_STAFF = [
   {role: 'Fisioterapeuta', name: 'Juan Carmona'},
   {role: 'Auxiliar Técnico', name: 'Sebas Bereta', note: 'assume o time B quando NEA e Paraguaio caem no mesmo dia em locais diferentes'},
   {role: 'Treinador das Categorias de Base', name: 'Dante Legui', note: 'comanda as categorias M18, M16, M15 e M14 do clube'},
+  {role: 'Auxiliar', name: 'Facundo Rafael Navas'},
 ];
 
 const CURNE_STAFF = [
