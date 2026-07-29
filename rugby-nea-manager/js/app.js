@@ -3,7 +3,7 @@ import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES
 import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
-import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, YOUTH_CATEGORY_TOTAL_SIZE, createInitialYouthAcademy, advanceYouthAcademy, effectiveOverallAt} from './realSquads.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, YOUTH_CATEGORY_TOTAL_SIZE, createInitialYouthAcademy, ensureCuratedYouthPlayers, advanceYouthAcademy, effectiveOverallAt} from './realSquads.js';
 
 // ---- Seleção Paraguay (Los Yacarés) ---------------------------------------
 // Time "virtual" pra amistosos e torneios aleatórios: não disputa nenhuma
@@ -4441,5 +4441,18 @@ function finalizeRound() {
 }
 
 state = loadState();
-if (state) setRecruitedPlayers(state.recruitedPlayers || []);
+if (state) {
+  setRecruitedPlayers(state.recruitedPlayers || []);
+  // Saves anteriores à criação de um novo destaque da M18 (ver
+  // curatedM18Players em realSquads.js) não ganham o destaque sozinhos — a
+  // academia só é gerada uma vez, no início de uma partida nova. Encaixa
+  // aqui, no carregamento, e salva de novo se algo mudou.
+  if (state.youthAcademy) {
+    const patchedAcademy = ensureCuratedYouthPlayers(state.youthAcademy);
+    if (patchedAcademy !== state.youthAcademy) {
+      state.youthAcademy = patchedAcademy;
+      saveState();
+    }
+  }
+}
 render();

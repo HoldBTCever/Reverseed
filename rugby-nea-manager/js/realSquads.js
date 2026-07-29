@@ -716,6 +716,43 @@ function generateYouthPlayer(category, usedNames) {
   });
 }
 
+// Destaques nomeados da M18 — usados tanto pra criar uma academia nova
+// (createInitialYouthAcademy) quanto pra "encaixar" em academias de saves
+// JÁ EXISTENTES (ver ensureCuratedYouthPlayers): a academia só é gerada uma
+// vez, no começo de uma partida nova, então adicionar um novo nome aqui
+// sozinho NÃO aparece pra quem já tem partida salva — precisa ser reaplicado
+// no carregamento do save (ver chamada em app.js logo após loadState()).
+function curatedM18Players() {
+  return [
+    // Nacho Lopes: hooker destaque da M18, excelente determinação e ótimo
+    // lançamento de lineout.
+    mkPlayer('Nacho Lopes', 'HK', 60, {determination: 88, lineoutThrow: 85}, {
+      age: 'M18',
+      potential: 'alto',
+      note: 'Categoria M18 do Curda, sob comando de Dante Legui — ótimo lançamento de lineout e excelente determinação',
+      youthCategory: 'M18',
+    }),
+    // Maxi Doldán: segunda-línea da M18, boa qualidade — já debutou no time
+    // titular mesmo seguindo na categoria de base.
+    mkPlayer('Maxi Doldán', 'SL', 63, {jump: 72, strength: 68}, {
+      age: 'M18',
+      potential: 'alto',
+      note: 'Categoria M18 do Curda, sob comando de Dante Legui — já debutou no time titular por ter boa qualidade',
+      youthCategory: 'M18',
+    }),
+    // Lael: centro/ponta da M18, 16 anos, bom potencial, ótima frequência de
+    // treino e determinação.
+    mkPlayer('Lael', 'CE', 65, {determination: 87}, {
+      age: 'M18',
+      potential: 'alto',
+      trainingFrequency: 19,
+      note: 'Categoria M18 do Curda, sob comando de Dante Legui — 16 anos, joga de centro e ponta, bom potencial, ótima frequência de treino e determinação',
+      youthCategory: 'M18',
+      altPos: ['WG'],
+    }),
+  ];
+}
+
 // Plantel inicial das 4 categorias, chamado uma vez ao começar um jogo novo
 // como o Curda.
 export function createInitialYouthAcademy() {
@@ -724,33 +761,28 @@ export function createInitialYouthAcademy() {
   YOUTH_CATEGORIES.forEach(cat => {
     academy[cat] = Array.from({length: YOUTH_SQUAD_SIZE}, () => generateYouthPlayer(cat, usedNames));
   });
-  // Nacho Lopes: hooker destaque da M18, excelente determinação e ótimo
-  // lançamento de lineout.
-  academy.M18[0] = mkPlayer('Nacho Lopes', 'HK', 60, {determination: 88, lineoutThrow: 85}, {
-    age: 'M18',
-    potential: 'alto',
-    note: 'Categoria M18 do Curda, sob comando de Dante Legui — ótimo lançamento de lineout e excelente determinação',
-    youthCategory: 'M18',
-  });
-  // Maxi Doldán: segunda-línea da M18, boa qualidade — já debutou no time
-  // titular mesmo seguindo na categoria de base.
-  academy.M18[1] = mkPlayer('Maxi Doldán', 'SL', 63, {jump: 72, strength: 68}, {
-    age: 'M18',
-    potential: 'alto',
-    note: 'Categoria M18 do Curda, sob comando de Dante Legui — já debutou no time titular por ter boa qualidade',
-    youthCategory: 'M18',
-  });
-  // Lael: centro/ponta da M18, 16 anos, bom potencial, ótima frequência de
-  // treino e determinação.
-  academy.M18[2] = mkPlayer('Lael', 'CE', 65, {determination: 87}, {
-    age: 'M18',
-    potential: 'alto',
-    trainingFrequency: 19,
-    note: 'Categoria M18 do Curda, sob comando de Dante Legui — 16 anos, joga de centro e ponta, bom potencial, ótima frequência de treino e determinação',
-    youthCategory: 'M18',
-    altPos: ['WG'],
-  });
+  curatedM18Players().forEach((player, idx) => { academy.M18[idx] = player; });
   return academy;
+}
+
+// Encaixa os destaques nomeados da M18 (ver curatedM18Players) numa
+// academia de um save JÁ EXISTENTE, criado antes de um destaque ser
+// adicionado — substitui o primeiro slot gerado proceduralmente disponível
+// (nunca mexe num destaque nomeado que já esteja lá). Devolve o MESMO
+// objeto recebido se nada precisou mudar, pra quem chama saber se vale a
+// pena salvar de novo.
+export function ensureCuratedYouthPlayers(academy) {
+  if (!academy || !academy.M18) return academy;
+  const curated = curatedM18Players();
+  const curatedNames = new Set(curated.map(p => p.name));
+  const missing = curated.filter(p => !academy.M18.some(existing => existing.name === p.name));
+  if (!missing.length) return academy;
+  const m18 = [...academy.M18];
+  missing.forEach(player => {
+    const freeIdx = m18.findIndex(existing => !curatedNames.has(existing.name));
+    if (freeIdx !== -1) m18[freeIdx] = player;
+  });
+  return {...academy, M18: m18};
 }
 
 // Função pura: recebe o estado atual da academia e devolve a nova academia
