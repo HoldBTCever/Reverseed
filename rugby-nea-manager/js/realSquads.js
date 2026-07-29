@@ -61,6 +61,12 @@ let autoId = 0;
 // citadas na descrição (ex.: um pilar "mais pesado do time" ganha força extra).
 // overallOverride força o overall final (usado quando o overall "de scout"
 // do jogador é maior do que a média ponderada das skills sugeriria).
+// Sorteio da frequência de treino (ver comentário dentro de mkPlayer):
+// faixa 8-20, a maioria fica no meio, poucos batem no teto disciplinado.
+function genTrainingFrequency(rng) {
+  return 8 + Math.floor(rng() * 13);
+}
+
 function mkPlayer(name, posId, base, overrides = {}, meta = {}, overallOverride = null) {
   const profile = SKILL_PROFILES[posId];
   const skills = {};
@@ -75,6 +81,10 @@ function mkPlayer(name, posId, base, overrides = {}, meta = {}, overallOverride 
   const rng = mulberry32(seedFromString(name + posId));
   const {heightCm, weightKg} = genBiometrics(rng, posId);
   const traits = meta.traits || genTraits(rng, POS_INFO[posId].group);
+  // Frequência de treino: disciplina/assiduidade do jogador, numa escala
+  // compacta e independente das demais skills (não entra no overall) — ver
+  // trainingIntensityCap em app.js pra como isso vira dias de DIP por semana.
+  const trainingFrequency = meta.trainingFrequency != null ? meta.trainingFrequency : genTrainingFrequency(rng);
 
   return {
     id: `real-${autoId++}`,
@@ -87,7 +97,7 @@ function mkPlayer(name, posId, base, overrides = {}, meta = {}, overallOverride 
     number: null,
     heightCm,
     weightKg,
-    meta: {...meta, traits},
+    meta: {...meta, traits, trainingFrequency},
   };
 }
 
@@ -169,9 +179,9 @@ const CURDA_ROSTER = [
   // Cani/Fenocchi jogam principalmente aqui, mas cobrem a segunda línea
   // (altPos SL, com overrides de jump/strength pra diferenciar o overall
   // efetivo de cada um nas duas posições).
-  mkPlayer('Álvaro Allo', 'AL', 78, {jump: 92}, {age: 23, nationalTeam: 'seleção', note: 'excelente no salto para o line-out'}, 84),
+  mkPlayer('Álvaro Allo', 'AL', 78, {jump: 92}, {age: 23, note: 'excelente no salto para o line-out'}, 84),
   mkPlayer('Carlos Plate', 'AL', 80, {jump: 96, strength: 93}, {nickname: 'Charlie', age: 31, nationalTeam: 'seleção do Paraguai adulta', altPos: ['SL', 'N8']}, 80),
-  mkPlayer('Gonza Alvarado', 'AL', 81, {jump: 99, lineoutThrow: 60, strength: 96, tackle: 92}, {nationalTeam: 'seleção', note: 'excelente no salto para o line-out, no estilo do Álvaro Allo', traits: ['lineoutSpecialist'], altPos: ['SL']}, 81),
+  mkPlayer('Gonza Alvarado', 'AL', 81, {jump: 99, lineoutThrow: 60, strength: 96, tackle: 92}, {note: 'excelente no salto para o line-out, no estilo do Álvaro Allo', traits: ['lineoutSpecialist'], altPos: ['SL']}, 81),
   mkPlayer('Jean Paul Clemont', 'AL', 70, {}, {nickname: 'JP', injuryWeeks: 43, injuryLabel: '10 meses'}, 74),
   mkPlayer('Agustín Vázquez', 'AL', 71, {jump: 60, strength: 62}, {nickname: 'Prolijo', altPos: ['SL']}, 71),
   mkPlayer('René Villar', 'AL', 68, {jump: 82, strength: 80}, {altPos: ['SL']}, 68),
@@ -809,21 +819,33 @@ function isNationalTeamEligible(p) {
 }
 
 // ---- Seleção do Paraguai (Los Yacarés) -------------------------------------
-// Escalada com os melhores jogadores disponíveis do Curda e do San José — os
-// dois clubes mais fortes do país — respeitando a posição de cada um.
-// Ignacio "Nacho" Cuevas (Curda) é a exceção: recusa convocações pra se
-// manter fiel só ao clube (meta.refusesNationalTeam), então nunca entra no
-// pool de seleção mesmo sendo o melhor jogador do país. Jogadores
+// A seleção é a lista real e documentada de convocados (meta.nationalTeam),
+// não um auto-pick pelos melhores overalls do país — um jogador pode ter
+// nível de seleção (ex.: Álvaro Allo, Gonza Alvarado no Curda) e mesmo assim
+// nunca ter sido convocado de fato. Por isso o pool junta só os jogadores
+// tagueados como seleção em cada clube onde a Paraguay tem convocados: Curda,
+// San José, Cristo Rey, Santa Clara (clubes paraguaios) e os expatriados que
+// jogam em clubes argentinos mas defendem a seleção (Belgrano Athletic,
+// Santa Fe, CAE, Champagnat). Ignacio "Nacho" Cuevas (Curda) é a exceção:
+// recusa convocações pra se manter fiel só ao clube (meta.refusesNationalTeam),
+// então nunca entra no pool mesmo sendo o melhor jogador do país. Jogadores
 // estrangeiros recém-chegados (ex.: Paco Lamas, argentino) também ficam de
 // fora até completarem os anos de residência exigidos (isNationalTeamEligible).
 export function getParaguaySquad() {
-  const curdaTagged = [...CURDA_ROSTER, ...recruitedIntoCurda]
-    .filter(isNationalTeamEligible)
-    .map(p => ({...p, meta: {...p.meta, clubOrigin: 'Curda'}}));
-  const sanjoseTagged = SANJOSE_ROSTER
-    .filter(isNationalTeamEligible)
-    .map(p => ({...p, meta: {...p.meta, clubOrigin: 'San José'}}));
-  const pool = [...curdaTagged, ...sanjoseTagged];
+  const clubs = [
+    {roster: [...CURDA_ROSTER, ...recruitedIntoCurda], club: 'Curda'},
+    {roster: SANJOSE_ROSTER, club: 'San José'},
+    {roster: CRISTO_REY_ROSTER, club: 'Cristo Rey'},
+    {roster: SANTA_CLARA_ROSTER, club: 'Santa Clara'},
+    {roster: BELGRANO_ATH_ROSTER, club: 'Belgrano Athletic'},
+    {roster: SANTA_FE_ROSTER, club: 'Santa Fe'},
+    {roster: CAE_ROSTER, club: 'Club Atlético Estudiantes'},
+    {roster: CHAMPAGNAT_ROSTER, club: 'Champagnat'},
+  ];
+  const pool = clubs.flatMap(({roster, club}) => roster
+    .filter(p => p.meta.nationalTeam && isNationalTeamEligible(p))
+    .map(p => ({...p, meta: {...p.meta, clubOrigin: club}}))
+  );
 
   const xv = pickStartingXV(pool).map(p => ({...p, condition: 100}));
   const usedIds = new Set(xv.map(p => p.id));

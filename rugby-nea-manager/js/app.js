@@ -135,8 +135,10 @@ const I18N = {
     dipTitle: 'Entrenamiento individual (DIP)',
     focusLabel: 'Foco',
     noneClubTraining: 'Ninguno (solo entrenamiento de club)',
-    dipHelp: 'Entrenamiento individual intensivo (DIP): mejora garantizada en el atributo elegido, más rápido que el entrenamiento de club, a costa de mucho más desgaste físico. Rinde hasta 3 veces por semana según la determinación y el físico del jugador — con determinación muy baja o muy desgastado, casi no rinde.',
-    dipDaysCap: 'Esta semana rinde {days}/{max} veces (determinación y físico actuales).',
+    dipHelp: 'Entrenamiento individual intensivo (DIP): mejora garantizada en el atributo elegido, más rápido que el entrenamiento de club, a costa de mucho más desgaste físico. Rinde según la frecuencia de entreno del jugador — de 0 (frecuencia 15 o menos) hasta 5 veces por semana (frecuencia 20).',
+    dipDaysCap: 'Esta semana rinde {days}/{max} veces (frecuencia de entreno y físico actuales).',
+    trainingFrequencyLabel: 'Frecuencia de entreno',
+    trainingFrequencyShort: 'FREQ',
     treinoIndisponivel: 'Este club no tiene plantel curado, así que no hay entrenamiento individual para gestionar.',
     trainingFocusTitle: 'Foco de entrenamiento de la semana',
     trainingFocusHelp: 'Elegí un tipo de entrenamiento por día — cada tipo trabaja varios atributos relacionados a la vez (ej.: "Duelo" mejora decisión, pase, recepción y aceleración juntos), siempre respetando la posición de cada jugador. Sin nada elegido, vuelve al sorteo automático.',
@@ -189,8 +191,6 @@ const I18N = {
     pdfNaoEncontrado: 'No se encontró el archivo guardado.',
     navSelecao: 'Selección',
     selecaoTitle: 'Selección Paraguay',
-    selecaoHelp: 'Convocatoria armada con los mejores jugadores disponibles de Curda y San José, respetando la posición de cada uno.',
-    selecaoNachoNote: '⚠️ Ignacio "Nacho" Cuevas (Curda) es el mejor jugador del país, pero rechaza las convocatorias de la selección para mantenerse fiel solo al Curda — nunca aparece acá.',
     selecaoEscalacao: 'Formación titular',
     selecaoConvocados: 'Convocados',
     selecaoColClube: 'Club',
@@ -246,7 +246,7 @@ const I18N = {
     explicacaoCategorias: 'Técnico, Mental y Físico son promedios de categoría — hacé clic en un jugador para ver los 22 atributos individuales, biometría y rasgos.',
     explicacaoPrimeiraLinea: 'Pilares y hooker son especialistas de primera línea: si faltan, el club tiene que convocar de urgencia a un juvenil de 18 años en vez de improvisar con otro jugador.',
     explicacaoCondicao: 'La condición baja después de cada partido (más para quien tiene menos resistencia) y se recupera con el tiempo; los jugadores muy desgastados rinden menos y corren más riesgo de lesión.',
-    explicacaoTreino: 'El club entrena lunes, martes y jueves: fatiga leve en cada fecha, pero evolución gradual de los atributos a lo largo de la temporada. Los jugadores con determinación ≥75 pueden elegir entrenamiento individual intensivo (DIP) en un atributo específico, haciendo clic en el jugador — mejora más rápido ahí, con más desgaste físico.',
+    explicacaoTreino: 'El club entrena lunes, martes y jueves: fatiga leve en cada fecha, pero evolución gradual de los atributos a lo largo de la temporada. La frecuencia de entreno de cada jugador (escala propia, no es una skill de juego) define cuántas veces por semana puede hacer entrenamiento individual intensivo (DIP) en un atributo específico, haciendo clic en el jugador: frecuencia 20 = 5 veces, 19 = 4, 18 = 3, 17 = 2, 16 = 1, 15 = ningún DIP pero asiste a todos los entrenamientos generales; por debajo de 15 falta a algunos entrenamientos generales por mes.',
     plantelCompleto: 'Plantel completo ({n} jugadores — titulares destacados)',
     porOverall: 'Por overall',
     porPosicao: 'Por posición',
@@ -370,8 +370,10 @@ const I18N = {
     dipTitle: 'Treino individual (DIP)',
     focusLabel: 'Foco',
     noneClubTraining: 'Nenhum (só treino de clube)',
-    dipHelp: 'Treino individual intensivo (DIP): evolui garantido no atributo escolhido, mais rápido que o treino de clube, à custa de bem mais desgaste físico. Rende até 3x por semana conforme a determinação e o físico do jogador — com determinação muito baixa ou muito desgastado, quase não rende.',
-    dipDaysCap: 'Essa semana rende {days}/{max} vezes (determinação e físico atuais).',
+    dipHelp: 'Treino individual intensivo (DIP): evolui garantido no atributo escolhido, mais rápido que o treino de clube, à custa de bem mais desgaste físico. Rende conforme a frequência de treino do jogador — de 0 (frequência 15 ou menos) até 5x por semana (frequência 20).',
+    dipDaysCap: 'Essa semana rende {days}/{max} vezes (frequência de treino e físico atuais).',
+    trainingFrequencyLabel: 'Frequência de treino',
+    trainingFrequencyShort: 'FREQ',
     treinoIndisponivel: 'Esse clube não tem plantel curado, então não tem treino individual pra gerenciar.',
     trainingFocusTitle: 'Foco de treino da semana',
     trainingFocusHelp: 'Escolha um tipo de treino por dia — cada tipo trabalha vários atributos relacionados ao mesmo tempo (ex.: "Duelo" evolui decisão, passe, recepção e aceleração juntos), sempre respeitando a posição de cada jogador. Sem nada escolhido, volta pro sorteio automático.',
@@ -424,8 +426,6 @@ const I18N = {
     pdfNaoEncontrado: 'Arquivo salvo não encontrado.',
     navSelecao: 'Seleção',
     selecaoTitle: 'Seleção Paraguay',
-    selecaoHelp: 'Convocação montada com os melhores jogadores disponíveis do Curda e do San José, respeitando a posição de cada um.',
-    selecaoNachoNote: '⚠️ Ignacio "Nacho" Cuevas (Curda) é o melhor jogador do país, mas recusa convocações da seleção pra se manter fiel só ao Curda — nunca aparece aqui.',
     selecaoEscalacao: 'Formação titular',
     selecaoConvocados: 'Convocados',
     selecaoColClube: 'Clube',
@@ -481,7 +481,7 @@ const I18N = {
     explicacaoCategorias: 'Técnico, Mental e Físico são médias de categoria — clique num jogador pra ver os 22 atributos individuais, biometria e traits.',
     explicacaoPrimeiraLinea: 'Pilares e hooker são especialistas de primeira línea: se faltarem, o clube precisa convocar às pressas um juvenil de 18 anos em vez de improvisar com outro jogador.',
     explicacaoCondicao: 'A condição cai após cada partida (mais para quem tem menos resistência) e se recupera com o tempo; jogadores muito desgastados rendem menos e correm mais risco de lesão.',
-    explicacaoTreino: 'O clube treina segunda, terça e quinta: fadiga leve a cada rodada, mas evolução gradual dos atributos ao longo da temporada. Jogadores com determinação ≥75 podem escolher treino individual intensivo (DIP) num atributo específico, clicando no jogador — evolui mais rápido ali, com mais desgaste físico.',
+    explicacaoTreino: 'O clube treina segunda, terça e quinta: fadiga leve a cada rodada, mas evolução gradual dos atributos ao longo da temporada. A frequência de treino de cada jogador (escala própria, não é uma skill de jogo) define quantas vezes por semana ele pode fazer treino individual intensivo (DIP) num atributo específico, clicando no jogador: frequência 20 = 5 vezes, 19 = 4, 18 = 3, 17 = 2, 16 = 1, 15 = nenhum DIP mas frequência plena nos treinos gerais; abaixo de 15 falta alguns treinos gerais por mês.',
     plantelCompleto: 'Plantel completo ({n} jogadores — titulares em destaque)',
     porOverall: 'Por overall',
     porPosicao: 'Por posição',
@@ -1243,20 +1243,19 @@ function weightedRandomSkill(posId, pool) {
   return keys[keys.length - 1];
 }
 
-// Treino intensivo individual (DIP ou grupo) rende no máximo 3x por semana
-// — determinação alta libera as 3 vezes cheias, determinação mediana só
-// libera 1-2, e determinação muito baixa não aguenta nem uma vez (nem toda
-// motivação segura um jogador que já chegou desgastado demais). O quanto
-// disso vira crescimento de skill/fadiga é sempre days/MAX, então quem tem
-// menos determinação/físico ainda treina, só que rende proporcionalmente
-// menos — nunca trava o jogador inteiro fora do treino intensivo.
-const MAX_INTENSIVE_DAYS_PER_WEEK = 3;
+// Treino intensivo individual (DIP ou grupo) rende conforme a frequência de
+// treino do jogador (meta.trainingFrequency, escala compacta ~8-20,
+// independente das demais skills): 20 = 5x/semana, 19 = 4x, 18 = 3x, 17 =
+// 2x, 16 = 1x, 15 = nenhum DIP mas frequência plena nos treinos gerais do
+// clube; abaixo de 15 o jogador falta alguns treinos gerais por mês (ver
+// tickTraining). O quanto disso vira crescimento de skill/fadiga é sempre
+// days/MAX, então quem tem frequência mediana ainda treina, só que rende
+// proporcionalmente menos — nunca trava o jogador inteiro fora do treino
+// intensivo.
+const MAX_INTENSIVE_DAYS_PER_WEEK = 5;
 function trainingIntensityCap(player, currentCondition) {
-  const determination = player.skills.determination;
-  if (determination < 45) return 0;
-  let days = 1;
-  if (determination >= 85) days = 3;
-  else if (determination >= 65) days = 2;
+  const freq = player.meta.trainingFrequency || 0;
+  let days = Math.max(0, Math.min(MAX_INTENSIVE_DAYS_PER_WEEK, freq - 15));
   if (currentCondition < 45) days = Math.max(0, days - 1);
   return days;
 }
@@ -1266,8 +1265,10 @@ function trainingIntensityCap(player, currentCondition) {
 // que se recupera igual à fadiga de partida) e chance de evolução gradual
 // de algum atributo. Treino individual intensivo (DIP), focado num atributo
 // escolhido no Elenco, evolui garantido e mais rápido ali, à custa de bem
-// mais desgaste físico — mas só rende (parcial ou totalmente) conforme o
-// cap de determinação/físico do jogador (ver trainingIntensityCap). A
+// mais desgaste físico — mas só rende (parcial ou totalmente) conforme a
+// frequência de treino do jogador (ver trainingIntensityCap). Fora do DIP,
+// quem tem frequência abaixo de 15 às vezes falta o treino geral do clube
+// (sem desgaste, mas também sem chance de evoluir naquela rodada). A
 // qualidade da comissão técnica (getStaffQuality) acelera tudo isso. Só se
 // aplica ao elenco real do clube gerenciado — mesma restrição de tickInjuries.
 function tickTraining() {
@@ -1297,9 +1298,15 @@ function tickTraining() {
       growSkill(p.id, p.skills, dipKey, 2 * quality * frac);
       fatigue = (10 + Math.random() * 8) * frac;
     } else {
-      fatigue = 3 + Math.random() * 5;
-      if (Math.random() < 0.3 * quality) {
-        growSkill(p.id, p.skills, weightedRandomSkill(p.posId, focusPool), Math.max(1, Math.round(quality)));
+      const freq = p.meta.trainingFrequency || 0;
+      const missChance = freq < 15 ? Math.min(0.6, (15 - freq) * 0.08) : 0;
+      if (Math.random() < missChance) {
+        fatigue = 1 + Math.random() * 2; // faltou o treino geral: quase sem desgaste, mas também sem evolução
+      } else {
+        fatigue = 3 + Math.random() * 5;
+        if (Math.random() < 0.3 * quality) {
+          growSkill(p.id, p.skills, weightedRandomSkill(p.posId, focusPool), Math.max(1, Math.round(quality)));
+        }
       }
     }
     state.playerCondition[p.id] = {condition: Math.max(15, current - fatigue), atDay: currentCalendarDay()};
@@ -1332,9 +1339,9 @@ function findTrainablePlayer(id) {
 }
 
 // Treino em grupo: além de cada um evoluir a skill do papel que treina
-// (sempre escalado pelo mesmo cap de determinação/físico do DIP — ver
+// (sempre escalado pelo mesmo cap de frequência/físico do DIP — ver
 // trainingIntensityCap, é o mesmo motivo que impede alguém com pouca
-// determinação de "treinar DIP vários dias"), o grupo inteiro ganha
+// frequência de treino de "treinar DIP vários dias"), o grupo inteiro ganha
 // entrosamento entre si, mais rápido que o entrosamento passivo de só jogar
 // junto (ver bumpChemistryForXV) — só que cada PAR trava no elo mais fraco
 // dos dois. Um jogador pode estar em mais de uma lista (ex.: treina como
@@ -2456,13 +2463,13 @@ function renderDipListHtml() {
   const rows = roster
     .filter(p => !p.meta.injuryWeeks)
     .map(p => ({...p, condition: currentConditionOf(p)}))
-    .sort((a, b) => b.skills.determination - a.skills.determination);
+    .sort((a, b) => (b.meta.trainingFrequency || 0) - (a.meta.trainingFrequency || 0));
   const rowHtml = p => {
     const days = trainingIntensityCap(p, p.condition);
     return `
       <div class="dipListRow">
         <span class="dipListName">${escapeHtmlAttr(p.name)}</span>
-        <span class="muted dipListMeta" title="${skillLabel('determination')}">${SKILL_SHORT.determination} ${p.skills.determination} · ${Math.round(p.condition)}%</span>
+        <span class="muted dipListMeta" title="${t('trainingFrequencyLabel')}">${t('trainingFrequencyShort')} ${p.meta.trainingFrequency || 0} · ${Math.round(p.condition)}%</span>
         <select class="dipSelect" data-player="${p.id}">
           <option value="">${t('noneClubTraining')}</option>
           ${SKILL_KEYS.map(k => `<option value="${k}" ${state.dipTraining[p.id] === k ? 'selected' : ''}>${skillLabel(k)}</option>`).join('')}
@@ -2931,8 +2938,6 @@ function renderSelection() {
 
   content.innerHTML = `
     <h1>${t('selecaoTitle')}</h1>
-    <p class="muted">${t('selecaoHelp')}</p>
-    <p class="muted">${t('selecaoNachoNote')}</p>
     ${renderFormationHtml(xv, bench, PARAGUAY_TEAM.color, t('selecaoEscalacao'))}
     <div class="card">
       <h3>${t('selecaoConvocados')}</h3>
