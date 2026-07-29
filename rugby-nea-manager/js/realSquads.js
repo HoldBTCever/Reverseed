@@ -175,6 +175,7 @@ const CURDA_ROSTER_RAW = [
   {...mkPlayer('Gonzalo Barrios', 'PI', 58, {lineoutThrow: 48}, {birthDate: '2007-08-23', nickname: 'Samurai', age: 18, altPos: ['HK']}, 58), weightKg: 103, heightCm: 180},
   {...mkPlayer('Piacentini', 'PI', 56, {}, {birthDate: '1993-07-14', note: 'pilar mediano'}, 56), weightKg: 130},
   {...mkPlayer('Martín Carvallo', 'PI', 53, {}, {nickname: 'Thanos', age: 31}, 53), weightKg: 116, heightCm: 179},
+  mkPlayer('Santiago Sapriza', 'PI', 42, {}, {birthDate: '2000-01-15', trainingFrequency: 8, note: 'baixa frequência de treino'}, 42),
 
   // Hookers (ordem: Otaño, Ballasch, Jariton, Centurión, Fabiño, Achon, Laterza, Samurai)
   mkPlayer('Lucas Otaño', 'HK', 80, {}, {birthDate: '2001-11-07', injuryWeeks: 13, injuryLabel: '3 meses', traits: ['injuryProne']}, 82),
@@ -216,6 +217,8 @@ const CURDA_ROSTER_RAW = [
   {...mkPlayer('Vic Torres', 'AL', 61, {determination: 80}, {birthDate: '1997-05-13', age: 29, note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído', altPos: ['WG']}, 56), weightKg: 90, heightCm: 182},
   mkPlayer('Nico Fenocchi', 'AL', 53, {jump: 44, strength: 46}, {birthDate: '1988-11-10', altPos: ['SL']}, 53),
   mkPlayer('Fernando Rettich', 'AL', 34, {}, {birthDate: '1973-10-09', trainingFrequency: 8, note: 'veterano do clube, baixa frequência de treino; também joga de segunda línea', altPos: ['SL']}, 34),
+  mkPlayer('Raúl Casabianca', 'AL', 40, {}, {birthDate: '1988-01-05', trainingFrequency: 8, note: 'baixa frequência de treino'}, 40),
+  mkPlayer('Matías Benjamín Viveros', 'AL', 38, {}, {birthDate: '2007-08-10', trainingFrequency: 8, note: 'baixa frequência de treino'}, 38),
 
   // Oitavo (ordem: Marco Riquelme, Lautaro, Charlie)
   mkPlayer('Marcos Riquelme', 'N8', 78, {}, {birthDate: '1991-08-29', note: 'joga de 3ª línea, melhor como oitavo', altPos: ['AL']}, 78),
@@ -245,6 +248,8 @@ const CURDA_ROSTER_RAW = [
   mkPlayer('Diego Argaña', 'CE', 66, {}, {birthDate: '1990-04-04'}, 63),
   mkPlayer('Marcelo Villaroel', 'CE', 66, {}, {birthDate: '2005-04-07', nickname: 'Negro'}, 60),
   mkPlayer('Mario Domec', 'CE', 60, {}, {}, 48),
+  mkPlayer('Maximiliano Rubin', 'CE', 38, {}, {birthDate: '2007-05-23', trainingFrequency: 8, note: 'baixa frequência de treino; também joga de ponta', altPos: ['WG']}, 38),
+  mkPlayer('Piero Portaluppi', 'CE', 36, {}, {birthDate: '2007-02-26', trainingFrequency: 8, note: 'baixa frequência de treino; também joga de ponta', altPos: ['WG']}, 36),
 
   // Wing (ordem: Facu Paiva, LuizMi, Choclo, Micmacher, King, Lewis, Inge, Vic Torres, Fabiño)
   mkPlayer('Facundo Paiva', 'WG', 91, {speed: 92}, {birthDate: '2004-05-18', nationalTeam: 'seleção', note: 'um dos melhores jogadores do Curda'}),
@@ -252,11 +257,13 @@ const CURDA_ROSTER_RAW = [
   mkPlayer('Juan King', 'WG', 80, {speed: 88, tackle: 82, stamina: 85, kicking: 32, vision: 35, positioning: 35, reception: 55}, {birthDate: '1997-12-06', note: 'ótima disposição, velocidade e tackles, não desiste da jogada', altPos: ['FB']}, 73),
   mkPlayer('Luis Guanes', 'WG', 78, {}, {birthDate: '1992-08-11', nickname: 'Lewis'}, 70),
   mkPlayer('Christian Daniel', 'WG', 64, {}, {nickname: 'Inge'}),
+  mkPlayer('Nicolás Olivo', 'WG', 40, {}, {birthDate: '1997-02-01', trainingFrequency: 8, note: 'baixa frequência de treino'}, 40),
 
   // Fullback (ordem: Mussi, Arturo, Horacio, Julián, Kirichenko, King)
   mkPlayer('Arturo López', 'FB', 90, {}, {birthDate: '2000-09-14', nationalTeam: 'seleção adulta'}),
   mkPlayer('Horacio Agüero', 'FB', 78, {kicking: 84, reception: 85}, {birthDate: '1995-05-05', note: 'ótima leitura de jogo e bons chutes'}),
   mkPlayer('Ezequiel Rubin Ramirez', 'FB', 45, {}, {birthDate: '2002-10-23', trainingFrequency: 8, note: 'baixa frequência de treino; também joga de ponta', altPos: ['WG']}, 45),
+  mkPlayer('Renato Cardona', 'FB', 42, {}, {birthDate: '1992-01-24', trainingFrequency: 8, note: 'baixa frequência de treino; também joga de médio scrum', altPos: ['MS']}, 42),
 ];
 
 const CURDA_ROSTER = rescaleRosterToTeamBase(CURDA_ROSTER_RAW, 'ARG-CUR');
