@@ -740,6 +740,16 @@ export function createInitialYouthAcademy() {
     note: 'Categoria M18 do Curda, sob comando de Dante Legui — já debutou no time titular por ter boa qualidade',
     youthCategory: 'M18',
   });
+  // Lael: centro/ponta da M18, 16 anos, bom potencial, ótima frequência de
+  // treino e determinação.
+  academy.M18[2] = mkPlayer('Lael', 'CE', 65, {determination: 87}, {
+    age: 'M18',
+    potential: 'alto',
+    trainingFrequency: 19,
+    note: 'Categoria M18 do Curda, sob comando de Dante Legui — 16 anos, joga de centro e ponta, bom potencial, ótima frequência de treino e determinação',
+    youthCategory: 'M18',
+    altPos: ['WG'],
+  });
   return academy;
 }
 
