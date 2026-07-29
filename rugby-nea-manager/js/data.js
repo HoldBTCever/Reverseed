@@ -151,8 +151,8 @@ export const LEAGUES = [
       team('ARG-TAR', 'Taraguy', '#1A1A1A', 78, 76, 78),
       team('ARG-ARA', 'Aranduroga', '#1A1A1A', 67, 65, 67),
       team('ARG-REG', 'Regatas', '#E53935', 60, 59, 62),
-      team('ARG-CUR', 'Curda', '#F9A825', 62, 61, 60),
-      team('ARG-SNJ', 'San José', '#0D47A1', 64, 63, 62),
+      team('ARG-CUR', 'Curda', '#F9A825', 64, 63, 62),
+      team('ARG-SNJ', 'San José', '#0D47A1', 62, 61, 60),
       team('ARG-SIX', 'Sixty', '#4FC3F7', 55, 54, 57),
       team('ARG-CAP', 'Capri', '#C62828', 53, 52, 56),
       team('ARG-CNE', 'Curne', '#FFEB3B', 71, 70, 70),
@@ -181,8 +181,8 @@ export const LEAGUES = [
     // fraco; Cristo Rey e Asunción vêm atrás disso; Presidente Franco e
     // Fernando de la Mora fecham a tabela.
     teams: [
-      team('PAR-SNJ', 'San José', '#0D47A1', 64, 63, 62),
-      team('PAR-CUR', 'Curda', '#F9A825', 62, 61, 60),
+      team('PAR-SNJ', 'San José', '#0D47A1', 62, 61, 60),
+      team('PAR-CUR', 'Curda', '#F9A825', 64, 63, 62),
       team('PAR-STC', 'Santa Clara', '#1976D2', 48, 46, 47),
       team('PAR-LUQ', 'Luque', '#FBC02D', 48, 46, 47),
       team('PAR-ASU', 'Asunción', '#6D4C29', 41, 40, 43),
