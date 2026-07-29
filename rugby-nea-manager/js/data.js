@@ -140,23 +140,24 @@ export const LEAGUES = [
     name: 'Campeonato do Nordeste Argentino (NEA)',
     country: 'Argentina',
     teams: [
-      // Ataque/defesa/físico seguem a força real dos clubes na tabela do NEA
-      // (Taraguy o mais forte, Capri o mais fraco). A ordem do array em si
-      // NÃO pode mudar: ela define o calendário usado por seedNea.js.
+      // Ataque/defesa/físico calibrados a partir do ranking real de clubes
+      // argentinos (G22 Scores/OVR) — Taraguy é o mais forte do NEA nessa
+      // tabela, Aguará o mais fraco. A ordem do array em si NÃO pode mudar:
+      // ela define o calendário usado por seedNea.js.
       // Curda, San José e Curne disputam duas competições com o MESMO
       // plantel — por isso usam o mesmo ataque/defesa/físico nas duas ligas
       // em que jogam (não faria sentido o mesmo time/jogadores render mais
       // ou menos força só por trocar de campeonato).
-      team('ARG-TAR', 'Taraguy', '#1A1A1A', 86, 84, 86),
-      team('ARG-ARA', 'Aranduroga', '#1A1A1A', 83, 81, 83),
-      team('ARG-REG', 'Regatas', '#E53935', 67, 66, 69),
-      team('ARG-CUR', 'Curda', '#F9A825', 82, 81, 80),
-      team('ARG-SNJ', 'San José', '#0D47A1', 80, 79, 78),
-      team('ARG-SIX', 'Sixty', '#4FC3F7', 64, 63, 66),
-      team('ARG-CAP', 'Capri', '#C62828', 55, 54, 58),
-      team('ARG-CNE', 'Curne', '#FFEB3B', 82, 81, 81),
-      team('ARG-AGU', 'Aguará', '#64B5F6', 61, 60, 63),
-      team('ARG-SNP', 'San Patricio', '#B71C1C', 79, 78, 80),
+      team('ARG-TAR', 'Taraguy', '#1A1A1A', 78, 76, 78),
+      team('ARG-ARA', 'Aranduroga', '#1A1A1A', 67, 65, 67),
+      team('ARG-REG', 'Regatas', '#E53935', 60, 59, 62),
+      team('ARG-CUR', 'Curda', '#F9A825', 62, 61, 60),
+      team('ARG-SNJ', 'San José', '#0D47A1', 64, 63, 62),
+      team('ARG-SIX', 'Sixty', '#4FC3F7', 55, 54, 57),
+      team('ARG-CAP', 'Capri', '#C62828', 53, 52, 56),
+      team('ARG-CNE', 'Curne', '#FFEB3B', 71, 70, 70),
+      team('ARG-AGU', 'Aguará', '#64B5F6', 50, 49, 52),
+      team('ARG-SNP', 'San Patricio', '#B71C1C', 65, 64, 66),
     ],
   },
   {
@@ -168,20 +169,24 @@ export const LEAGUES = [
       A: ['PAR-CUR', 'PAR-CRI', 'PAR-STC', 'PAR-VHA'],
       B: ['PAR-SNJ', 'PAR-LUQ', 'PAR-ASU', 'PAR-FDM'],
     },
-    // Força real do campeonato paraguaio: Curda e San José seguem entre os
-    // melhores do campeonato (mesmo ataque/defesa/físico que usam no NEA,
-    // já que é o mesmo plantel); Luque e Santa Clara formam o segundo
+    // Força do campeonato paraguaio: Curda e San José usam o mesmo
+    // ataque/defesa/físico do NEA (mesmo plantel), calibrado pelo ranking
+    // real de clubes argentinos — bem mais modesto do que a antiga força
+    // "de elite" que tinham antes. Os demais clubes paraguaios (sem dado
+    // real disponível, já que não disputam ligas argentinas) foram
+    // reescalados na mesma proporção a partir desses dois times-âncora,
+    // preservando a hierarquia: Luque e Santa Clara formam o segundo
     // escalão; Cristo Rey e Asunción vêm um pouco atrás disso; Presidente
     // Franco e Fernando de la Mora fecham a tabela.
     teams: [
-      team('PAR-SNJ', 'San José', '#0D47A1', 80, 79, 78),
-      team('PAR-CUR', 'Curda', '#F9A825', 82, 81, 80),
-      team('PAR-STC', 'Santa Clara', '#1976D2', 79, 77, 78),
-      team('PAR-LUQ', 'Luque', '#FBC02D', 79, 77, 78),
-      team('PAR-ASU', 'Asunción', '#6D4C29', 71, 70, 73),
-      team('PAR-VHA', 'Presidente Franco (PFRC)', '#2E7D32', 66, 64, 70),
-      team('PAR-CRI', 'Cristo Rey', '#1B5E20', 71, 70, 73),
-      team('PAR-FDM', 'Fernando de la Mora', '#D32F2F', 65, 63, 69),
+      team('PAR-SNJ', 'San José', '#0D47A1', 64, 63, 62),
+      team('PAR-CUR', 'Curda', '#F9A825', 62, 61, 60),
+      team('PAR-STC', 'Santa Clara', '#1976D2', 62, 60, 61),
+      team('PAR-LUQ', 'Luque', '#FBC02D', 62, 60, 61),
+      team('PAR-ASU', 'Asunción', '#6D4C29', 55, 54, 57),
+      team('PAR-VHA', 'Presidente Franco (PFRC)', '#2E7D32', 51, 49, 55),
+      team('PAR-CRI', 'Cristo Rey', '#1B5E20', 55, 54, 57),
+      team('PAR-FDM', 'Fernando de la Mora', '#D32F2F', 50, 48, 54),
     ],
   },
   {
@@ -205,25 +210,25 @@ export const LEAGUES = [
     },
     teams: [
       // Zona 1
-      team('INT-TUC', 'Tucumán Rugby', '#1B4332', 86, 84, 85),
-      team('INT-GER', 'GER', '#0D3B66', 83, 81, 82),
-      team('INT-MAR', 'Marista RC', '#C62828', 80, 78, 79),
-      team('INT-MDZ', 'Mendoza RC', '#424242', 77, 75, 78),
+      team('INT-TUC', 'Tucumán Rugby', '#1B4332', 85, 83, 84),
+      team('INT-GER', 'GER', '#0D3B66', 81, 79, 80),
+      team('INT-MAR', 'Marista RC', '#C62828', 81, 79, 80),
+      team('INT-MDZ', 'Mendoza RC', '#424242', 79, 77, 80),
       // Zona 2
-      team('INT-TAL', 'Tala RC', '#0D3B66', 88, 86, 85),
+      team('INT-TAL', 'Tala RC', '#0D3B66', 91, 89, 88),
       team('INT-CAE', 'Club Atlético Estudiantes', '#1A1A1A', 86, 84, 83),
-      team('INT-URC', 'Uru Curé RC', '#0D1B4C', 84, 82, 82),
-      team('INT-CNE', 'Curne', '#FFEB3B', 82, 81, 81),
+      team('INT-URC', 'Uru Curé RC', '#0D1B4C', 81, 79, 79),
+      team('INT-CNE', 'Curne', '#FFEB3B', 71, 70, 70),
       // Zona 3
-      team('INT-SFE', 'Santa Fe Rugby', '#0D47A1', 88, 86, 85),
-      team('INT-JCC', 'Jockey Club de Córdoba', '#C62828', 86, 84, 84),
-      team('INT-CAT', 'Córdoba Athletic', '#0D1B4C', 84, 82, 83),
-      team('INT-UNC', 'Universitario de Córdoba', '#C62828', 82, 80, 81),
+      team('INT-SFE', 'Santa Fe Rugby', '#0D47A1', 83, 81, 80),
+      team('INT-JCC', 'Jockey Club de Córdoba', '#C62828', 93, 91, 91),
+      team('INT-CAT', 'Córdoba Athletic', '#0D1B4C', 80, 78, 79),
+      team('INT-UNC', 'Universitario de Córdoba', '#C62828', 79, 77, 78),
       // Zona 4
-      team('INT-JCR', 'Jockey Club de Rosario', '#1B4332', 90, 88, 87),
-      team('INT-DUE', 'Duendes RC', '#2E7D32', 88, 86, 85),
-      team('INT-TAB', 'La Tablada RC', '#C62828', 83, 81, 82),
-      team('INT-OLD', 'Old Resian', '#C62828', 80, 78, 80),
+      team('INT-JCR', 'Jockey Club de Rosario', '#1B4332', 88, 86, 85),
+      team('INT-DUE', 'Duendes RC', '#2E7D32', 89, 87, 86),
+      team('INT-TAB', 'La Tablada RC', '#C62828', 85, 83, 84),
+      team('INT-OLD', 'Old Resian', '#C62828', 75, 73, 75),
     ],
   },
   {
@@ -234,20 +239,20 @@ export const LEAGUES = [
     // do Top 14 real, disputando turno e returno numa tabela só (como o
     // NEA); os 8 melhores avançam ao mata-mata (quartas/semi/final).
     teams: [
-      team('BUE-SIC', 'San Isidro Club (SIC)', '#4FC3F7', 90, 88, 87),
-      team('BUE-CAS', 'CASI', '#4FC3F7', 89, 87, 86),
-      team('BUE-ALU', 'Alumni', '#C62828', 88, 86, 85),
-      team('BUE-NEW', 'Newman', '#800020', 87, 85, 85),
-      team('BUE-HIN', 'Hindú', '#4FC3F7', 86, 84, 84),
-      team('BUE-BEL', 'Belgrano (BAC)', '#6D4C29', 85, 83, 83),
-      team('BUE-RBV', 'Regatas Bella Vista (CRBV)', '#0D47A1', 84, 82, 82),
-      team('BUE-CHA', 'Champagnat', '#0D3B66', 83, 81, 82),
-      team('BUE-LPL', 'La Plata RC', '#0D3B66', 82, 80, 81),
+      team('BUE-SIC', 'San Isidro Club (SIC)', '#4FC3F7', 87, 85, 84),
+      team('BUE-CAS', 'CASI', '#4FC3F7', 88, 86, 85),
+      team('BUE-ALU', 'Alumni', '#C62828', 86, 84, 83),
+      team('BUE-NEW', 'Newman', '#800020', 97, 95, 95),
+      team('BUE-HIN', 'Hindú', '#4FC3F7', 84, 82, 82),
+      team('BUE-BEL', 'Belgrano (BAC)', '#6D4C29', 84, 82, 82),
+      team('BUE-RBV', 'Regatas Bella Vista (CRBV)', '#0D47A1', 81, 79, 79),
+      team('BUE-CHA', 'Champagnat', '#0D3B66', 68, 66, 67),
+      team('BUE-LPL', 'La Plata RC', '#0D3B66', 75, 73, 74),
       team('BUE-BAC', 'Buenos Aires (BACRC)', '#0D1B4C', 81, 79, 80),
-      team('BUE-CUB', 'CUBA', '#0D1B4C', 80, 78, 79),
-      team('BUE-CAR', 'Club Atlético del Rosario (CAR)', '#800020', 78, 76, 77),
-      team('BUE-TIL', 'Los Tilos', '#81C784', 76, 74, 76),
-      team('BUE-MAT', 'Los Matreros', '#C62828', 75, 73, 75),
+      team('BUE-CUB', 'CUBA', '#0D1B4C', 76, 74, 75),
+      team('BUE-CAR', 'Club Atlético del Rosario (CAR)', '#800020', 71, 69, 70),
+      team('BUE-TIL', 'Los Tilos', '#81C784', 82, 80, 82),
+      team('BUE-MAT', 'Los Matreros', '#C62828', 71, 69, 71),
     ],
   },
 ];
