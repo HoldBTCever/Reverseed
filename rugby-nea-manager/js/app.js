@@ -273,7 +273,6 @@ const I18N = {
     especialistas: 'Especialistas',
     mesmaLinha: 'Misma línea',
     outrasPosicoes: 'Otras posiciones',
-    lineupClickHelp: 'Hacé clic en una camiseta del campo para elegir quién juega ahí. Pilar y hooker solo muestran especialistas de esa posición exacta (sin improvisar); las demás posiciones muestran primero quien juega ahí, y abajo el resto del plantel disponible.',
     fecharSeletor: 'Cerrar selector',
     subsBtnLabel: '🔄 Sustituciones ({used}/{max})',
     subsPanelTitle: 'Sustituciones ({used}/{max})',
@@ -512,7 +511,6 @@ const I18N = {
     especialistas: 'Especialistas',
     mesmaLinha: 'Mesma linha',
     outrasPosicoes: 'Outras posições',
-    lineupClickHelp: 'Clique numa camisa do campo pra escolher quem joga ali. Pilar e hooker só mostram especialistas daquela posição exata (sem improviso); as demais posições mostram primeiro quem joga ali, e embaixo o resto do plantel disponível.',
     fecharSeletor: 'Fechar seletor',
     subsBtnLabel: '🔄 Substituições ({used}/{max})',
     subsPanelTitle: 'Substituições ({used}/{max})',
@@ -2795,7 +2793,6 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor, bench) {
           <button class="sortBtn" id="lineupLoadBBtn">${t('usarTimeB')}</button>
         </div>
       </div>
-      <p class="muted">${t('lineupClickHelp')}</p>
       <div class="pitchOuter">
         <div class="pitchLine" style="top:0"></div>
         <div class="pitchLine" style="top:22%"></div>
