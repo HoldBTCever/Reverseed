@@ -3759,9 +3759,29 @@ function renderMatchday() {
   }
 }
 
-function pickOpponentTactic() {
-  const pool = ['agresivo', 'equilibrado', 'equilibrado', 'defensivo'];
-  return pool[Math.floor(Math.random() * pool.length)];
+// Tática inicial do adversário: pondera pela força relativa em vez de
+// sortear totalmente ao acaso — o favorito tende a jogar mais controlado
+// (não precisa arriscar), a zebra tende a arriscar mais (só ganha se sair
+// do script). Continua tendo variação, só desloca a distribuição.
+function pickOpponentTactic(myTeam, oppTeam) {
+  const diff = (oppTeam.attack + oppTeam.defense) - (myTeam.attack + myTeam.defense);
+  const roll = Math.random();
+  if (diff > 15) return roll < 0.55 ? 'defensivo' : roll < 0.85 ? 'equilibrado' : 'agresivo';
+  if (diff < -15) return roll < 0.55 ? 'agresivo' : roll < 0.85 ? 'equilibrado' : 'defensivo';
+  return roll < 0.25 ? 'agresivo' : roll < 0.75 ? 'equilibrado' : 'defensivo';
+}
+
+// Ajuste da tática do adversário no intervalo, conforme o placar do primeiro
+// tempo (do ponto de vista do PRÓPRIO adversário): perdendo de 10+ precisa
+// arriscar tudo pra ter chance; ganhando de 10+ segura o resultado em vez de
+// continuar se expondo. Placar equilibrado mantém a tática que já vinha
+// fazendo — sem isso a IA jogava do mesmo jeito o jogo inteiro mesmo
+// perdendo de goleada, o que deixava a partida sem risco nenhum no segundo
+// tempo.
+function reactiveOpponentTactic(currentTactic, oppScoreDiff) {
+  if (oppScoreDiff <= -10) return 'agresivo';
+  if (oppScoreDiff >= 10) return 'defensivo';
+  return currentTactic;
 }
 
 const WEATHER_I18N_KEY = {seco: 'weatherSeco', chuva: 'weatherChuva', vento: 'weatherVento'};
@@ -3779,10 +3799,12 @@ function renderLive() {
   const homeTeam = teamById[homeId];
   const awayTeam = teamById[awayId];
   const myTactic = state.tactic;
-  const oppTactic = pickOpponentTactic();
+  const userTeam = isHome ? homeTeam : awayTeam;
+  const oppTeamObj = isHome ? awayTeam : homeTeam;
+  let oppTactic = pickOpponentTactic(userTeam, oppTeamObj);
 
-  const tacticHome = isHome ? myTactic : oppTactic;
-  const tacticAway = isHome ? oppTactic : myTactic;
+  let tacticHome = isHome ? myTactic : oppTactic;
+  let tacticAway = isHome ? oppTactic : myTactic;
 
   // Time do clube gerenciado entra com condição física real: jogadores mais
   // desgastados rendem menos (e a escalação prefere quem está mais fresco).
@@ -3848,6 +3870,43 @@ function renderLive() {
     gamePlanHome, gamePlanAway,
     undefined, matchContext,
   );
+
+  // Ajuste tático do adversário no intervalo: reavalia o placar parcial (tick
+  // 20 = minuto 40) do PONTO DE VISTA do próprio adversário e, se a tática
+  // mudar, recalcula o segundo tempo inteiro a partir dali via resumeState —
+  // mesmo mecanismo já usado pelas substituições ao vivo (ver performLiveSub).
+  const halftimeTick = result.ticks[19];
+  if (halftimeTick) {
+    const oppScoreDiff = isHome
+      ? (halftimeTick.scoreB - halftimeTick.scoreA)
+      : (halftimeTick.scoreA - halftimeTick.scoreB);
+    const newOppTactic = reactiveOpponentTactic(oppTactic, oppScoreDiff);
+    if (newOppTactic !== oppTactic) {
+      oppTactic = newOppTactic;
+      tacticHome = isHome ? myTactic : oppTactic;
+      tacticAway = isHome ? oppTactic : myTactic;
+      const halftimeResumeState = {
+        pos: halftimeTick.pos, scoreA: halftimeTick.scoreA, scoreB: halftimeTick.scoreB,
+        cardPenaltyA: halftimeTick.cardPenaltyA || 0, cardPenaltyB: halftimeTick.cardPenaltyB || 0,
+        redCardA: !!halftimeTick.redCardA, redCardB: !!halftimeTick.redCardB,
+        tick: 20,
+      };
+      const secondHalf = simulateMatch(
+        homeTeam, homeSquad, tacticHome,
+        awayTeam, awaySquad, tacticAway,
+        gamePlanHome, gamePlanAway,
+        halftimeResumeState, matchContext,
+      );
+      result.ticks = result.ticks.slice(0, 20).concat(secondHalf.ticks);
+      result.log = result.log.filter(l => l.minute <= 40).concat(secondHalf.log);
+      result.scorersA = result.scorersA.filter(s => s.minute <= 40).concat(secondHalf.scorersA);
+      result.scorersB = result.scorersB.filter(s => s.minute <= 40).concat(secondHalf.scorersB);
+      result.cards = result.cards.filter(cd => cd.minute <= 40).concat(secondHalf.cards);
+      const lastHalftimeTick = result.ticks[result.ticks.length - 1];
+      if (lastHalftimeTick) { result.scoreA = lastHalftimeTick.scoreA; result.scoreB = lastHalftimeTick.scoreB; }
+      if (secondHalf.motm) result.motm = secondHalf.motm;
+    }
+  }
 
   // Mata-mata não permite empate: se a simulação terminou empatada, resolve
   // aqui mesmo (antes de exibir/animar) para que o placar mostrado ao vivo
