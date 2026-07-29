@@ -647,6 +647,14 @@ export function createInitialYouthAcademy() {
     note: 'Categoria M18 do Curda, sob comando de Dante Legui — ótimo lançamento de lineout e excelente determinação',
     youthCategory: 'M18',
   });
+  // Maxi Doldán: segunda-línea da M18, boa qualidade — já debutou no time
+  // titular mesmo seguindo na categoria de base.
+  academy.M18[1] = mkPlayer('Maxi Doldán', 'SL', 63, {jump: 72, strength: 68}, {
+    age: 'M18',
+    potential: 'alto',
+    note: 'Categoria M18 do Curda, sob comando de Dante Legui — já debutou no time titular por ter boa qualidade',
+    youthCategory: 'M18',
+  });
   return academy;
 }
 
