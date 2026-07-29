@@ -754,6 +754,13 @@ let manualSlotsSignature = null; // identifica pra qual partida o manualSlots at
 let openLineupSlot = null; // índice (0-14) do slot com o seletor de jogador aberto no campo clicável, ou null se fechado
 let lineupPickerAnchor = null; // {x, y} do clique que abriu o seletor, pra flutuar o popup perto do cursor
 
+// Mesma mecânica de clique+popup do editor de Dia de Jogo, mas pro campo
+// clicável da tela de Plantel ("Escalação atual") — edita direto o preset
+// Time A (state.lineupPresets[teamId].A) em vez do manualSlots efêmero da
+// partida, já que aqui não existe uma partida específica em andamento.
+let squadFormSlot = null;
+let squadFormAnchor = null;
+
 function loadState() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -2456,7 +2463,7 @@ function renderRealSquad() {
 
   content.innerHTML = `
     <h1>${t('elencoTitle', {team: myTeam.name})}</h1>
-    ${renderFormationHtml(xv, bench, myTeam.color, t('escalacaoAtual'))}
+    ${renderSquadFormationEditorHtml(state.myTeamId, myOptions, myTeam.color, bench, xv)}
     <p class="muted">${t('explicacaoCategorias')}</p>
     <p class="muted">${t('explicacaoPrimeiraLinea')}</p>
     <p class="muted">${t('explicacaoCondicao')}</p>
@@ -2496,6 +2503,65 @@ function renderRealSquad() {
   Array.from(document.querySelectorAll('[data-invite]')).forEach(btn => {
     btn.addEventListener('click', () => inviteProspect(btn.dataset.invite));
   });
+
+  // Campo clicável da "Escalação atual" — mesma mecânica do editor de Dia de
+  // Jogo, mas gravando direto no preset Time A (ver squadFormSlots).
+  Array.from(document.querySelectorAll('.lineupShirtBtn')).forEach(btn => {
+    btn.addEventListener('click', ev => {
+      const idx = Number(btn.dataset.slot);
+      if (squadFormSlot === idx) {
+        squadFormSlot = null;
+        squadFormAnchor = null;
+      } else {
+        squadFormSlot = idx;
+        squadFormAnchor = {x: ev.clientX, y: ev.clientY};
+      }
+      renderRealSquad();
+    });
+  });
+  Array.from(document.querySelectorAll('.lineupPickBtn')).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = squadFormSlot;
+      const newId = btn.dataset.pick;
+      const currentSlots = [...squadFormSlots(state.myTeamId, xv)];
+      const dupIdx = currentSlots.findIndex((pid, i) => pid === newId && i !== idx);
+      if (dupIdx !== -1) currentSlots[dupIdx] = currentSlots[idx];
+      currentSlots[idx] = newId;
+      state.lineupPresets[state.myTeamId] = state.lineupPresets[state.myTeamId] || {};
+      state.lineupPresets[state.myTeamId].A = currentSlots;
+      squadFormSlot = null;
+      squadFormAnchor = null;
+      saveState();
+      renderRealSquad();
+    });
+  });
+  const closeSquadFormBtn = document.getElementById('closeSquadFormPickerBtn');
+  if (closeSquadFormBtn) {
+    closeSquadFormBtn.addEventListener('click', () => {
+      squadFormSlot = null;
+      squadFormAnchor = null;
+      renderRealSquad();
+    });
+  }
+  const squadFormBackdrop = document.getElementById('squadFormPickerBackdrop');
+  if (squadFormBackdrop) {
+    squadFormBackdrop.addEventListener('click', () => {
+      squadFormSlot = null;
+      squadFormAnchor = null;
+      renderRealSquad();
+    });
+  }
+  const squadFormAutoBtn = document.getElementById('squadFormAutoBtn');
+  if (squadFormAutoBtn) {
+    squadFormAutoBtn.addEventListener('click', () => {
+      state.lineupPresets[state.myTeamId] = state.lineupPresets[state.myTeamId] || {};
+      state.lineupPresets[state.myTeamId].A = slotsFromXV(xv);
+      squadFormSlot = null;
+      squadFormAnchor = null;
+      saveState();
+      renderRealSquad();
+    });
+  }
 }
 
 // ---- Aba Treinamento: normal (foco por dia), grupos menores (line-out) e
@@ -2669,6 +2735,14 @@ function canPlay(p, posId) {
   return p.posId === posId || (p.meta.altPos && p.meta.altPos.includes(posId));
 }
 
+// Top N (padrão 5) candidatos pra uma posição, ordenados pelo overall
+// EFETIVO naquela posição (não o rating "de origem" do jogador) — é o que
+// aparece no seletor de substituição, então tem que ser a mesma métrica.
+const LINEUP_PICKER_MAX = 5;
+function topCandidates(list, posId, n = LINEUP_PICKER_MAX) {
+  return [...list].sort((a, b) => effectiveOverallAt(b, posId) - effectiveOverallAt(a, posId)).slice(0, n);
+}
+
 function manualEligiblePlayers(teamId, myOptions) {
   const full = rosterWithStatus(teamId, myOptions);
   return full.filter(p => p.status !== 'lesionado' && p.status !== 'indisponivel');
@@ -2747,8 +2821,8 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor, bench) {
     const slot = POSITIONS[idx];
     const posId = slot.id;
     const currentId = manualSlots ? manualSlots[idx] : null;
-    const specialists = eligible.filter(p => canPlay(p, posId));
-    const outros = FRONT_ROW_POS.has(posId) ? [] : eligible.filter(p => !canPlay(p, posId));
+    const specialists = topCandidates(eligible.filter(p => canPlay(p, posId)), posId);
+    const outros = FRONT_ROW_POS.has(posId) ? [] : topCandidates(eligible.filter(p => !canPlay(p, posId)), posId);
     const playerRow = p => `
       <button type="button" class="lineupPickBtn ${p.id === currentId ? 'selected' : ''}" data-pick="${p.id}">
         <span>${escapeHtmlAttr(p.name)}${p.posId !== posId ? ' ⇄' : ''}</span>
@@ -2802,6 +2876,102 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor, bench) {
         ${shirts}
       </div>
       ${openLineupSlot != null ? '<div class="lineupPickerBackdrop" id="lineupPickerBackdrop"></div>' : ''}
+      ${pickerHtml}
+      ${renderBenchSectionHtml(bench, teamColor)}
+    </div>
+  `;
+}
+
+// Lineup ativo da tela de Plantel: usa o preset Time A se já existir, senão
+// cai pra escalação automática (mesma regra do editor de Dia de Jogo).
+function squadFormSlots(teamId, autoXV) {
+  const preset = state.lineupPresets[teamId] && state.lineupPresets[teamId].A;
+  return preset || slotsFromXV(autoXV);
+}
+
+// Campo clicável igual ao de Dia de Jogo, só que na tela de Plantel — edita
+// direto o preset Time A, sem precisar entrar numa partida específica pra
+// mexer na escalação preferida do time.
+function renderSquadFormationEditorHtml(teamId, myOptions, teamColor, bench, autoXV) {
+  const eligible = manualEligiblePlayers(teamId, myOptions);
+  const byId = Object.fromEntries(eligible.map(p => [p.id, p]));
+  const slots = squadFormSlots(teamId, autoXV);
+
+  const shirts = POSITIONS.map((slot, idx) => {
+    const posId = slot.id;
+    const currentId = slots[idx];
+    const player = currentId ? byId[currentId] : null;
+    const pos = FORMATION_POSITIONS[idx + 1] || {top: '50%', left: '50%'};
+    const cond = player ? Math.round(player.condition) : 100;
+    const label = player ? shortPlayerName(player.name) : '🆘';
+    const openClass = squadFormSlot === idx ? ' slotOpen' : '';
+    const titleAttr = `#${idx + 1} ${POS_LABEL[posId]}${player ? ' — ' + player.name : ''}`;
+    return `
+      <button type="button" class="shirtSlot lineupShirtBtn${openClass}" data-slot="${idx}" style="top:${pos.top}; left:${pos.left};" title="${escapeHtmlAttr(titleAttr)}">
+        <span class="shirt" style="background:${teamColor}">${idx + 1}</span>
+        <span class="shirtName">${escapeHtmlAttr(label)}</span>
+        <span class="ratingBar shirtCond"><span style="width:${cond}%"></span></span>
+      </button>
+    `;
+  }).join('');
+
+  let pickerHtml = '';
+  if (squadFormSlot != null) {
+    const idx = squadFormSlot;
+    const slot = POSITIONS[idx];
+    const posId = slot.id;
+    const currentId = slots[idx];
+    const specialists = topCandidates(eligible.filter(p => canPlay(p, posId)), posId);
+    const outros = FRONT_ROW_POS.has(posId) ? [] : topCandidates(eligible.filter(p => !canPlay(p, posId)), posId);
+    const playerRow = p => `
+      <button type="button" class="lineupPickBtn ${p.id === currentId ? 'selected' : ''}" data-pick="${p.id}">
+        <span>${escapeHtmlAttr(p.name)}${p.posId !== posId ? ' ⇄' : ''}</span>
+        <span class="muted">${effectiveOverallAt(p, posId)} · ${Math.round(p.condition)}%</span>
+      </button>
+    `;
+    const popupW = Math.min(300, window.innerWidth - 24);
+    const popupMaxH = Math.min(420, window.innerHeight - 24);
+    const anchor = squadFormAnchor || {x: window.innerWidth / 2, y: window.innerHeight / 2};
+    let left = anchor.x + 14;
+    let top = anchor.y + 14;
+    if (left + popupW > window.innerWidth - 12) left = anchor.x - popupW - 14;
+    left = Math.max(12, Math.min(left, window.innerWidth - popupW - 12));
+    if (top + popupMaxH > window.innerHeight - 12) top = window.innerHeight - popupMaxH - 12;
+    top = Math.max(12, top);
+
+    pickerHtml = `
+      <div class="lineupPicker lineupPickerFloating" style="left:${left}px; top:${top}px; width:${popupW}px; max-height:${popupMaxH}px;">
+        <h4>#${idx + 1} ${POS_LABEL[posId]}</h4>
+        ${!specialists.length ? `<p class="muted">${t('convocacaoEmergencia')}</p>` : `
+          <div class="lineupPickGroupLabel">${t('especialistas')}</div>
+          <div class="lineupPickList">${specialists.map(playerRow).join('')}</div>
+        `}
+        ${outros.length ? `
+          <div class="lineupPickGroupLabel">${t('outrasPosicoes')}</div>
+          <div class="lineupPickList">${outros.map(playerRow).join('')}</div>
+        ` : ''}
+        <button type="button" class="ctrlBtn" id="closeSquadFormPickerBtn">${t('fecharSeletor')}</button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="card formationCard">
+      <div class="squadHeaderRow">
+        <h3>${t('escalacaoAtual')}</h3>
+        <div class="sortToggle">
+          <button class="sortBtn" id="squadFormAutoBtn">${t('autoPreencher')}</button>
+        </div>
+      </div>
+      <div class="pitchOuter">
+        <div class="pitchLine" style="top:0"></div>
+        <div class="pitchLine" style="top:22%"></div>
+        <div class="pitchLine solid" style="top:50%"></div>
+        <div class="pitchLine" style="top:78%"></div>
+        <div class="pitchLine" style="top:100%"></div>
+        ${shirts}
+      </div>
+      ${squadFormSlot != null ? '<div class="lineupPickerBackdrop" id="squadFormPickerBackdrop"></div>' : ''}
       ${pickerHtml}
       ${renderBenchSectionHtml(bench, teamColor)}
     </div>
