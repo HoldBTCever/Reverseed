@@ -3,7 +3,7 @@
 // temos essa informação. Times sem entrada aqui continuam usando
 // generateSquad() normalmente.
 
-import {SKILL_PROFILES, SKILL_LABELS, genBiometrics, genTraits, randomName} from './data.js';
+import {SKILL_PROFILES, SKILL_LABELS, genBiometrics, genTraits, randomName, TEAMS} from './data.js';
 
 const SKILL_KEYS = Object.keys(SKILL_LABELS);
 
@@ -134,7 +134,31 @@ function buildPartialRealRoster(clubId, known, depthCounts, baseOverall) {
 // etc.) para que o overall EFETIVO calculado por effectiveOverallAt() em
 // cada posição fique nitidamente diferente, em vez de aplicar uma
 // penalidade genérica igual pra todo mundo.
-const CURDA_ROSTER = [
+// Recalibra as skills (e o overall que elas produzem) de um elenco curado
+// pra bater com a força estrutural do clube declarada em data.js (attack/
+// defense/stamina, calibrados pelo ranking real de clubes argentinos). Sem
+// isso, um elenco com muitos jogadores nomeados vai ganhando overalls "de
+// sensação" item a item ao longo do tempo até destoar muito da força que o
+// time deveria ter na liga — chegou a acontecer do XV titular do Curda ter
+// overall médio ~83 sendo, pela tabela real, um time mediano (base 64).
+// Comprime cada skill em torno do mesmo piso que clamp() já usa (30),
+// preservando a hierarquia interna do elenco: quem já era o melhor continua
+// sendo o melhor, só que numa escala compatível com o resto da liga.
+function rescaleRosterToTeamBase(roster, teamId) {
+  const team = TEAMS.find(t => t.id === teamId);
+  if (!team) return roster;
+  const targetAvg = (team.attack + team.defense + team.stamina) / 3;
+  const currentAvg = roster.reduce((s, p) => s + p.rating, 0) / roster.length;
+  const factor = (targetAvg - 30) / (currentAvg - 30);
+  return roster.map(p => {
+    const skills = {};
+    Object.entries(p.skills).forEach(([k, v]) => { skills[k] = clamp(30 + (v - 30) * factor); });
+    const profile = SKILL_PROFILES[p.posId];
+    return {...p, skills, rating: computeOverall(skills, profile)};
+  });
+}
+
+const CURDA_ROSTER_RAW = [
   // Pilares (ordem: Aranda, Salta, Tiago, Sitjar, Ballasch, Josechi, Petiño,
   // Martin, Jariton, England, Laterza, Samurai, Piacentini, Thanos)
   {...mkPlayer('Estefano Aranda', 'PI', 87, {}, {nationalTeam: 'seleção'}, 88), weightKg: 130},
@@ -230,6 +254,8 @@ const CURDA_ROSTER = [
   mkPlayer('Arturo López', 'FB', 90, {}, {nationalTeam: 'seleção adulta'}),
   mkPlayer('Horacio Agüero', 'FB', 78, {kicking: 84, reception: 85}, {note: 'ótima leitura de jogo e bons chutes'}),
 ];
+
+const CURDA_ROSTER = rescaleRosterToTeamBase(CURDA_ROSTER_RAW, 'ARG-CUR');
 
 // Elenco real do San José, a partir das listas de convocados reais do clube
 // para o mesmo fim de semana: um jogo do NEA (contra o Curda, sábado 16:30)
