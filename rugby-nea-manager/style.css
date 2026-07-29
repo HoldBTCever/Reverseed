@@ -218,7 +218,17 @@ canvas#pitch {
 .squadRow.expanded .teamCol { color: var(--accent); }
 .skillDetailTr { display: none; }
 .skillDetailTr.open { display: table-row; }
-.skillDetailWrap { display: flex; flex-wrap: wrap; gap: 18px; padding: 10px 4px; background: var(--panel-2); border-radius: 8px; white-space: normal; }
+/* position: sticky + largura limitada à tela: a tabela de plantel é mais
+   larga que a viewport no mobile (rola pro lado pra ver todas as colunas),
+   então sem isso o painel expandido (que usa flex-wrap) tinha espaço de
+   sobra pra abrir todos os grupos numa linha só, com físico/biometria
+   ficando fora da área visível sem indicação nenhuma de que dava pra rolar
+   pro lado pra vê-los. Grudado na borda esquerda da área de scroll e
+   limitado à largura da tela, o flex-wrap quebra de verdade. */
+.skillDetailWrap {
+  display: flex; flex-wrap: wrap; gap: 18px; padding: 10px 4px; background: var(--panel-2); border-radius: 8px; white-space: normal;
+  position: sticky; left: 0; width: max-content; max-width: calc(100vw - 24px);
+}
 .skillDetailGroup { min-width: 160px; }
 .skillDetailGroup h4 { margin: 0 0 6px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
 .skillDetailRow { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 0; }
