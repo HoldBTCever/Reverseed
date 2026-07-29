@@ -91,6 +91,30 @@ function mkPlayer(name, posId, base, overrides = {}, meta = {}, overallOverride 
   };
 }
 
+// Monta um elenco PARCIALMENTE real: os jogadores confirmados (nome, posição
+// e overall vindos de fontes reais, ex.: convocatórias da seleção) entram
+// como estão; o resto do elenco é preenchido com nomes fictícios genéricos
+// (mesmo gerador de generateSquad(), com semente própria por clube pra dar
+// sempre o mesmo elenco) na faixa de força típica do time, marcados com
+// meta.generated=true. Conforme mais nomes reais desse clube aparecerem, dá
+// pra ir trocando entradas de `depthCounts` por jogadores reais em `known`
+// (reduzindo a contagem da posição correspondente), até o elenco inteiro
+// virar real.
+function buildPartialRealRoster(clubId, known, depthCounts, baseOverall) {
+  const rng = mulberry32(seedFromString(clubId + '-filler'));
+  const usedNames = new Set(known.map(p => p.name));
+  const filler = [];
+  Object.entries(depthCounts).forEach(([posId, count]) => {
+    for (let i = 0; i < count; i++) {
+      const name = randomName(rng, usedNames);
+      const variance = Math.floor(rng() * 16) - 8;
+      const overall = Math.max(32, Math.min(96, baseOverall + variance));
+      filler.push(mkPlayer(name, posId, overall, {}, {generated: true}));
+    }
+  });
+  return [...known, ...filler];
+}
+
 // Elenco reorganizado por ordem real de titularidade em cada posição (a ordem
 // dentro de cada bloco de comentário abaixo é a ordem de profundidade
 // informada). Jogadores "dois-em-um" (ex.: Ballasch/Jariton pilar-hooker,
@@ -347,6 +371,61 @@ const DUENDES_ROSTER = [
   mkPlayer('Patricio Bullentini', 'WG', 62, {}, {note: 'time reserva'}),
 ];
 
+// Elencos parcialmente reais dos clubes que apareceram nas convocatórias e
+// escalações reais da seleção paraguaia, mas ainda não tinham elenco
+// próprio no jogo (usavam generateSquad() genérico). Cada um mistura os
+// jogadores reais confirmados (ver comentário de cada bloco) com
+// preenchimento fictício gerado por buildPartialRealRoster() na força típica
+// do time. Jogadores sem posição confirmada nas fontes (só apareceram na
+// lista geral de convocados, não numa escalação titular) têm a posição
+// estimada, sinalizada em nota.
+const CRISTO_REY_KNOWN = [
+  mkPlayer('Camilo Blasco', 'PI', 87, {}, {nationalTeam: 'seleção', note: 'titular fixo da seleção paraguaia, camisa 1'}, 87),
+  mkPlayer('Rodrigo Robadin', 'N8', 74, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas; também esteve na base M18'}, 74),
+  mkPlayer('Ignacio Vega', 'CE', 75, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 75),
+];
+const CRISTO_REY_ROSTER = buildPartialRealRoster('PAR-CRI', CRISTO_REY_KNOWN, {
+  PI: 3, HK: 2, SL: 3, AL: 3, N8: 1, MS: 2, AP: 2, CE: 2, WG: 3, FB: 2,
+}, 41);
+
+const SANTA_CLARA_KNOWN = [
+  mkPlayer('Jordi Chávez', 'HK', 84, {}, {nationalTeam: 'seleção', note: 'disputa a titularidade na seleção com Agustín Benítez (San José)'}, 84),
+  mkPlayer('Gastón Salvi', 'PI', 80, {}, {nationalTeam: 'seleção', note: 'reserva fixo da seleção (cobertura de primeira linha)'}, 80),
+  mkPlayer('Alejandro Heyn', 'WG', 76, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 76),
+];
+const SANTA_CLARA_ROSTER = buildPartialRealRoster('PAR-STC', SANTA_CLARA_KNOWN, {
+  PI: 3, HK: 1, SL: 3, AL: 3, N8: 2, MS: 2, AP: 2, CE: 3, WG: 2, FB: 2,
+}, 47);
+
+const BELGRANO_ATH_KNOWN = [
+  mkPlayer('Mateo Gasparotti', 'PI', 76, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 76),
+];
+const BELGRANO_ATH_ROSTER = buildPartialRealRoster('BUE-BEL', BELGRANO_ATH_KNOWN, {
+  PI: 3, HK: 2, SL: 3, AL: 3, N8: 2, MS: 2, AP: 2, CE: 3, WG: 3, FB: 2,
+}, 83);
+
+const SANTA_FE_KNOWN = [
+  mkPlayer('Gonzalo del Pazo', 'SL', 76, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 76),
+  mkPlayer('Juan Cruz Strada', 'CE', 76, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 76),
+];
+const SANTA_FE_ROSTER = buildPartialRealRoster('INT-SFE', SANTA_FE_KNOWN, {
+  PI: 4, HK: 2, SL: 2, AL: 3, N8: 2, MS: 2, AP: 2, CE: 2, WG: 3, FB: 2,
+}, 81);
+
+const CAE_KNOWN = [
+  mkPlayer('Juan Mernes', 'HK', 77, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 77),
+];
+const CAE_ROSTER = buildPartialRealRoster('INT-CAE', CAE_KNOWN, {
+  PI: 4, HK: 1, SL: 3, AL: 3, N8: 2, MS: 2, AP: 2, CE: 3, WG: 3, FB: 2,
+}, 84);
+
+const CHAMPAGNAT_KNOWN = [
+  mkPlayer('Matías Muniagurria', 'AP', 76, {}, {nationalTeam: 'seleção', note: 'posição estimada, não apareceu nas escalações titulares vistas'}, 76),
+];
+const CHAMPAGNAT_ROSTER = buildPartialRealRoster('BUE-CHA', CHAMPAGNAT_KNOWN, {
+  PI: 4, HK: 2, SL: 3, AL: 3, N8: 2, MS: 2, AP: 1, CE: 3, WG: 3, FB: 2,
+}, 67);
+
 // O Curda é o mesmo clube nas duas ligas (disputa o NEA argentino e o
 // campeonato paraguaio) — mesmo plantel em ambas. O San José também disputa
 // as duas ligas ao mesmo tempo, com o mesmo plantel real dos dois lados.
@@ -360,6 +439,12 @@ const REAL_SQUADS = {
   'PAR-SNJ': SANJOSE_ROSTER,
   'ARG-CNE': CURNE_ROSTER,
   'INT-CNE': CURNE_ROSTER,
+  'PAR-CRI': CRISTO_REY_ROSTER,
+  'PAR-STC': SANTA_CLARA_ROSTER,
+  'BUE-BEL': BELGRANO_ATH_ROSTER,
+  'INT-SFE': SANTA_FE_ROSTER,
+  'INT-CAE': CAE_ROSTER,
+  'BUE-CHA': CHAMPAGNAT_ROSTER,
 };
 
 const CURDA_STAFF = [
