@@ -144,22 +144,62 @@ function buildPartialRealRoster(clubId, known, depthCounts, baseOverall) {
 // Comprime cada skill em torno do mesmo piso que clamp() já usa (30),
 // preservando a hierarquia interna do elenco: quem já era o melhor continua
 // sendo o melhor, só que numa escala compatível com o resto da liga.
+// Alarga a diferença entre os destaques e o resto do elenco. 1 = mantém a
+// dispersão original (sem alargar); > 1 aumenta o quanto quem já estava
+// acima da média do plantel sobe e quem estava abaixo desce.
+const SPREAD_FACTOR = 3.5;
+
 function rescaleRosterToTeamBase(roster, teamId) {
   const team = TEAMS.find(t => t.id === teamId);
   if (!team) return roster;
   const targetAvg = (team.attack + team.defense + team.stamina) / 3;
-  // Ancora no XV TITULAR (quem realmente entra em campo), não no plantel
-  // completo — senão reforços de banco fraco (ex.: jogadores de baixa
-  // frequência de treino) "puxam" a média geral pra baixo e o cálculo
-  // compensa inflando os titulares pra cima, destorcendo justamente o time
-  // que efetivamente joga (foi o que aconteceu ao adicionar os jogadores de
-  // baixa frequência: o XV subiu de volta de 70 pra 75 de overall médio).
-  const xv = pickStartingXV(roster, {});
-  const currentAvg = xv.reduce((s, p) => s + p.rating, 0) / xv.length;
-  const factor = (targetAvg - 30) / (currentAvg - 30);
-  return roster.map(p => {
+
+  // Etapa 1 (alargamento) e etapa 2 (recentragem na base do time) são as
+  // duas mesmas transformações lineares de sempre, só que compostas SEM
+  // aplicar clamp() entre elas — se a etapa 1 já clampasse em 30-99 antes da
+  // etapa 2 rodar, um SPREAD_FACTOR alto satura quase todo mundo em 30 ou 99
+  // de cara, e a etapa 2 (que só reescala proporcionalmente) fica sem
+  // informação pra trabalhar (todo mundo clampado no mesmo valor vira o
+  // mesmo valor de novo). Compor as duas ANTES de clampar preserva a forma
+  // da distribuição; o clamp final entra só uma vez, no resultado.
+  //
+  // Etapa 1: alarga em torno da média do PLANTEL COMPLETO (não só do XV
+  // titular — o XV é só a nata do elenco, a distância entre um titular e
+  // outro já é pequena por definição; o contraste que queremos é entre
+  // destaques e reservas/jogadores fracos). Esticar em torno da própria
+  // média preserva essa média por construção.
+  const meanSkillOfRoster = {};
+  SKILL_KEYS.forEach(k => {
+    meanSkillOfRoster[k] = roster.reduce((s, p) => s + p.skills[k], 0) / roster.length;
+  });
+  const spread = roster.map(p => {
     const skills = {};
-    Object.entries(p.skills).forEach(([k, v]) => { skills[k] = clamp(30 + (v - 30) * factor); });
+    SKILL_KEYS.forEach(k => {
+      const mean = meanSkillOfRoster[k];
+      skills[k] = mean + (p.skills[k] - mean) * SPREAD_FACTOR; // sem clamp ainda
+    });
+    const profile = SKILL_PROFILES[p.posId];
+    return {...p, skills, rating: computeOverall(skills, profile)};
+  });
+
+  // Etapa 2: recentra a força do XV TITULAR (recalculado sobre o elenco já
+  // alargado; quem realmente entra em campo, não o plantel completo) na
+  // base estrutural do clube — senão reforços de banco fraco (ex.:
+  // jogadores de baixa frequência de treino) "puxam" a média geral pra
+  // baixo e o cálculo compensa inflando os titulares pra cima, destorcendo
+  // justamente o time que efetivamente joga. Usa um DESLOCAMENTO (soma uma
+  // constante), não um fator multiplicativo: multiplicar desfaria boa parte
+  // do alargamento da etapa 1 sempre que o alvo for mais baixo que a média
+  // atual (a compressão relativa cancela quase todo o ganho, não importa o
+  // quão forte for SPREAD_FACTOR) — somar uma constante preserva TODAS as
+  // distâncias absolutas entre os jogadores, só desloca o time inteiro pra
+  // que a média do XV caia exatamente no alvo.
+  const xv1 = pickStartingXV(spread, {});
+  const currentAvg = xv1.reduce((s, p) => s + p.rating, 0) / xv1.length;
+  const shift = targetAvg - currentAvg;
+  return spread.map(p => {
+    const skills = {};
+    Object.entries(p.skills).forEach(([k, v]) => { skills[k] = clamp(v + shift); });
     const profile = SKILL_PROFILES[p.posId];
     return {...p, skills, rating: computeOverall(skills, profile)};
   });
