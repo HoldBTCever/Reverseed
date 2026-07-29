@@ -3,10 +3,22 @@
 import {teamOverall, teamSkillAvg} from './data.js';
 import {conditionMultiplier} from './realSquads.js';
 
+// attackMod/defenseMod entram na disputa de terreno (push) com o MESMO
+// sinal — ver o comentário sobre "push" em simulateMatch — então uma troca
+// simétrica (ex.: ataque +12%/defesa -10%, como era antes) quase se anula
+// na média (~+2%), fazendo agresivo e defensivo renderem resultados quase
+// idênticos ao equilibrado. Por isso os mods aqui são deliberadamente
+// ASSIMÉTRICOS: agresivo ganha bem mais terreno médio do que perde na
+// defesa própria (jogo mais aberto, mais território, mas também mais
+// vazado e mais indisciplinado); defensivo cede um pouco de território
+// médio em troca de jogar bem mais seguro (menos erro de mão, menos
+// quebra de linha sofrida, menos cartão). breakMod/concedeBreakMod,
+// errorMod e cardMod dão a cada tática uma "assinatura" de jogo própria,
+// não só um deslocamento no placar médio.
 const TACTICS = {
-  agresivo: {attackMod: 1.12, defenseMod: 0.90, label: 'Agresivo'},
-  equilibrado: {attackMod: 1.0, defenseMod: 1.0, label: 'Equilibrado'},
-  defensivo: {attackMod: 0.90, defenseMod: 1.12, label: 'Defensivo'},
+  agresivo: {attackMod: 1.18, defenseMod: 0.94, breakMod: 1.22, concedeBreakMod: 1.15, errorMod: 1.18, cardMod: 1.20, label: 'Agresivo'},
+  equilibrado: {attackMod: 1.0, defenseMod: 1.0, breakMod: 1.0, concedeBreakMod: 1.0, errorMod: 1.0, cardMod: 1.0, label: 'Equilibrado'},
+  defensivo: {attackMod: 0.90, defenseMod: 1.14, breakMod: 0.82, concedeBreakMod: 0.85, errorMod: 0.84, cardMod: 0.85, label: 'Defensivo'},
 };
 
 // ---- Plano de jogo por zona de campo ---------------------------------------
@@ -286,6 +298,8 @@ function scrumTeamBaseScore(players, rivalAvgWeight) {
 export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB, gamePlanA, gamePlanB, resumeState) {
   const planA = gamePlanA || defaultGamePlan();
   const planB = gamePlanB || defaultGamePlan();
+  const tacticObjA = TACTICS[tacticA] || TACTICS.equilibrado;
+  const tacticObjB = TACTICS[tacticB] || TACTICS.equilibrado;
 
   const sA = teamStrength(teamA, playersA, tacticA);
   const sB = teamStrength(teamB, playersB, tacticB);
@@ -331,14 +345,16 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
   let turnoverChanceA = turnoverChance(turnoverForwardA.skills.turnover);
   let turnoverChanceB = turnoverChance(turnoverForwardB.skills.turnover);
 
-  // Disciplina reduz a chance de cartão (tanto amarelo quanto vermelho).
+  // Disciplina reduz a chance de cartão (tanto amarelo quanto vermelho). A
+  // tática também pesa aqui: agresivo pressiona mais e se disciplina menos
+  // (cardMod > 1), defensivo joga mais seguro (cardMod < 1).
   const disciplineAvgA = teamSkillAvg(playersA, 'discipline');
   const disciplineAvgB = teamSkillAvg(playersB, 'discipline');
   const disciplineFactor = avg => Math.max(0.4, Math.min(1.1, 1.3 - avg / 100));
-  let yellowChanceA = 0.012 * disciplineFactor(disciplineAvgA);
-  let yellowChanceB = 0.012 * disciplineFactor(disciplineAvgB);
-  let redChanceA = 0.0025 * disciplineFactor(disciplineAvgA);
-  let redChanceB = 0.0025 * disciplineFactor(disciplineAvgB);
+  let yellowChanceA = 0.012 * disciplineFactor(disciplineAvgA) * tacticObjA.cardMod;
+  let yellowChanceB = 0.012 * disciplineFactor(disciplineAvgB) * tacticObjB.cardMod;
+  let redChanceA = 0.0025 * disciplineFactor(disciplineAvgA) * tacticObjA.cardMod;
+  let redChanceB = 0.0025 * disciplineFactor(disciplineAvgB) * tacticObjB.cardMod;
 
   // Pilares do plano de jogo: modificadores fixos pra partida inteira (não
   // dependem de zona). Disciplina de zona reduz cartões; posse e controle
@@ -432,9 +448,11 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
     // Quiebre de línea, más probable con líneas rápidas (y menos con líneas
     // lentas) — o estilo/fisicalidade/sistema da zona ativa também pesa,
-    // assim como a defesa dominante do rival (pared conectada dificulta).
-    const breakChanceA = breakChance(paceA) * styleA.breakMod * sysA.breakMod * fisicalidadeFactorA * defesaGuardB;
-    const breakChanceB = breakChance(paceB) * styleB.breakMod * sysB.breakMod * fisicalidadeFactorB * defesaGuardA;
+    // assim como a defesa dominante do rival (pared conectada dificulta) e a
+    // tática de cada time (breakMod pro próprio ataque, concedeBreakMod do
+    // rival pra quanto a própria defesa segura).
+    const breakChanceA = breakChance(paceA) * styleA.breakMod * sysA.breakMod * fisicalidadeFactorA * defesaGuardB * tacticObjA.breakMod * tacticObjB.concedeBreakMod;
+    const breakChanceB = breakChance(paceB) * styleB.breakMod * sysB.breakMod * fisicalidadeFactorB * defesaGuardA * tacticObjB.breakMod * tacticObjA.concedeBreakMod;
     const codeSuffix = (planCode, zoneKey) => {
       const code = planCode && planCode.zones[zoneKey] && planCode.zones[zoneKey].code;
       return code ? ` (código ${code.split('/')[0].trim()})` : '';
@@ -462,9 +480,10 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
     // Error de manos: concentrado en el 9 y el 10, que son quienes más tocan la
     // pelota. El cansancio (fatigueA/B < 1 en el segundo tiempo) suma más
-    // errores de mano, reflejando peores decisiones con el cuerpo pesado.
-    const handlingErrorA_eff = handlingErrorBaseA * styleA.errorMod * sysA.errorMod + (1 - fatigueA) * 0.20;
-    const handlingErrorB_eff = handlingErrorBaseB * styleB.errorMod * sysB.errorMod + (1 - fatigueB) * 0.20;
+    // errores de mano, reflejando peores decisiones con el cuerpo pesado. A
+    // tática agresiva também erra mais (mais risco), a defensiva erra menos.
+    const handlingErrorA_eff = handlingErrorBaseA * styleA.errorMod * sysA.errorMod * tacticObjA.errorMod + (1 - fatigueA) * 0.20;
+    const handlingErrorB_eff = handlingErrorBaseB * styleB.errorMod * sysB.errorMod * tacticObjB.errorMod + (1 - fatigueB) * 0.20;
     if (!eventHandled && push > 0 && Math.random() < handlingErrorA_eff) {
       const culprit = pickHandlingCulprit(scrumHalfA, flyHalfA);
       addLog(minute, `Knock-on de ${teamA.name}: a ${culprit.name} se le escapa la pelota en el pase.`);
