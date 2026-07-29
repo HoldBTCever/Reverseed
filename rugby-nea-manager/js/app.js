@@ -3,6 +3,7 @@ import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES
 import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
+import {PARAGUAYO_FIXTURE} from './seedParaguayo.js';
 import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, YOUTH_CATEGORY_TOTAL_SIZE, createInitialYouthAcademy, ensureCuratedYouthPlayers, advanceYouthAcademy, effectiveOverallAt} from './realSquads.js';
 
 // ---- Seleção Paraguay (Los Yacarés) ---------------------------------------
@@ -26,7 +27,7 @@ const SAVE_KEY = 'rugbyNeaSave_v15';
 
 // Clubes menores do Paraguaio (procedurais, sem elenco curado) de onde o
 // Curda pode captar promessas reveladas (ver tickScouting).
-const SMALL_PARAGUAY_TEAM_IDS = ['PAR-STC', 'PAR-LUQ', 'PAR-ASU', 'PAR-VHA', 'PAR-CRI', 'PAR-FDM'];
+const SMALL_PARAGUAY_TEAM_IDS = ['PAR-STC', 'PAR-LUQ', 'PAR-ASU', 'PAR-JAR', 'PAR-CRI', 'PAR-FDM'];
 
 // Plano de jogo padrão do Curda, extraído dos documentos táticos reais do
 // clube: "Tablero de Mando Territorial" (zonas/códigos), "Plan de Juego
@@ -835,7 +836,15 @@ function saveState() {
 
 function buildLeagueCompetition(league, teamId) {
   const ids = league.teams.map(t => t.id);
-  const fixture = generateFixture(ids);
+  // Torneio nacional paraguaio: turno único de 7 rodadas com o calendário
+  // REAL (ver seedParaguayo.js), não o gerado pelo método do círculo — os
+  // confrontos exatos vêm de tabela oficial, não seguem a ordem genérica.
+  const fixture = league.id === 'paraguayo'
+    ? PARAGUAYO_FIXTURE.map((matches, idx) => ({
+        round: idx + 1,
+        matches: matches.map(m => ({...m, played: false, scoreHome: null, scoreAway: null})),
+      }))
+    : generateFixture(ids);
   const standings = initialStandings(ids);
   let currentRoundIndex = 0;
 
@@ -882,6 +891,7 @@ function buildGroupCompetition(league, teamId) {
 // número/letra variam por competição; "Grupo"/"Zona" são grafados igual em
 // espanhol e português, então não precisa de chave de i18n pra isso.
 function groupDisplayName(c, g) {
+  if (c.league === 'paraguayo') return g; // "Oro"/"Descenso" já são nomes prontos
   if (c.groupTerm === 'Zona') {
     const idx = Object.keys(c.groupStandings).indexOf(g);
     return `Zona ${idx + 1}`;
@@ -1616,6 +1626,44 @@ function startKnockoutFromLeague(c) {
   c.knockoutRounds = [{name: knockoutStageName(matches.length, lang), matches}];
 }
 
+// Torneio nacional paraguaio: depois da 7ª rodada (turno único), os 4
+// melhores formam a chave OURO e os 4 piores a chave DESCENSO — cada uma
+// disputa mais 3 rodadas de turno único ENTRE SI (reaproveita generateFixture
+// pra 4 times, que produz exatamente o padrão real 1x4+2x3 / 1x3+2x4 /
+// 1x2+3x4 visto na tabela oficial). Reaproveita o estágio 'groups' existente
+// (grupos nomeados com fixture/tabela próprios) em vez de criar um estágio
+// novo do zero.
+function startSuperGroupsFromLeague(c) {
+  const ranked = sortedStandings(c.standings).map(r => r.teamId);
+  const oro = ranked.slice(0, 4);
+  const descenso = ranked.slice(4, 8);
+  const groupOf = {};
+  oro.forEach(id => { groupOf[id] = 'Oro'; });
+  descenso.forEach(id => { groupOf[id] = 'Descenso'; });
+  c.stage = 'groups';
+  c.groupOf = groupOf;
+  c.groupTerm = '';
+  // generateFixture devolve turno + returno (ida e volta, 2*(n-1) rodadas); a
+  // tabela real só tem mais 3 rodadas de turno único entre os 4 de cada
+  // chave, então usamos só a primeira metade (as primeiras n-1 rodadas).
+  c.groupFixtures = {Oro: generateFixture(oro).slice(0, oro.length - 1), Descenso: generateFixture(descenso).slice(0, descenso.length - 1)};
+  c.groupStandings = {Oro: initialStandings(oro), Descenso: initialStandings(descenso)};
+  c.currentRoundIndex = 0;
+}
+
+// Fecha o torneio nacional paraguaio: só a chave OURO (1º-4º) segue pro
+// mata-mata (semifinal 1ºx4º/2ºx3º + final), decidindo o campeão — a chave
+// DESCENSO (5º-8º) não tem playoff próprio nesse jogo (não existe sistema de
+// acesso/descenso entre temporadas aqui), então a tabela dela ao fim das 3
+// rodadas já é o resultado final pra esses 4 times.
+function startKnockoutFromSuperGroups(c) {
+  const oroRanked = sortedStandings(c.groupStandings['Oro']).map(r => r.teamId);
+  const matches = firstKnockoutRound(oroRanked);
+  c.stage = 'knockout';
+  c.currentRoundIndex = 0;
+  c.knockoutRounds = [{name: knockoutStageName(matches.length, lang), matches}];
+}
+
 // Generaliza pra qualquer número de grupos (2 no Paraguaio, 4 no Torneo del
 // Interior): pega os 2 melhores de CADA grupo e cruza o 1º de um grupo com o
 // 2º do PRÓXIMO grupo (nunca o 2º do mesmo grupo), evitando reencontro de
@@ -1663,10 +1711,18 @@ function autoResolveIfEliminated(c) {
 function afterRoundAdvance(c) {
   if (c.stage === 'league') {
     if (c.currentRoundIndex < c.fixture.length) return;
-    startKnockoutFromLeague(c);
+    if (c.league === 'paraguayo') startSuperGroupsFromLeague(c);
+    else startKnockoutFromLeague(c);
   } else if (c.stage === 'groups') {
     const maxLen = Math.max(...Object.values(c.groupFixtures).map(f => f.length));
     if (c.currentRoundIndex < maxLen) return;
+    if (c.league === 'paraguayo') {
+      // Só quem está na chave Ouro segue pro mata-mata (ver
+      // startKnockoutFromSuperGroups) — quem caiu na Descenso já terminou a
+      // temporada, sem mais rodadas.
+      if (c.groupOf[c.teamId] === 'Oro') startKnockoutFromSuperGroups(c);
+      return;
+    }
     startKnockoutFromGroups(c);
   } else if (c.stage === 'knockout') {
     const justPlayed = c.knockoutRounds[c.currentRoundIndex - 1];
@@ -2156,11 +2212,11 @@ function renderStandings() {
   `;
 }
 
-function renderRoundRobinInto(list, fixture, c) {
+function renderRoundRobinInto(list, fixture, c, isActive = true) {
   fixture.forEach(round => {
     const block = document.createElement('div');
     block.className = 'roundBlock card';
-    const isCurrent = c.stage !== 'knockout' && round.round === (c.currentRoundIndex + 1);
+    const isCurrent = isActive && c.stage !== 'knockout' && round.round === (c.currentRoundIndex + 1);
     block.innerHTML = `<div class="roundTitle">${t('roundLabel', {n: round.round})}${isCurrent ? t('currentSuffix') : ''}</div>`;
     round.matches.forEach(m => {
       const home = teamById[m.home];
@@ -2189,13 +2245,17 @@ function renderFixture() {
   keys.forEach(key => {
     const c = state.competitions[key];
     const list = document.getElementById(`fixtureList-${key}`);
+    // paraguayo passa por 'league' E DEPOIS 'groups' (Oro/Descenso) na mesma
+    // competição, então c.fixture e c.groupFixtures podem coexistir — mostra
+    // os dois nesse caso, em vez de só o primeiro que existir.
     if (c.fixture) {
-      renderRoundRobinInto(list, c.fixture, c);
-    } else if (c.groupFixtures) {
+      renderRoundRobinInto(list, c.fixture, c, c.stage === 'league');
+    }
+    if (c.groupFixtures) {
       Object.keys(c.groupFixtures).forEach(g => {
         const title = document.createElement('h3'); title.textContent = groupDisplayName(c, g);
         list.appendChild(title);
-        renderRoundRobinInto(list, c.groupFixtures[g], c);
+        renderRoundRobinInto(list, c.groupFixtures[g], c, c.stage === 'groups');
       });
     }
     if (c.stage === 'knockout' && c.knockoutRounds.length) {
