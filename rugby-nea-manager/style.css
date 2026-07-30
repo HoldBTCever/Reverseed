@@ -363,6 +363,23 @@ canvas#pitch {
   opacity: 0.85;
   transition: none;
 }
+
+/* Tooltip customizado (ver showCustomTooltip em app.js) — troca o title
+   nativo do navegador nos botões do editor de escalação */
+.customTooltip {
+  position: fixed;
+  z-index: 3000;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
 .lineupPicker {
   margin-top: 14px; padding: 12px; background: var(--panel-2); border: 1px solid var(--border);
   border-radius: 8px;

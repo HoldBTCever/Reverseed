@@ -1086,6 +1086,49 @@ document.getElementById('langToggleBtn').addEventListener('click', () => setLang
 document.documentElement.lang = lang === 'es' ? 'es-PY' : 'pt-BR';
 applyStaticTranslations();
 
+// Tooltip customizado pros botões do editor de escalação (camisas do XV e
+// cartões de reserva, ver data-tip nos templates) — substitui o atributo
+// title nativo do navegador, que em alguns aparelhos aparecia malposicionado
+// e com contraste ruim contra o tema escuro. Fica sempre posicionado como
+// position:fixed anexado direto ao body, pra nunca ser cortado pelo
+// overflow-x:auto do carrossel de reservas (".benchRow"). Delegado no
+// document (registrado uma única vez aqui), então funciona em qualquer
+// tela re-renderizada sem precisar reanexar listener por elemento. Só
+// aparece com mouse de verdade — em toque, o próprio clique já abre o
+// seletor, então um tooltip por toque só atrapalharia.
+let activeTooltipEl = null;
+function hideCustomTooltip() {
+  if (activeTooltipEl) { activeTooltipEl.remove(); activeTooltipEl = null; }
+}
+function showCustomTooltip(target) {
+  const text = target.dataset.tip;
+  if (!text) return;
+  hideCustomTooltip();
+  const tip = document.createElement('div');
+  tip.className = 'customTooltip';
+  tip.textContent = text;
+  document.body.appendChild(tip);
+  const rect = target.getBoundingClientRect();
+  const tw = tip.offsetWidth;
+  let left = rect.left + rect.width / 2 - tw / 2;
+  left = Math.max(6, Math.min(left, window.innerWidth - tw - 6));
+  let top = rect.top - tip.offsetHeight - 8;
+  if (top < 6) top = rect.bottom + 8;
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+  activeTooltipEl = tip;
+}
+document.addEventListener('pointerover', ev => {
+  if (ev.pointerType === 'touch') return;
+  const el = ev.target.closest('[data-tip]');
+  if (el) showCustomTooltip(el);
+});
+document.addEventListener('pointerout', ev => {
+  if (ev.target.closest('[data-tip]')) hideCustomTooltip();
+});
+document.addEventListener('pointerdown', hideCustomTooltip);
+document.addEventListener('scroll', hideCustomTooltip, true);
+
 function comp(key) {
   return state.competitions[key || state.activeCompetition];
 }
@@ -3145,7 +3188,7 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor) {
     const openClass = openLineupSlot === idx ? ' slotOpen' : '';
     const titleAttr = `#${idx + 1} ${POS_LABEL[posId]}${player ? ' — ' + player.name : ''}`;
     return `
-      <button type="button" class="shirtSlot lineupShirtBtn${openClass}" data-slot="${idx}" data-filled="${player ? '1' : '0'}" style="top:${pos.top}; left:${pos.left};" title="${escapeHtmlAttr(titleAttr)}">
+      <button type="button" class="shirtSlot lineupShirtBtn${openClass}" data-slot="${idx}" data-filled="${player ? '1' : '0'}" style="top:${pos.top}; left:${pos.left};" data-tip="${escapeHtmlAttr(titleAttr)}">
         <span class="shirt" style="background:${teamColor}">${idx + 1}</span>
         <span class="shirtName">${escapeHtmlAttr(label)}</span>
         <span class="ratingBar shirtCond"><span style="width:${cond}%"></span></span>
@@ -3233,7 +3276,7 @@ function renderBenchEditorHtml(benchPlayers, eligible, startingIds, benchIds, te
     const cond = p ? Math.round(p.condition) : 100;
     const titleAttr = p ? `${p.name} — ${p.position}` : t('escolherReserva');
     return `
-      <button type="button" class="benchCard benchEditBtn${openClass}" data-benchslot="${idx}" data-filled="${p ? '1' : '0'}" title="${escapeHtmlAttr(titleAttr)}">
+      <button type="button" class="benchCard benchEditBtn${openClass}" data-benchslot="${idx}" data-filled="${p ? '1' : '0'}" data-tip="${escapeHtmlAttr(titleAttr)}">
         <div class="benchShirt" style="background:${teamColor}">${p ? p.posId : '+'}</div>
         <div class="benchName">${escapeHtmlAttr(label)}</div>
         ${p ? `<span class="ratingBar shirtCond"><span style="width:${cond}%"></span></span>` : ''}
@@ -3313,7 +3356,7 @@ function renderSquadFormationEditorHtml(teamId, myOptions, teamColor, autoXV) {
     const openClass = squadFormSlot === idx ? ' slotOpen' : '';
     const titleAttr = `#${idx + 1} ${POS_LABEL[posId]}${player ? ' — ' + player.name : ''}`;
     return `
-      <button type="button" class="shirtSlot lineupShirtBtn${openClass}" data-slot="${idx}" style="top:${pos.top}; left:${pos.left};" title="${escapeHtmlAttr(titleAttr)}">
+      <button type="button" class="shirtSlot lineupShirtBtn${openClass}" data-slot="${idx}" style="top:${pos.top}; left:${pos.left};" data-tip="${escapeHtmlAttr(titleAttr)}">
         <span class="shirt" style="background:${teamColor}">${idx + 1}</span>
         <span class="shirtName">${escapeHtmlAttr(label)}</span>
         <span class="ratingBar shirtCond"><span style="width:${cond}%"></span></span>
