@@ -709,7 +709,7 @@ const ATTENDANCE_LABEL_ES = {
   grupo: 'Entreno en grupo', academia: 'Gimnasio', video: 'Análisis de video/charlas',
 };
 const ATTENDANCE_DESC = {
-  churrasco: 'Convívio do grupo fora do campo — quem aparece entrosa com o resto do plantel presente e evolui um pouco a comunicação. Escala 8-20, sem desgaste físico.',
+  churrasco: 'Toda quinta-feira, depois do treino — janta do time (de vez em quando, numa quarta-feira, os forwards marcam um churrasco só deles). Quem aparece entrosa com o resto do plantel presente e evolui um pouco a comunicação. Escala 8-20, sem desgaste físico.',
   geral: 'Assiduidade ao treino de clube de segunda/terça/quinta (foco da semana). Escala 8-20: abaixo de 15 o jogador chega a faltar treinos gerais.',
   individual: 'Assiduidade ao treino intensivo individual (DIP) no atributo escolhido no Elenco. Escala 8-20: 20 = 5x/semana, 15 ou menos = nenhuma sessão.',
   grupo: 'Assiduidade ao treino em grupo (ex.: grupo de line-out). Escala 8-20, mesmo funcionamento do treino individual.',
@@ -717,7 +717,7 @@ const ATTENDANCE_DESC = {
   video: 'Assiduidade à análise de vídeo e palestras táticas — evolui visão de jogo e posicionamento. Escala 8-20.',
 };
 const ATTENDANCE_DESC_ES = {
-  churrasco: 'Convivencia del grupo fuera de la cancha — quien aparece se entrosa con el resto del plantel presente y evoluciona un poco la comunicación. Escala 8-20, sin desgaste físico.',
+  churrasco: 'Todos los jueves, después del entreno — cena del equipo (de vez en cuando, un miércoles, los forwards organizan un asado propio). Quien aparece se entrosa con el resto del plantel presente y evoluciona un poco la comunicación. Escala 8-20, sin desgaste físico.',
   geral: 'Asiduidad al entreno de club de lunes/martes/jueves (foco de la semana). Escala 8-20: por debajo de 15 el jugador llega a faltar entrenos generales.',
   individual: 'Asiduidad al entreno intensivo individual (DIP) en el atributo elegido en el Plantel. Escala 8-20: 20 = 5x/semana, 15 o menos = ninguna sesión.',
   grupo: 'Asiduidad al entreno en grupo (ej.: grupo de line-out). Escala 8-20, mismo funcionamiento del entreno individual.',
@@ -1585,22 +1585,26 @@ function tickCategoryTraining(roster, quality, category, pool) {
   });
 }
 
-// Churrasco: convívio do grupo, não é treino — quem aparece entrosa com todo
-// mundo que também apareceu (bumpChemistry, mesmo mecanismo do treino em
-// grupo) e evolui um pouco a comunicação, essencial pro chamado da jogada
-// entre o 9 e o 10 (ver handlingRating em engine.js). Sem desgaste físico
-// nenhum (é um churrasco, não um treino).
-function tickChurrasco(roster, quality) {
-  const attendees = roster.filter(p => {
+// Churrasco: convívio do grupo, toda quinta-feira depois do treino, não é
+// treino — quem aparece entrosa com todo mundo que também apareceu
+// (bumpChemistry, mesmo mecanismo do treino em grupo) e evolui um pouco a
+// comunicação, essencial pro chamado da jogada entre o 9 e o 10 (ver
+// handlingRating em engine.js). Sem desgaste físico nenhum (é um churrasco,
+// não um treino).
+function tickChurrascoAttendees(roster) {
+  return roster.filter(p => {
     const override = state.playerOverrides[p.id];
     const injuryWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
     if (injuryWeeks) return false;
     const att = (p.meta.trainingAttendance && p.meta.trainingAttendance.churrasco) || 0;
     return Math.random() * 20 < att;
   });
+}
+
+function applyChurrascoEffect(attendees, quality, chemistryAmount) {
   for (let i = 0; i < attendees.length; i++) {
     for (let j = i + 1; j < attendees.length; j++) {
-      bumpChemistry(attendees[i].id, attendees[j].id, 1.2);
+      bumpChemistry(attendees[i].id, attendees[j].id, chemistryAmount);
     }
     if (Math.random() < 0.25 * quality) {
       growSkill(attendees[i].id, attendees[i].skills, 'comunicacao', Math.max(1, Math.round(quality)));
@@ -1608,9 +1612,25 @@ function tickChurrasco(roster, quality) {
   }
 }
 
-// Reúne as 3 atividades de assiduidade que ainda não tinham lugar no motor
-// (academia, análise de vídeo/palestras e churrasco) — chamada junto de
-// tickTraining/tickGroupTraining a cada rodada finalizada.
+function tickChurrasco(roster, quality) {
+  applyChurrascoEffect(tickChurrascoAttendees(roster), quality, 1.2);
+}
+
+// Churrasco dos forwards: evento à parte do churrasco semanal — só o pack,
+// numa quarta-feira, bem mais raro (a cada 2-3 meses, não toda semana).
+// Mesmo efeito de entrosamento/comunicação, mas reforça especificamente a
+// coesão do pack (scrum/lineout), já que é só entre forwards.
+const FORWARDS_CHURRASCO_WEEKLY_CHANCE = 0.09; // ~1x a cada 11 semanas (~2-3 meses)
+function tickForwardsChurrasco(roster, quality) {
+  if (Math.random() >= FORWARDS_CHURRASCO_WEEKLY_CHANCE) return;
+  const forwards = roster.filter(p => p.group === 'forward');
+  applyChurrascoEffect(tickChurrascoAttendees(forwards), quality, 2.5);
+}
+
+// Reúne as 4 atividades de assiduidade que ainda não tinham lugar no motor
+// (academia, análise de vídeo/palestras, churrasco semanal e churrasco dos
+// forwards) — chamada junto de tickTraining/tickGroupTraining a cada
+// rodada finalizada.
 function tickAttendanceExtras() {
   const roster = getRealRoster(state.myTeamId);
   if (!roster) return;
@@ -1618,6 +1638,7 @@ function tickAttendanceExtras() {
   tickCategoryTraining(roster, quality, 'academia', ACADEMIA_SKILL_POOL);
   tickCategoryTraining(roster, quality, 'video', VIDEO_SKILL_POOL);
   tickChurrasco(roster, quality);
+  tickForwardsChurrasco(roster, quality);
 }
 
 // ---- Captação de promessas (clubes menores do Paraguaio) ------------------
