@@ -245,7 +245,7 @@ const KNOWN_STRENGTH_TARGET = {
   'Ignacio Cuevas': 80, // final: 80
   'Mariano Garcete': 84, // final: 78
   'Álvaro Allo': 85, // final: 71
-  'Camilo Orrego': 42, // final: abaixo do menor convocado da seleção
+  'Camilo Orrego': 52, // final: 53 (Parodi - 4)
 };
 
 const CURDA_ROSTER_RAW = [
