@@ -135,10 +135,12 @@ export class MatchRenderer {
     const y1 = height - marginY;
 
     // grama de fundo, com listras de corte alternadas em toda a extensão (in-goal incluído)
+    // — tom mais vivo e mais contrastado (referência: campo real de grama
+    // cortada, listras bem marcadas, não duas tonalidades quase iguais).
     const stripes = 16;
     const totalW = width;
     for (let i = 0; i < stripes; i++) {
-      ctx.fillStyle = i % 2 === 0 ? '#1c6b2e' : '#1a6329';
+      ctx.fillStyle = i % 2 === 0 ? '#3f9e3f' : '#2e8b3a';
       ctx.fillRect((totalW / stripes) * i, 0, totalW / stripes + 1, height);
     }
 
@@ -175,13 +177,17 @@ export class MatchRenderer {
 
     const lineAt = pct => fieldX0 + fieldW * pct;
 
-    // campo de jogo tem 100m (try-line a try-line); 22m = 22%, 10m da metade = 40%/60%.
+    // campo de jogo tem 100m (try-line a try-line); 5m = 5%, 22m = 22%, 10m da
+    // metade = 40%/60%. Convenção real: 22m e meio de campo são linhas
+    // SÓLIDAS; 5m e 10m são tracejadas.
     const marks = [
-      {pct: 0.22, dash: true, w: 1.5},
+      {pct: 0.05, dash: true, w: 1, faint: true}, // linha dos 5m, lado A
+      {pct: 0.22, dash: false, w: 2},
       {pct: 0.40, dash: true, w: 1, faint: true}, // linha dos 10m (offside de saída), lado A
       {pct: 0.5, dash: false, w: 2.5},
       {pct: 0.60, dash: true, w: 1, faint: true}, // linha dos 10m, lado B
-      {pct: 0.78, dash: true, w: 1.5},
+      {pct: 0.78, dash: false, w: 2},
+      {pct: 0.95, dash: true, w: 1, faint: true}, // linha dos 5m, lado B
     ];
     marks.forEach(m => {
       ctx.beginPath();
@@ -242,7 +248,10 @@ export class MatchRenderer {
       ctx.stroke();
     });
 
-    // traves (H) centralizadas em cada linha de try, dentro do in-goal
+    // traves (H) centralizadas em cada linha de try, dentro do in-goal —
+    // vista de cima: a barra transversal aparece como a linha vertical
+    // (largura das traves), e cada ponta é a base de um poste, com a
+    // proteção acolchoada vermelha característica dos postes reais.
     const goalY = (y0 + y1) / 2;
     const postGap = Math.min(fieldH * 0.22, 30);
     [{x: fieldX0, dir: -1}, {x: fieldX1, dir: 1}].forEach(({x, dir}) => {
@@ -257,6 +266,12 @@ export class MatchRenderer {
       ctx.moveTo(postX - 5, goalY - postGap * 0.35);
       ctx.lineTo(postX + 5, goalY - postGap * 0.35);
       ctx.stroke();
+
+      // almofada vermelha na base de cada poste
+      const padH = postGap * 0.3;
+      ctx.fillStyle = '#e53935';
+      ctx.fillRect(postX - 2.5, goalY - postGap - padH / 2, 5, padH);
+      ctx.fillRect(postX - 2.5, goalY + postGap - padH / 2, 5, padH);
     });
 
     this.fieldGeom = {marginX: fieldX0, marginY: y0, fieldW, fieldH, lineAt, centerY: goalY};
@@ -315,7 +330,57 @@ export class MatchRenderer {
     };
   }
 
-  draw(pos, scoreA, scoreB, minute) {
+  // Formação de scrum: os dois packs (numeração 1-8) se compactam colados na
+  // bola, cada time do seu próprio lado (A sempre do lado do seu próprio
+  // ingoal, B do seu) — 1ª/2ª linha (kind 'tight') bem coladas, 3ª linha
+  // (kind 'loose') um pouco atrás. Os backs recuam numa linha mais curta,
+  // já que ninguém corre solto enquanto o scrum não sai.
+  scrumLayout(dot, x) {
+    const isForward = dot.kind === 'tight' || dot.kind === 'loose';
+    const teamSign = dot.team === 'A' ? -1 : 1;
+    if (isForward) {
+      const depth = dot.kind === 'tight' ? 3 : 6;
+      return {px: x + teamSign * depth, wideY: dot.y * 0.45};
+    }
+    if (dot.num === 9) {
+      return {px: x + teamSign * 9, wideY: dot.y * 0.6};
+    }
+    return {px: x + teamSign * dot.attackDepth * 0.55, wideY: dot.y};
+  }
+
+  // Formação de lineout: fila de forwards perpendicular à linha de touch (o
+  // hooker lança de dentro da touch, os demais 7 entram em fila rumo ao
+  // centro do campo) — as duas filas, uma de cada time, ficam paralelas e
+  // bem próximas. Os backs recuam, fora da disputa aérea.
+  lineoutLayout(dot, x) {
+    const isForward = dot.kind === 'tight' || dot.kind === 'loose';
+    if (isForward) {
+      if (dot.num === 2) {
+        return {px: x, wideY: -0.95};
+      }
+      const order = [4, 5, 6, 7, 8, 1, 3];
+      const slot = order.indexOf(dot.num);
+      const teamOffset = dot.team === 'A' ? -2.5 : 2.5;
+      return {px: x + teamOffset, wideY: -0.8 + (slot / order.length) * 0.55};
+    }
+    const sideSign = dot.team === 'A' ? -1 : 1;
+    return {px: x + sideSign * dot.defenseDepth * 0.6, wideY: dot.y * 0.7 + 0.15};
+  }
+
+  // Pontapé inicial: os 30 jogadores alinhados na linha do meio-campo — o
+  // time que bate (B, por convenção) numa fileira compacta logo atrás do
+  // centro, o time que recebe (A) espalhado bem mais fundo no seu próprio
+  // campo, pronto pra correr com a bola.
+  kickoffLayout(dot, x) {
+    const isForward = dot.kind === 'tight' || dot.kind === 'loose';
+    if (dot.team === 'B') {
+      return {px: x + 3, wideY: dot.y};
+    }
+    const depth = isForward ? 16 : 28;
+    return {px: x - depth, wideY: dot.y};
+  }
+
+  draw(pos, scoreA, scoreB, minute, matchPhase = 'open') {
     this.drawPitch();
     this.drawZoneRibbon(pos);
     const {ctx, fieldGeom} = this;
@@ -359,20 +424,28 @@ export class MatchRenderer {
     };
     const styleForA = zoneStyleFor('A');
     const styleForB = zoneStyleFor('B');
+    const isSetPiece = matchPhase === 'scrum' || matchPhase === 'lineout' || matchPhase === 'kickoff';
 
     this.dots.forEach(dot => {
       const isAttacking = dot.team === this.attackingTeam;
       const isForward = dot.kind === 'tight' || dot.kind === 'loose';
       // Forwards balançam pouco (grudados no contato); backs correm mais,
       // então oscilam um pouco mais — mas bem menos que antes, pra não
-      // parecer um tremor aleatório.
-      const bobAmp = isForward ? 1.1 : 2;
+      // parecer um tremor aleatório. Numa formação parada (scrum/lineout/
+      // pontapé inicial) quase não balança, é gente esperando o jogo começar.
+      const bobAmp = isSetPiece ? 0.35 : (isForward ? 1.1 : 2);
       const bob = Math.sin(this.jitterSeed + dot.phase) * bobAmp;
       const bobY = Math.cos(this.jitterSeed * 1.2 + dot.phase) * bobAmp;
       let px;
       let wideY = dot.y;
 
-      if (isForward) {
+      if (matchPhase === 'scrum') {
+        ({px, wideY} = this.scrumLayout(dot, x));
+      } else if (matchPhase === 'lineout') {
+        ({px, wideY} = this.lineoutLayout(dot, x));
+      } else if (matchPhase === 'kickoff') {
+        ({px, wideY} = this.kickoffLayout(dot, x));
+      } else if (isForward) {
         // Forwards do time atacante se espalham nos "pods" do sistema de
         // jogo escolhido (ex.: Irlanda joga vários pods pela largura toda,
         // Argentina fica mais compacta) — cada pod ataca por um canal
@@ -401,6 +474,7 @@ export class MatchRenderer {
         // Backs da defesa: avançam em relação à bola, formando a linha defensiva.
         px = x + dirSign * dot.defenseDepth + bob;
       }
+      if (isSetPiece) px += bob;
 
       const py = centerY + wideY * yHalfSpan + bobY;
       const clampedX = clampX(px);
@@ -416,19 +490,24 @@ export class MatchRenderer {
       ctx.fillText(String(dot.num), clampedX, clampedY + 0.5);
     });
 
-    // bola (oval branca de rugby, com costura central e travessas — não a
-    // bola marrom de futebol americano)
+    // bola oval de rugby (ícone estilo prancheta tática: corpo bege/dourado
+    // com sombreamento leve, costura central e travessas escuras) — não a
+    // bola marrom de futebol americano
     ctx.save();
     ctx.translate(x, centerY);
     ctx.rotate(Math.sin(this.jitterSeed) * 0.15);
     ctx.beginPath();
-    ctx.fillStyle = '#f4f1e8';
+    const ballGrad = ctx.createLinearGradient(0, -5.5, 0, 5.5);
+    ballGrad.addColorStop(0, '#e8c77a');
+    ballGrad.addColorStop(0.5, '#d4a94a');
+    ballGrad.addColorStop(1, '#b9863a');
+    ctx.fillStyle = ballGrad;
     ctx.ellipse(0, 0, 9, 5.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
     ctx.lineWidth = 0.8;
     ctx.stroke();
-    ctx.strokeStyle = '#2b2b2b';
+    ctx.strokeStyle = '#2b1d0a';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(-6.5, 0);

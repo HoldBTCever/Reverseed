@@ -149,6 +149,7 @@ const I18N = {
     dipDaysCap: 'Esta semana rinde {days}/{max} veces (frecuencia de entreno y físico actuales).',
     trainingFrequencyLabel: 'Frecuencia de entreno',
     trainingFrequencyShort: 'FREQ',
+    trainingFrequencyDesc: 'Asiduidad del jugador a los entrenamientos del club — el rugby amateur no obliga a nadie a entrenar. Escala 8-20: 20 = va a todos los entrenamientos del mes y rinde 5 DIP/semana; por debajo de 15 falta algunos entrenamientos generales por mes y no rinde ningún DIP.',
     treinoIndisponivel: 'Este club no tiene plantel curado, así que no hay entrenamiento individual para gestionar.',
     trainingFocusTitle: 'Foco de entrenamiento de la semana',
     trainingFocusHelp: 'Elegí un tipo de entrenamiento por día — cada tipo trabaja varios atributos relacionados a la vez (ej.: "Duelo" mejora decisión, pase, recepción y aceleración juntos), siempre respetando la posición de cada jugador. Sin nada elegido, vuelve al sorteo automático.',
@@ -394,6 +395,7 @@ const I18N = {
     dipDaysCap: 'Essa semana rende {days}/{max} vezes (frequência de treino e físico atuais).',
     trainingFrequencyLabel: 'Frequência de treino',
     trainingFrequencyShort: 'FREQ',
+    trainingFrequencyDesc: 'Assiduidade do jogador aos treinos do clube — o rúgbi amador não obriga ninguém a treinar. Escala 8-20: 20 = vai a todos os treinos do mês e rende 5 DIP/semana; abaixo de 15 falta a alguns treinos gerais por mês e não rende nenhum DIP.',
     treinoIndisponivel: 'Esse clube não tem plantel curado, então não tem treino individual pra gerenciar.',
     trainingFocusTitle: 'Foco de treino da semana',
     trainingFocusHelp: 'Escolha um tipo de treino por dia — cada tipo trabalha vários atributos relacionados ao mesmo tempo (ex.: "Duelo" evolui decisão, passe, recepção e aceleração juntos), sempre respeitando a posição de cada jogador. Sem nada escolhido, volta pro sorteio automático.',
@@ -633,6 +635,65 @@ const SKILL_LABELS_ES = {
 
 function skillLabel(key) {
   return lang === 'es' ? (SKILL_LABELS_ES[key] || SKILL_LABELS[key]) : SKILL_LABELS[key];
+}
+
+// O que cada atributo realmente faz na simulação (ver engine.js) — pra quem
+// só tem overall/ruck/agility/recovery/sidestep/tackle não tem uma fórmula
+// própria isolada, o texto é honesto sobre isso: eles pesam no overall da
+// posição (ver SKILL_PROFILES em data.js), não têm um cálculo específico à
+// parte como o chute ou o line-out têm.
+const SKILL_DESC = {
+  pass: 'Qualidade do passe — do médio scrum e do apertura, define a chance de erro de mão (handling) que perde a posse.',
+  reception: 'Qualidade ao receber a bola — junto com o passe, define a chance de erro de mão; pesa mais pro fullback (recepção de chutes altos).',
+  lineoutThrow: 'Precisão do lançamento no line-out — decide, junto com a compostura, se a bola chega limpa no saltador.',
+  jump: 'Salto no line-out — junto da altura e do peso, decide quem vence a disputa da bola no ar.',
+  tackle: 'Qualidade do desarme defensivo — não tem fórmula própria isolada, mas é o que mais pesa no overall defensivo de quase toda posição.',
+  kicking: 'Precisão de chute — decide o resultado de chutes a gol e territoriais, ponderado com a compostura em momentos decisivos.',
+  speed: 'Velocidade de corrida — define o ritmo ofensivo do time e quem rompe a defesa nas jogadas de ruptura.',
+  strength: 'Força física — pesa no confronto do scrum e na sustentação dos levantadores no line-out.',
+  stamina: 'Resistência ao longo dos 80 minutos — quanto o jogador aguenta sem perder rendimento, e quão rápido recupera condição entre partidas.',
+  determination: 'Determinação — resistência mental ao cansaço; reduz o risco de lesão por fadiga.',
+  ruck: 'Técnica de ruck (disputa da bola no chão após o tackle) — pesa no overall técnico, mais forte pros alas e o oitavo.',
+  turnover: 'Chance de roubar a bola no chão (jackal) logo após o tackle rival — quanto maior, mais chance de virar a posse.',
+  scrum: 'Técnica de scrum — decide o resultado da disputa do scrum, junto com o peso do pack.',
+  dropGoal: 'Precisão no chute de drop — decide a chance de conversão quando o time tenta um drop goal.',
+  sidestep: 'Capacidade de driblar (mudança de direção) — pesa no overall ofensivo, mais forte pros centros e pontas.',
+  vision: 'Visão de jogo — entra na qualidade de decisão do médio scrum/apertura e na saída de bola do scrum.',
+  positioning: 'Posicionamento tático — ajuda na saída de bola do scrum e no overall geral, mais forte pros postos de decisão.',
+  discipline: 'Disciplina — reduz a chance de cartão amarelo/vermelho e melhora a coordenação do pack no scrum.',
+  leadership: 'Liderança — melhora os chamados táticos do pack no scrum e pesa mais pros postos de comando.',
+  composure: 'Sangue-frio em momentos decisivos — pesa no chute, no drop goal e no lançamento de line-out sob pressão.',
+  agility: 'Agilidade — pesa no overall físico, mais forte pros jogadores de ataque que precisam mudar de direção rápido.',
+  recovery: 'Recuperação física entre fases de jogo (rucks e tackles seguidos) — distinta da resistência, que é sobre os 80 minutos inteiros.',
+};
+
+const SKILL_DESC_ES = {
+  pass: 'Calidad del pase — del medio scrum y del apertura, define la chance de error de mano (handling) que pierde la posesión.',
+  reception: 'Calidad al recibir la pelota — junto con el pase, define la chance de error de mano; pesa más para el fullback (recepción de patadas altas).',
+  lineoutThrow: 'Precisión del lanzamiento en el line-out — decide, junto con la compostura, si la pelota llega limpia al saltador.',
+  jump: 'Salto en el line-out — junto con la altura y el peso, decide quién gana la disputa de la pelota en el aire.',
+  tackle: 'Calidad del desarme defensivo — no tiene fórmula propia aislada, pero es lo que más pesa en el overall defensivo de casi toda posición.',
+  kicking: 'Precisión de patada — decide el resultado de patadas a los palos y territoriales, ponderado con la compostura en momentos decisivos.',
+  speed: 'Velocidad de carrera — define el ritmo ofensivo del equipo y quién rompe la defensa en las jugadas de ruptura.',
+  strength: 'Fuerza física — pesa en el enfrentamiento del scrum y en el sostén de los levantadores en el line-out.',
+  stamina: 'Resistencia a lo largo de los 80 minutos — cuánto aguanta el jugador sin perder rendimiento, y qué tan rápido recupera condición entre partidos.',
+  determination: 'Determinación — resistencia mental al cansancio; reduce el riesgo de lesión por fatiga.',
+  ruck: 'Técnica de ruck (disputa de la pelota en el piso tras el tackle) — pesa en el overall técnico, más fuerte para los alas y el octavo.',
+  turnover: 'Chance de robar la pelota en el piso (jackal) justo después del tackle rival — cuanto mayor, más chance de dar vuelta la posesión.',
+  scrum: 'Técnica de scrum — decide el resultado de la disputa del scrum, junto con el peso del pack.',
+  dropGoal: 'Precisión en la patada de drop — decide la chance de conversión cuando el equipo intenta un drop goal.',
+  sidestep: 'Capacidad de quiebre (cambio de dirección) — pesa en el overall ofensivo, más fuerte para centros y wings.',
+  vision: 'Visión de juego — entra en la calidad de decisión del medio scrum/apertura y en la salida de pelota del scrum.',
+  positioning: 'Posicionamiento táctico — ayuda en la salida de pelota del scrum y en el overall general, más fuerte para los puestos de decisión.',
+  discipline: 'Disciplina — reduce la chance de tarjeta amarilla/roja y mejora la coordinación del pack en el scrum.',
+  leadership: 'Liderazgo — mejora los llamados tácticos del pack en el scrum y pesa más para los puestos de mando.',
+  composure: 'Sangre fría en momentos decisivos — pesa en la patada, el drop goal y el lanzamiento de line-out bajo presión.',
+  agility: 'Agilidad — pesa en el overall físico, más fuerte para los jugadores de ataque que necesitan cambiar de dirección rápido.',
+  recovery: 'Recuperación física entre fases de juego (rucks y tackles seguidos) — distinta de la resistencia, que es sobre los 80 minutos enteros.',
+};
+
+function skillDesc(key) {
+  return lang === 'es' ? (SKILL_DESC_ES[key] || SKILL_DESC[key]) : SKILL_DESC[key];
 }
 
 const TRAINING_TYPES_ES = {
@@ -2374,7 +2435,7 @@ function skillDetailHtml(p, colspan) {
       <h4>${category[0].toUpperCase()}${category.slice(1)}</h4>
       ${SKILL_CATEGORIES[category].map(k => `
         <div class="skillDetailRow">
-          <span class="skillDetailLabel" title="${skillLabel(k)}">${SKILL_SHORT[k]}</span>
+          <span class="skillDetailLabel" title="${escapeHtmlAttr(skillLabel(k))}: ${escapeHtmlAttr(skillDesc(k))}">${SKILL_SHORT[k]}</span>
           ${skillCell(p.skills[k])}
         </div>
       `).join('')}
@@ -2389,6 +2450,7 @@ function skillDetailHtml(p, colspan) {
             <h4>${t('biometria')}</h4>
             <div class="skillDetailRow"><span class="skillDetailLabel">${t('altura')}</span> ${p.heightCm ? `${p.heightCm} cm` : '—'}</div>
             <div class="skillDetailRow"><span class="skillDetailLabel">${t('peso')}</span> ${p.weightKg ? `${p.weightKg} kg` : '—'}</div>
+            ${p.meta.trainingFrequency != null ? `<div class="skillDetailRow"><span class="skillDetailLabel" title="${escapeHtmlAttr(t('trainingFrequencyLabel'))}: ${escapeHtmlAttr(t('trainingFrequencyDesc'))}">${t('trainingFrequencyShort')}</span> ${p.meta.trainingFrequency}</div>` : ''}
             ${p.meta.traits && p.meta.traits.length ? `<div class="skillDetailRow"><span class="skillDetailLabel">${t('traitsLabel')}</span> ${p.meta.traits.map(tr => `${TRAIT_ICON[tr] || '★'} ${traitLabel(tr)}`).join(', ')}</div>` : ''}
           </div>
         </div>
@@ -3487,6 +3549,7 @@ function renderNationalFriendlyLive(opponent, isArcRound = false) {
   const baseMsPerTick = 650;
   let lastTime = performance.now();
   let accum = 0;
+  let lastPhase = 'kickoff';
 
   function pushLog(minute, text) {
     const line = document.createElement('div');
@@ -3537,18 +3600,19 @@ function renderNationalFriendlyLive(opponent, isArcRound = false) {
         scoreHomeEl.textContent = tk.scoreA;
         scoreAwayEl.textContent = tk.scoreB;
         clockEl.textContent = tk.minute + "'";
+        lastPhase = tk.phase || 'open';
       }
       const curr = ticks[Math.min(tickIndex, ticks.length - 1)] || {pos: 50};
       const prev = ticks[Math.max(tickIndex - 1, 0)] || {pos: 50};
       const frac = Math.min(1, accum / baseMsPerTick);
       const interpPos = prev.pos + (curr.pos - prev.pos) * frac;
-      renderer.draw(interpPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent);
+      renderer.draw(interpPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent, lastPhase);
       if (tickIndex >= ticks.length) {
         finish();
         return;
       }
     } else {
-      renderer.draw(renderer.currentPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent);
+      renderer.draw(renderer.currentPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent, lastPhase);
     }
     matchAnim.raf = requestAnimationFrame(step);
   }
@@ -3654,6 +3718,7 @@ function renderCopaArgentinaLive() {
   const baseMsPerTick = 650;
   let lastTime = performance.now();
   let accum = 0;
+  let lastPhase = 'kickoff';
 
   function pushLog(minute, text) {
     const line = document.createElement('div');
@@ -3700,18 +3765,19 @@ function renderCopaArgentinaLive() {
         scoreHomeEl.textContent = tk.scoreA;
         scoreAwayEl.textContent = tk.scoreB;
         clockEl.textContent = tk.minute + "'";
+        lastPhase = tk.phase || 'open';
       }
       const curr = ticks[Math.min(tickIndex, ticks.length - 1)] || {pos: 50};
       const prev = ticks[Math.max(tickIndex - 1, 0)] || {pos: 50};
       const frac = Math.min(1, accum / baseMsPerTick);
       const interpPos = prev.pos + (curr.pos - prev.pos) * frac;
-      renderer.draw(interpPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent);
+      renderer.draw(interpPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent, lastPhase);
       if (tickIndex >= ticks.length) {
         finish();
         return;
       }
     } else {
-      renderer.draw(renderer.currentPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent);
+      renderer.draw(renderer.currentPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent, lastPhase);
     }
     matchAnim.raf = requestAnimationFrame(step);
   }
@@ -4217,6 +4283,7 @@ function renderLive() {
   const baseMsPerTick = 650;
   let lastTime = performance.now();
   let accum = 0;
+  let lastPhase = 'kickoff';
 
   function pushLog(minute, text) {
     const line = document.createElement('div');
@@ -4259,19 +4326,20 @@ function renderLive() {
         scoreHomeEl.textContent = ticks[tickIndex - 1].scoreA;
         scoreAwayEl.textContent = ticks[tickIndex - 1].scoreB;
         clockEl.textContent = t.minute + "'";
+        lastPhase = t.phase || 'open';
       }
       const curr = ticks[Math.min(tickIndex, ticks.length - 1)] || {pos: 50};
       const prev = ticks[Math.max(tickIndex - 1, 0)] || {pos: 50};
       const frac = Math.min(1, accum / baseMsPerTick);
       const interpPos = prev.pos + (curr.pos - prev.pos) * frac;
-      renderer.draw(interpPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent);
+      renderer.draw(interpPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent, lastPhase);
       updateTacticalBanner(interpPos);
       if (tickIndex >= ticks.length) {
         finish();
         return;
       }
     } else {
-      renderer.draw(renderer.currentPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent);
+      renderer.draw(renderer.currentPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent, lastPhase);
     }
     matchAnim.raf = requestAnimationFrame(step);
   }

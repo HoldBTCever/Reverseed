@@ -544,6 +544,12 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     let push = ((effAttackA - effDefenseB) - (effAttackB - effDefenseA)) * 0.14;
     push += rand(-9, 9);
 
+    // Fase da jogada neste tick, usada pela renderização pra desenhar a
+    // formação certa (chute inicial, scrum, lineout, jogo aberto etc.) —
+    // eventos mais tardios no tick (try/penal/drop) têm prioridade sobre
+    // scrum/lineout se os dois acontecerem no mesmo tick.
+    let phase = (tick === startTick + 1 && !resumeState) ? 'kickoff' : 'open';
+
     let eventHandled = false;
 
     // Quiebre de línea, más probable con líneas rápidas (y menos con líneas
@@ -560,9 +566,11 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     if (Math.random() < breakChanceA) {
       push += rand(15, 26);
       addLog(minute, `¡${fastestBackA.name} rompe la línea con velocidad y avanza para ${teamA.name}!${codeSuffix(planA, zoneA)}`);
+      phase = 'break';
     } else if (Math.random() < breakChanceB) {
       push -= rand(15, 26);
       addLog(minute, `¡${fastestBackB.name} rompe la línea con velocidad y avanza para ${teamB.name}!${codeSuffix(planB, zoneB)}`);
+      phase = 'break';
     }
 
     // Turnover/jackal: robo de la pelota en el tackle, muy dependiente del
@@ -572,10 +580,12 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       push += rand(6, 14);
       addLog(minute, `¡${turnoverForwardA.name} le roba la pelota al rival en el tackle para ${teamA.name}!${dominantSuffix(planA.pillars.defesa)}`);
       eventHandled = true;
+      phase = 'turnover';
     } else if (!eventHandled && Math.random() < turnoverChanceB) {
       push -= rand(6, 14);
       addLog(minute, `¡${turnoverForwardB.name} le roba la pelota al rival en el tackle para ${teamB.name}!${dominantSuffix(planB.pillars.defesa)}`);
       eventHandled = true;
+      phase = 'turnover';
     }
 
     // Error de manos: concentrado en el 9 y el 10, que son quienes más tocan la
@@ -592,11 +602,13 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       addLog(minute, `Knock-on de ${teamA.name}: a ${culprit.name} se le escapa la pelota en el pase.`);
       push = -rand(4, 10);
       eventHandled = true;
+      phase = 'knockon';
     } else if (!eventHandled && push < 0 && Math.random() < handlingErrorB_eff) {
       const culprit = pickHandlingCulprit(scrumHalfB, flyHalfB);
       addLog(minute, `Knock-on de ${teamB.name}: a ${culprit.name} se le escapa la pelota en el pase.`);
       push = rand(4, 10);
       eventHandled = true;
+      phase = 'knockon';
     }
 
     // Line-out disputado: o time que lança combina a técnica+compostura do
@@ -630,6 +642,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
         push += throwingA ? -rand(5, 12) : rand(5, 12);
       }
       eventHandled = true;
+      phase = 'lineout';
     }
 
     // Scrum disputado: técnica de scrum de cada forward, peso do pack PRÓPRIO
@@ -661,6 +674,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
         addLog(minute, `Scrum estable, salida limpia para ${feedTeam.name}.`);
       }
       eventHandled = true;
+      phase = 'scrum';
     }
 
     pos = Math.max(0, Math.min(100, pos + push));
@@ -673,12 +687,14 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       cards.push({minute, team: teamA.name, player: player.name, type: 'yellow'});
       addLog(minute, `Tarjeta amarilla para ${player.name} (${teamA.name}). 10 minutos afuera.`);
       eventHandled = true;
+      phase = 'card';
     } else if (!eventHandled && Math.random() < yellowChanceB) {
       const player = pick(playersB.filter(p => p.group === 'forward'));
       cardPenaltyB = 5;
       cards.push({minute, team: teamB.name, player: player.name, type: 'yellow'});
       addLog(minute, `Tarjeta amarilla para ${player.name} (${teamB.name}). 10 minutos afuera.`);
       eventHandled = true;
+      phase = 'card';
     }
 
     // Tarjeta roja (muy poco frecuente): expulsión por el resto del partido.
@@ -688,12 +704,14 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       cards.push({minute, team: teamA.name, player: player.name, type: 'red'});
       addLog(minute, `¡Tarjeta roja para ${player.name} (${teamA.name})! Jugará el resto del partido con un hombre menos.`);
       eventHandled = true;
+      phase = 'card';
     } else if (!eventHandled && !redCardB && Math.random() < redChanceB) {
       const player = pick(playersB.filter(p => p.group === 'forward'));
       redCardB = true;
       cards.push({minute, team: teamB.name, player: player.name, type: 'red'});
       addLog(minute, `¡Tarjeta roja para ${player.name} (${teamB.name})! Jugará el resto del partido con un hombre menos.`);
       eventHandled = true;
+      phase = 'card';
     }
 
     // Try — kickEffective já leva o vento/chuva embutido (weatherObj.kickMod);
@@ -712,6 +730,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       }
       pos = 50;
       eventHandled = true;
+      phase = 'try';
     } else if (!eventHandled && pos <= 6 && Math.random() < 0.35) {
       const scorer = pick(playersB.filter(p => p.group === 'back'));
       scoreB += 5;
@@ -725,6 +744,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       }
       pos = 50;
       eventHandled = true;
+      phase = 'try';
     }
 
     // Penal
@@ -737,6 +757,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       }
       pos = 50;
       eventHandled = true;
+      phase = 'penalty';
     } else if (!eventHandled && pos <= 28 && pos > 6 && Math.random() < 0.08) {
       if (Math.random() * 100 < kickEffective(kickerB, tick, weatherObj.kickMod) * 0.85) {
         scoreB += 3;
@@ -746,6 +767,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       }
       pos = 50;
       eventHandled = true;
+      phase = 'penalty';
     }
 
     // Drop goal ocasional: agora tem chance real de errar, dependendo da
@@ -760,6 +782,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       }
       pos = 50;
       eventHandled = true;
+      phase = 'dropgoal';
     } else if (!eventHandled && pos <= 40 && pos > 20 && Math.random() < 0.02) {
       const dropper = bestBy(playersB, 'dropGoal', 'AP');
       if (Math.random() * 100 < dropper.skills.dropGoal * 0.75 + dropper.skills.composure * 0.15) {
@@ -770,9 +793,10 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       }
       pos = 50;
       eventHandled = true;
+      phase = 'dropgoal';
     }
 
-    ticks.push({minute, pos, scoreA, scoreB, cardPenaltyA, cardPenaltyB, redCardA, redCardB});
+    ticks.push({minute, pos, scoreA, scoreB, cardPenaltyA, cardPenaltyB, redCardA, redCardB, phase});
   }
 
   addLog(80, `Final del partido: ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
