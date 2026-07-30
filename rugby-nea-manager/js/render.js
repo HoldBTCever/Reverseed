@@ -40,6 +40,22 @@ const ROLE_TEMPLATE = [
 const TIGHT_DEPTH = {attack: 8, defense: 8};
 const LOOSE_DEPTH = {attack: 13, defense: 11};
 
+// Formato de cunha de um pack real de scrum (profundidade a partir da bola
+// e afastamento lateral por número de camisa): 1ª linha (1/2/3) colada e
+// centralizada, 2ª linha (4/5) um passo atrás e mais aberta, 3ª linha
+// (6/7) mais atrás e mais aberta ainda, e o 8 na base entre os
+// segunda-línea e os alas.
+const SCRUM_PACK_OFFSET = {
+  1: {depth: 13, wide: -0.09},
+  2: {depth: 13, wide: 0},
+  3: {depth: 13, wide: 0.09},
+  4: {depth: 22, wide: -0.13},
+  5: {depth: 22, wide: 0.13},
+  6: {depth: 34, wide: -0.20},
+  7: {depth: 34, wide: 0.20},
+  8: {depth: 28, wide: 0},
+};
+
 // Lê a "formação" real do sistema de jogo escolhido (ex.: Irlanda =
 // '1-3-2-1+1', jogo de fases com forwards espalhados em vários pods pela
 // largura do campo; Argentina = '1-3-3-1', mais compacto; Sudáfrica =
@@ -332,20 +348,23 @@ export class MatchRenderer {
 
   // Formação de scrum: os dois packs (numeração 1-8) se compactam colados na
   // bola, cada time do seu próprio lado (A sempre do lado do seu próprio
-  // ingoal, B do seu) — 1ª/2ª linha (kind 'tight') bem coladas, 3ª linha
-  // (kind 'loose') um pouco atrás. Os backs recuam numa linha mais curta,
-  // já que ninguém corre solto enquanto o scrum não sai.
+  // ingoal, B do seu), em forma de cunha real (não uma linha só): 1ª linha
+  // (1/2/3) bem colada e centralizada, 2ª linha (4/5, os segunda-línea)
+  // um passo atrás e mais aberta, 3ª linha (6/7, os alas) mais atrás e mais
+  // aberta ainda, e o 8 na base, entre os segunda-línea e os alas. Os
+  // backs recuam numa linha mais curta, já que ninguém corre solto
+  // enquanto o scrum não sai.
   scrumLayout(dot, x) {
     const isForward = dot.kind === 'tight' || dot.kind === 'loose';
     const teamSign = dot.team === 'A' ? -1 : 1;
     if (isForward) {
-      const depth = dot.kind === 'tight' ? 3 : 6;
-      return {px: x + teamSign * depth, wideY: dot.y * 0.45};
+      const off = SCRUM_PACK_OFFSET[dot.num] || {depth: 4, wide: 0};
+      return {px: x + teamSign * off.depth, wideY: off.wide};
     }
     if (dot.num === 9) {
-      return {px: x + teamSign * 9, wideY: dot.y * 0.6};
+      return {px: x + teamSign * 18, wideY: dot.y * 0.6};
     }
-    return {px: x + teamSign * dot.attackDepth * 0.55, wideY: dot.y};
+    return {px: x + teamSign * dot.attackDepth * 0.8, wideY: dot.y};
   }
 
   // Formação de lineout: fila de forwards perpendicular à linha de touch (o
