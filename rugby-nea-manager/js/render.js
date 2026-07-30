@@ -377,20 +377,27 @@ export class MatchRenderer {
   // Formação de lineout: fila de forwards perpendicular à linha de touch (o
   // hooker lança de dentro da touch, os demais 7 entram em fila rumo ao
   // centro do campo) — as duas filas, uma de cada time, ficam paralelas e
-  // bem próximas. Os backs recuam, fora da disputa aérea.
+  // bem próximas, mas com afastamento suficiente pra não se sobrepor (as
+  // duas filas inteiras — inclusive os dois hookers — ficavam quase
+  // exatamente uma em cima da outra antes, com só 5px de diferença). O 9
+  // fica perto da frente da fila, pronto pra receber; os demais backs
+  // abrem numa linha padrão, funda e espalhada pela largura toda.
   lineoutLayout(dot, x) {
     const isForward = dot.kind === 'tight' || dot.kind === 'loose';
+    const teamOffset = dot.team === 'A' ? -12 : 12;
     if (isForward) {
       if (dot.num === 2) {
-        return {px: x, wideY: -0.95};
+        return {px: x + teamOffset, wideY: -0.95};
       }
       const order = [4, 5, 6, 7, 8, 1, 3];
       const slot = order.indexOf(dot.num);
-      const teamOffset = dot.team === 'A' ? -2.5 : 2.5;
-      return {px: x + teamOffset, wideY: -0.8 + (slot / order.length) * 0.55};
+      return {px: x + teamOffset, wideY: -0.82 + (slot / (order.length - 1)) * 0.55};
     }
     const sideSign = dot.team === 'A' ? -1 : 1;
-    return {px: x + sideSign * dot.defenseDepth * 0.6, wideY: dot.y * 0.7 + 0.15};
+    if (dot.num === 9) {
+      return {px: x + sideSign * 14, wideY: -0.12};
+    }
+    return {px: x + sideSign * dot.attackDepth * 0.9, wideY: dot.y};
   }
 
   // Pontapé inicial: os 30 jogadores alinhados na linha do meio-campo — o
