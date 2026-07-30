@@ -203,9 +203,6 @@ const I18N = {
     selecaoEscalacao: 'Formación titular',
     selecaoConvocados: 'Convocados',
     selecaoColClube: 'Club',
-    selecaoAcoesTitle: 'Amistosos y torneos',
-    gerarAmistoso: 'Amistoso aleatorio',
-    gerarTorneio: 'Torneo aleatorio (4 selecciones)',
     selecaoHistoricoTitle: 'Historial',
     selecaoSemHistorico: 'Todavía no se jugó ningún partido de la selección.',
     selecaoColPartida: 'Partido',
@@ -213,15 +210,9 @@ const I18N = {
     selecaoColTipo: 'Tipo',
     selecaoTorneioLinha: 'Torneo aleatorio',
     selecaoAmistosoLabel: 'Amistoso',
-    selecaoTorneioResumo: 'Campeón: {champion}',
-    selecaoVoltar: 'Volver a la Selección',
-    selecaoTorneioTitle: '🏆 Resultado del torneo',
-    selecaoSemifinal: 'Semifinal',
-    selecaoFinal: 'Final',
     arcTitle: 'Américas Rugby Championship',
-    arcIntro: 'Argentina XV, Uruguay XV, Chile XV y la Selección Paraguay se enfrentan todos contra todos. Mientras el torneo esté en curso, los jugadores convocados no están disponibles para sus clubes de origen.',
-    arcIniciar: 'Iniciar torneo',
-    arcJogarRodada: 'Jugar Fecha {n}',
+    arcIntro: 'Argentina XV, Uruguay XV, Chile XV y la Selección Paraguay se enfrentan todos contra todos, en forma automática — vos manejás el Curda, no la Selección. Los jugadores convocados no están disponibles para sus clubes de origen mientras el torneo esté en curso.',
+    arcProximaRodada: 'Próxima fecha: Fecha {n}',
     arcCampeao: 'Campeón del ARC: {champion}',
     convocadoSelecao: 'Convocado a la Selección',
     arcConvocadosNota: '⚠️ Algunos jugadores están convocados al Américas Rugby Championship y no están disponibles para el club mientras dure el torneo.',
@@ -450,9 +441,6 @@ const I18N = {
     selecaoEscalacao: 'Formação titular',
     selecaoConvocados: 'Convocados',
     selecaoColClube: 'Clube',
-    selecaoAcoesTitle: 'Amistosos e torneios',
-    gerarAmistoso: 'Amistoso aleatório',
-    gerarTorneio: 'Torneio aleatório (4 seleções)',
     selecaoHistoricoTitle: 'Histórico',
     selecaoSemHistorico: 'Ainda não rolou nenhuma partida da seleção.',
     selecaoColPartida: 'Partida',
@@ -460,15 +448,9 @@ const I18N = {
     selecaoColTipo: 'Tipo',
     selecaoTorneioLinha: 'Torneio aleatório',
     selecaoAmistosoLabel: 'Amistoso',
-    selecaoTorneioResumo: 'Campeão: {champion}',
-    selecaoVoltar: 'Voltar pra Seleção',
-    selecaoTorneioTitle: '🏆 Resultado do torneio',
-    selecaoSemifinal: 'Semifinal',
-    selecaoFinal: 'Final',
     arcTitle: 'Américas Rugby Championship',
-    arcIntro: 'Argentina XV, Uruguai XV, Chile XV e a Seleção Paraguai se enfrentam todos contra todos. Enquanto o torneio estiver rolando, os jogadores convocados ficam indisponíveis pros clubes de origem.',
-    arcIniciar: 'Iniciar torneio',
-    arcJogarRodada: 'Jogar Rodada {n}',
+    arcIntro: 'Argentina XV, Uruguai XV, Chile XV e a Seleção Paraguai se enfrentam todos contra todos, de forma automática — você comanda o Curda, não a Seleção. Os jogadores convocados ficam indisponíveis pros clubes de origem enquanto o torneio estiver rolando.',
+    arcProximaRodada: 'Próxima rodada: Rodada {n}',
     arcCampeao: 'Campeão do ARC: {champion}',
     convocadoSelecao: 'Convocado à Seleção',
     arcConvocadosNota: '⚠️ Alguns jogadores estão convocados pro Américas Rugby Championship e ficam indisponíveis pro clube enquanto o torneio durar.',
@@ -3561,7 +3543,10 @@ function renderTactics() {
   });
 }
 
-// ---- Tela de Seleção: elenco do Paraguay + amistosos/torneios aleatórios --
+// ---- Tela de Seleção: elenco do Paraguay + ARC/amistosos, tudo automático -
+// O usuário administra o Curda, não a Seleção: essa tela é só consulta (ver
+// renderSelection) — os compromissos da Seleção acontecem sozinhos a cada
+// rodada avançada pelo clube (ver tickSelecaoAuto, chamado em finalizeRound).
 // Começa o Américas Rugby Championship: turno único (3 rodadas) entre as 4
 // seleções do ARC_TEAMS. generateFixture devolve turno+returno (ida e volta);
 // o torneio real é só "todos contra todos" uma vez, então usa só a primeira
@@ -3578,9 +3563,9 @@ function startArc() {
   saveState();
 }
 
-// Confronto entre duas seleções que NÃO a do Paraguay (resolvido em segundo
-// plano, sem animação — só a seleção paraguaia joga ao vivo, ver
-// renderNationalFriendlyLive/finishArcRound).
+// Confronto entre duas seleções que NÃO a do Paraguay, resolvido inteiramente
+// em segundo plano (sem animação) — nenhuma partida da Seleção é jogada pelo
+// usuário, ver autoPlayArcRound/finishArcRound.
 function simulateArcMatch(homeId, awayId) {
   const home = teamById[homeId];
   const away = teamById[awayId];
@@ -3623,6 +3608,62 @@ function arcChampionName() {
   return teamById[ranked[0].teamId].name;
 }
 
+// Resolve a rodada atual do ARC inteiramente em segundo plano (sem partida ao
+// vivo) — a Seleção não é administrável pelo usuário, então nem a partida do
+// Paraguay tem animação: o resultado só aparece pronto na tabela do ARC.
+function autoPlayArcRound() {
+  const arc = state.arc;
+  const round = arc.fixture[arc.currentRoundIndex];
+  const pyMatch = round.matches.find(m => m.home === PARAGUAY_TEAM.id || m.away === PARAGUAY_TEAM.id);
+  const homeIsPY = pyMatch.home === PARAGUAY_TEAM.id;
+  const r = simulateArcMatch(pyMatch.home, pyMatch.away);
+  const scorePY = homeIsPY ? r.scoreHome : r.scoreAway;
+  const scoreOpp = homeIsPY ? r.scoreAway : r.scoreHome;
+  finishArcRound(scorePY, scoreOpp);
+}
+
+// Amistoso avulso da Seleção fora da janela do ARC, também resolvido em
+// segundo plano — só entra no histórico (ver renderSelection).
+function autoPlaySelecaoFriendly() {
+  const opponent = NATIONAL_TEAMS[Math.floor(Math.random() * NATIONAL_TEAMS.length)];
+  const {xv: paraguaySquad} = getParaguaySquad();
+  const r = simulateMatch(PARAGUAY_TEAM, paraguaySquad, 'equilibrado', opponent, generateSquad(opponent), 'equilibrado', undefined, undefined, undefined, {
+    neutralVenue: true,
+    weather: rollWeather(),
+  });
+  state.nationalTeamMatches = state.nationalTeamMatches || [];
+  state.nationalTeamMatches.push({
+    opponent: opponent.name,
+    scorePY: r.scoreA,
+    scoreOpp: r.scoreB,
+    label: t('selecaoAmistosoLabel'),
+  });
+}
+
+// Avança os compromissos da Seleção Paraguay sozinha, no mesmo passo semanal
+// que já mexe treino/lesão/scouting do clube (ver finalizeRound) — o usuário
+// nunca joga/controla a Seleção, só vê o resultado depois (ver renderSelection).
+// state.arcAutoNextDay guarda o próximo "dia do calendário" (currentCalendarDay)
+// em que algo deve acontecer sozinho: começar o ARC, jogar a próxima rodada,
+// ou (com o ARC encerrado) rolar mais um amistoso avulso.
+function tickSelecaoAuto() {
+  const day = state.calendarDay;
+  if (state.arcAutoNextDay == null) state.arcAutoNextDay = day + 21;
+  if (day < state.arcAutoNextDay) return;
+
+  if (!state.arc) {
+    startArc();
+    state.arcAutoNextDay = day + 14;
+  } else if (!state.arc.finished) {
+    autoPlayArcRound();
+    state.arcAutoNextDay = day + 14;
+  } else {
+    autoPlaySelecaoFriendly();
+    state.arcAutoNextDay = day + 21 + Math.floor(Math.random() * 21);
+  }
+  saveState();
+}
+
 function renderSelection() {
   state.nationalTeamMatches = state.nationalTeamMatches || [];
   const {xv, bench} = getParaguaySquad();
@@ -3651,13 +3692,12 @@ function renderSelection() {
       <h3>${t('arcTitle')}</h3>
       ${!arc ? `
         <p class="muted">${t('arcIntro')}</p>
-        <button class="playBtn" id="startArcBtn">${t('arcIniciar')}</button>
       ` : `
         <div class="tableScroll">${renderTableHtml(sortedStandings(arc.standings), PARAGUAY_TEAM.id)}</div>
         <div id="arcFixtureList"></div>
         ${arc.finished
           ? `<p class="muted">🏆 ${t('arcCampeao', {champion: escapeHtmlAttr(arcChampionName())})}</p>`
-          : `<button class="playBtn" id="playArcRoundBtn">${t('arcJogarRodada', {n: arc.currentRoundIndex + 1})}</button>`}
+          : `<p class="muted">${t('arcProximaRodada', {n: arc.currentRoundIndex + 1})}</p>`}
       `}
     </div>
   `;
@@ -3691,13 +3731,6 @@ function renderSelection() {
       </table></div>
     </div>
     <div class="card">
-      <h3>${t('selecaoAcoesTitle')}</h3>
-      <div class="tacticaBtnRow">
-        <button class="playBtn" id="randomFriendlyBtn">${t('gerarAmistoso')}</button>
-        <button class="playBtn" id="randomTournamentBtn">${t('gerarTorneio')}</button>
-      </div>
-    </div>
-    <div class="card">
       <h3>${t('selecaoHistoricoTitle')}</h3>
       ${history.length === 0 ? `<p class="muted">${t('selecaoSemHistorico')}</p>` : `
         <div class="tableScroll"><table>
@@ -3716,189 +3749,10 @@ function renderSelection() {
     </div>
   `;
 
-  document.getElementById('randomFriendlyBtn').addEventListener('click', () => {
-    const opponent = NATIONAL_TEAMS[Math.floor(Math.random() * NATIONAL_TEAMS.length)];
-    renderNationalFriendlyLive(opponent);
-  });
-  document.getElementById('randomTournamentBtn').addEventListener('click', runRandomTournament);
-
   if (arc) {
     const fakeC = {teamId: PARAGUAY_TEAM.id, stage: 'league', currentRoundIndex: arc.currentRoundIndex};
     renderRoundRobinInto(document.getElementById('arcFixtureList'), arc.fixture, fakeC);
   }
-  document.getElementById('startArcBtn')?.addEventListener('click', () => {
-    startArc();
-    renderSelection();
-  });
-  document.getElementById('playArcRoundBtn')?.addEventListener('click', () => {
-    const round = arc.fixture[arc.currentRoundIndex];
-    const pyMatch = round.matches.find(m => m.home === PARAGUAY_TEAM.id || m.away === PARAGUAY_TEAM.id);
-    const oppId = pyMatch.home === PARAGUAY_TEAM.id ? pyMatch.away : pyMatch.home;
-    renderNationalFriendlyLive(teamById[oppId], true);
-  });
-}
-
-// Amistoso ao vivo da Seleção, com a mesma animação 2D usada nas partidas de
-// clube — mas autocontido (não mexe em currentView/competições). isArcRound
-// reaproveita a mesma partida ao vivo pra rodada do Paraguay no ARC: no lugar
-// de virar um amistoso solto no histórico, alimenta a tabela do torneio (ver
-// finishArcRound).
-function renderNationalFriendlyLive(opponent, isArcRound = false) {
-  const {xv: paraguaySquad} = getParaguaySquad();
-  const opponentSquad = generateSquad(opponent);
-  // Amistoso de seleção: campo neutro, sem histórico de forma rastreado
-  // pros adversários avulsos — só o clima entra, por sabor.
-  const result = simulateMatch(PARAGUAY_TEAM, paraguaySquad, 'equilibrado', opponent, opponentSquad, 'equilibrado', undefined, undefined, undefined, {
-    neutralVenue: true,
-    weather: rollWeather(),
-  });
-
-  content.innerHTML = `
-    <div id="matchWrap">
-      <div id="scoreboard">
-        <div class="side"><span class="crestSmall" style="${crestStyle(PARAGUAY_TEAM)}">${crestContent(PARAGUAY_TEAM)}</span>${PARAGUAY_TEAM.name}</div>
-        <div class="center">
-          <div class="clock" id="clockEl">0'</div>
-          <div class="scoreNum"><span id="scoreHomeEl">0</span> - <span id="scoreAwayEl">0</span></div>
-        </div>
-        <div class="side">${opponent.name}<span class="crestSmall" style="${crestStyle(opponent)}">${crestContent(opponent)}</span></div>
-      </div>
-      <canvas id="pitch"></canvas>
-      <div id="matchControls">
-        <button class="ctrlBtn active" id="playPauseBtn">${t('pausar')}</button>
-        <button class="ctrlBtn" data-speed="1">1x</button>
-        <button class="ctrlBtn" data-speed="2">2x</button>
-        <button class="ctrlBtn" data-speed="4">4x</button>
-        <button class="ctrlBtn" id="skipBtn">${t('adiantar')}</button>
-      </div>
-      <div id="ticker"></div>
-      <div id="nationalFriendlyDone" class="card" style="display:none">
-        <h3>${t('fimDeJogo')}</h3>
-        <p class="finalScoreSmall"></p>
-        <button class="playBtn" id="backToSelectionBtn">${t('selecaoVoltar')}</button>
-      </div>
-    </div>
-  `;
-
-  const canvas = document.getElementById('pitch');
-  const renderer = new MatchRenderer(canvas, PARAGUAY_TEAM, opponent);
-  renderer.resize();
-  window.addEventListener('resize', () => renderer.resize());
-
-  const ticker = document.getElementById('ticker');
-  const clockEl = document.getElementById('clockEl');
-  const scoreHomeEl = document.getElementById('scoreHomeEl');
-  const scoreAwayEl = document.getElementById('scoreAwayEl');
-
-  const ticks = result.ticks;
-  const logByMinute = {};
-  result.log.forEach(l => {
-    if (!logByMinute[l.minute]) logByMinute[l.minute] = [];
-    logByMinute[l.minute].push(l.text);
-  });
-
-  let tickIndex = 0;
-  let playing = true;
-  let speed = 1;
-  const baseMsPerTick = 650;
-  let lastTime = performance.now();
-  let accum = 0;
-  let lastPhase = 'kickoff';
-
-  function pushLog(minute, text) {
-    const line = document.createElement('div');
-    line.className = 'tickerLine';
-    line.innerHTML = `<span class="min">${minute}'</span>${text}`;
-    ticker.prepend(line);
-  }
-
-  function applyMinute(minute) {
-    if (logByMinute[minute]) logByMinute[minute].forEach(txt => pushLog(minute, txt));
-  }
-
-  applyMinute(0);
-
-  function finish() {
-    playing = false;
-    matchAnim = null;
-    if (isArcRound) {
-      finishArcRound(result.scoreA, result.scoreB);
-    } else {
-      state.nationalTeamMatches = state.nationalTeamMatches || [];
-      state.nationalTeamMatches.push({
-        opponent: opponent.name,
-        scorePY: result.scoreA,
-        scoreOpp: result.scoreB,
-        label: t('selecaoAmistosoLabel'),
-      });
-      saveState();
-    }
-    const doneCard = document.getElementById('nationalFriendlyDone');
-    doneCard.style.display = '';
-    doneCard.querySelector('.finalScoreSmall').textContent = `${PARAGUAY_TEAM.name} ${result.scoreA} - ${result.scoreB} ${opponent.name}`;
-    document.getElementById('backToSelectionBtn').addEventListener('click', renderSelection);
-  }
-
-  function step(now) {
-    if (!matchAnim || matchAnim.stopped) return;
-    const dt = now - lastTime;
-    lastTime = now;
-    if (playing) {
-      accum += dt * speed;
-      const msPerTick = baseMsPerTick;
-      while (accum >= msPerTick && tickIndex < ticks.length) {
-        accum -= msPerTick;
-        tickIndex++;
-        const tk = ticks[tickIndex - 1];
-        applyMinute(tk.minute);
-        scoreHomeEl.textContent = tk.scoreA;
-        scoreAwayEl.textContent = tk.scoreB;
-        clockEl.textContent = tk.minute + "'";
-        lastPhase = tk.phase || 'open';
-      }
-      const curr = ticks[Math.min(tickIndex, ticks.length - 1)] || {pos: 50};
-      const prev = ticks[Math.max(tickIndex - 1, 0)] || {pos: 50};
-      const frac = Math.min(1, accum / baseMsPerTick);
-      const interpPos = prev.pos + (curr.pos - prev.pos) * frac;
-      renderer.draw(interpPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent, lastPhase);
-      if (tickIndex >= ticks.length) {
-        finish();
-        return;
-      }
-    } else {
-      renderer.draw(renderer.currentPos, scoreHomeEl.textContent, scoreAwayEl.textContent, clockEl.textContent, lastPhase);
-    }
-    matchAnim.raf = requestAnimationFrame(step);
-  }
-
-  matchAnim = {stopped: false, raf: null};
-  matchAnim.raf = requestAnimationFrame(step);
-
-  document.getElementById('playPauseBtn').addEventListener('click', e => {
-    playing = !playing;
-    e.target.textContent = playing ? t('pausar') : t('continuarPlay');
-  });
-
-  Array.from(document.querySelectorAll('[data-speed]')).forEach(btn => {
-    btn.addEventListener('click', () => {
-      speed = Number(btn.dataset.speed);
-      Array.from(document.querySelectorAll('[data-speed]')).forEach(b => b.classList.toggle('active', b === btn));
-    });
-  });
-
-  document.getElementById('skipBtn').addEventListener('click', () => {
-    while (tickIndex < ticks.length) {
-      tickIndex++;
-      const tk = ticks[tickIndex - 1];
-      applyMinute(tk.minute);
-    }
-    scoreHomeEl.textContent = result.scoreA;
-    scoreAwayEl.textContent = result.scoreB;
-    clockEl.textContent = "80'";
-    renderer.draw(50, result.scoreA, result.scoreB, "80'");
-    if (matchAnim) { matchAnim.stopped = true; cancelAnimationFrame(matchAnim.raf); }
-    finish();
-  });
 }
 
 // Uma perna (ida ou volta) da final da Copa Argentina — mesmo padrão
@@ -4063,70 +3917,6 @@ function renderCopaArgentinaLive() {
     renderer.draw(50, result.scoreA, result.scoreB, "80'");
     if (matchAnim) { matchAnim.stopped = true; cancelAnimationFrame(matchAnim.raf); }
     finish();
-  });
-}
-
-// Torneio aleatório: Paraguay + 3 seleções sorteadas, mata-mata instantâneo
-// (semis + final, sem animação ao vivo — só o resultado de cada jogo).
-function runRandomTournament() {
-  const shuffled = [...NATIONAL_TEAMS].sort(() => Math.random() - 0.5).slice(0, 3);
-  const teams = [PARAGUAY_TEAM, ...shuffled].sort(() => Math.random() - 0.5);
-  const {xv: paraguaySquad} = getParaguaySquad();
-  const squadCacheLocal = {};
-  const squadFor = team => {
-    if (team.id === PARAGUAY_TEAM.id) return paraguaySquad;
-    if (!squadCacheLocal[team.id]) squadCacheLocal[team.id] = generateSquad(team);
-    return squadCacheLocal[team.id];
-  };
-
-  function playInstant(teamA, teamB) {
-    // Torneio relâmpago entre seleções: sempre campo neutro.
-    const r = simulateMatch(teamA, squadFor(teamA), 'equilibrado', teamB, squadFor(teamB), 'equilibrado', undefined, undefined, undefined, {
-      neutralVenue: true,
-      weather: rollWeather(),
-    });
-    let scoreA = r.scoreA;
-    let scoreB = r.scoreB;
-    if (scoreA === scoreB) {
-      const [a, b] = breakTie(scoreA, scoreB);
-      scoreA = a; scoreB = b;
-    }
-    return {teamA, teamB, scoreA, scoreB, winner: scoreA > scoreB ? teamA : teamB};
-  }
-
-  const semi1 = playInstant(teams[0], teams[1]);
-  const semi2 = playInstant(teams[2], teams[3]);
-  const final = playInstant(semi1.winner, semi2.winner);
-
-  state.nationalTeamMatches = state.nationalTeamMatches || [];
-  state.nationalTeamMatches.push({
-    isTournament: true,
-    label: t('selecaoTorneioResumo', {champion: final.winner.name}),
-    bracket: {semi1, semi2, final},
-  });
-  saveState();
-
-  showTournamentSummary({semi1, semi2, final});
-}
-
-function showTournamentSummary(bracket) {
-  const matchLine = m => `${m.teamA.name} ${m.scoreA} - ${m.scoreB} ${m.teamB.name}`;
-  const modal = document.createElement('div');
-  modal.className = 'summaryModal';
-  modal.innerHTML = `
-    <div class="summaryBox">
-      <h2>${t('selecaoTorneioTitle')}</h2>
-      <p><b>${t('selecaoSemifinal')} 1:</b> ${matchLine(bracket.semi1)}</p>
-      <p><b>${t('selecaoSemifinal')} 2:</b> ${matchLine(bracket.semi2)}</p>
-      <p><b>${t('selecaoFinal')}:</b> ${matchLine(bracket.final)}</p>
-      <p class="finalScore">🏆 ${escapeHtmlAttr(bracket.final.winner.name)}</p>
-      <button class="playBtn" id="closeTournamentBtn">${t('continuar')}</button>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  document.getElementById('closeTournamentBtn').addEventListener('click', () => {
-    modal.remove();
-    renderSelection();
   });
 }
 
@@ -5021,6 +4811,7 @@ function finalizeRound() {
   tickAttendanceExtras();
   tickScouting();
   tickYouthAcademy();
+  tickSelecaoAuto();
   if (pendingMyXV && pendingMyXV.length) {
     const venue = myMatch ? venueOf(myMatch, c.teamId) : 'home';
     // Condição/lesão por fadiga só existem pra elencos reais (curados): times
