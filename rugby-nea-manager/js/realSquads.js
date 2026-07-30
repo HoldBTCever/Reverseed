@@ -1041,26 +1041,55 @@ function isActiveAdultNationalTeamTag(tag) {
   return !/juvenil|^ex-/i.test(tag);
 }
 
+// Dois convocados que apareceram na escalação oficial (post "FORMACIÓN" do
+// @urp_oficial) mas cujo clube de origem não foi confirmado — entram só pra
+// seleção, sem vínculo com nenhum elenco de clube do jogo.
+const SELECAO_ONLY_KNOWN = [
+  mkPlayer('Leonardo Segovia', 'N8', 82, {}, {nationalTeam: 'seleção'}, 82),
+  mkPlayer('Matías Alcaraz', 'CE', 77, {}, {nationalTeam: 'seleção'}, 77),
+];
+
+// Escalação titular + banco oficiais mais recentes (post "FORMACIÓN" do
+// @urp_oficial, 10 de julho de 2026, vs Chile XV) — FIXA, na ordem real de
+// camisa, não um auto-pick pelos melhores overalls do país. A seleção é
+// convocação documentada, não otimização: um jogador pode ter nível de
+// seleção (ex.: Álvaro Allo, Gonza Alvarado no Curda) e nunca ter sido
+// convocado, e a escalação oficial não muda só porque o overall de alguém
+// mudou de um treino pro outro.
+const SELECAO_XV_ORDER = [
+  'Camilo Blasco', 'Jordi Chávez', 'Enrique Quinteros', 'Nahuel Kacerosky', 'Carlos Martins',
+  'Juan Martín Sebriano', 'Ariel Núñez', 'Leonardo Segovia', 'Diego Miño', 'Thomas Guzmán',
+  'Facundo Paiva', 'Sebas Urbieta', 'Gianfranco Parodi', 'Arturo López', 'Joaquim Mussi',
+];
+const SELECAO_BENCH_ORDER = [
+  'Agustín Benítez', 'Gastón Salvi', 'Estefano Aranda', 'Javier Pérez',
+  'Matías Alcaraz', 'Agustín Dupuy', 'Patricio Cabrera', 'Juan Chilavert',
+];
+
 // ---- Seleção do Paraguai (Los Yacarés) -------------------------------------
-// A seleção é a lista real e documentada de convocados (meta.nationalTeam),
-// não um auto-pick pelos melhores overalls do país — um jogador pode ter
-// nível de seleção (ex.: Álvaro Allo, Gonza Alvarado no Curda) e mesmo assim
-// nunca ter sido convocado de fato. Por isso o pool junta só os jogadores
-// tagueados como seleção ATUAL adulta em cada clube onde a Paraguay tem
-// convocados: Curda, San José, Cristo Rey, Santa Clara (clubes paraguaios) e
-// os expatriados que jogam em clubes argentinos mas defendem a seleção
-// (Belgrano Athletic, Santa Fe, CAE, Champagnat) — conferido contra o plantel
-// 2026 oficial (posts do Instagram do URP). Ignacio "Nacho" Cuevas (Curda) é
-// a exceção: recusa convocações pra se manter fiel só ao clube
-// (meta.refusesNationalTeam), então nunca entra no pool mesmo sendo o melhor
-// jogador do país. Jogadores estrangeiros recém-chegados (ex.: Paco Lamas,
-// argentino) também ficam de fora até completarem os anos de residência
-// exigidos (isNationalTeamEligible). Usa CURDA_ROSTER (o mesmo overall único
-// usado nas partidas do clube, não uma versão "pré-ajuste" separada só pra
-// seleção) — o Curda ser muito mais forte no Paraguaio do que no NEA é
-// modelado no nível estrutural do TIME por competição (ver os valores de
-// attack/defense/stamina de PAR-CUR/PAR-SNJ em data.js, bem mais altos que
-// os de ARG-CUR/ARG-SNJ), não no overall individual do jogador.
+// O pool de CONVOCADOS junta todo jogador tagueado como seleção ATUAL adulta
+// em cada clube onde a Paraguay tem convocados: Curda, San José, Cristo Rey,
+// Santa Clara (clubes paraguaios), os expatriados que jogam em clubes
+// argentinos mas defendem a seleção (Belgrano Athletic, Santa Fe, CAE,
+// Champagnat), e os dois sem clube confirmado (SELECAO_ONLY_KNOWN) —
+// conferido contra o plantel 2026 oficial (posts do Instagram do URP).
+// Ignacio "Nacho" Cuevas (Curda) é a exceção: recusa convocações pra se
+// manter fiel só ao clube (meta.refusesNationalTeam), então nunca entra no
+// pool mesmo sendo o melhor jogador do país. Jogadores estrangeiros
+// recém-chegados (ex.: Paco Lamas, argentino) também ficam de fora até
+// completarem os anos de residência exigidos (isNationalTeamEligible). Usa
+// CURDA_ROSTER (o mesmo overall único usado nas partidas do clube, não uma
+// versão "pré-ajuste" separada só pra seleção) — o Curda ser muito mais
+// forte no Paraguaio do que no NEA é modelado no nível estrutural do TIME
+// por competição (ver os valores de attack/defense/stamina de
+// PAR-CUR/PAR-SNJ em data.js, bem mais altos que os de ARG-CUR/ARG-SNJ),
+// não no overall individual do jogador.
+//
+// Já o XV TITULAR e o BANCO são FIXOS (SELECAO_XV_ORDER/SELECAO_BENCH_ORDER,
+// a escalação real documentada) — não um pickStartingXV pelos melhores do
+// pool. O pool inteiro (bem mais amplo que os 23 da escalação) continua
+// disponível pra quem quiser consultar todos os convocados, e é o que
+// bloqueia os clubes de origem durante o ARC (ver arcCalledUpIds).
 export function getParaguaySquad() {
   const clubs = [
     {roster: [...CURDA_ROSTER, ...recruitedIntoCurda], club: 'Curda'},
@@ -1071,19 +1100,23 @@ export function getParaguaySquad() {
     {roster: SANTA_FE_ROSTER, club: 'Santa Fe'},
     {roster: CAE_ROSTER, club: 'Club Atlético Estudiantes'},
     {roster: CHAMPAGNAT_ROSTER, club: 'Champagnat'},
+    {roster: SELECAO_ONLY_KNOWN, club: ''},
   ];
   const pool = clubs.flatMap(({roster, club}) => roster
     .filter(p => isActiveAdultNationalTeamTag(p.meta.nationalTeam) && isNationalTeamEligible(p))
     .map(p => ({...p, meta: {...p.meta, clubOrigin: club}}))
   );
 
-  const xv = pickStartingXV(pool).map(p => ({...p, condition: 100}));
-  const usedIds = new Set(xv.map(p => p.id));
-  const bench = pool
-    .filter(p => !usedIds.has(p.id) && !p.meta.injuryWeeks)
-    .sort((a, b) => b.rating - a.rating)
-    .slice(0, 8)
-    .map(p => ({...p, condition: 100, status: 'reserva'}));
+  const byName = name => pool.find(p => p.name === name);
+  const xv = SELECAO_XV_ORDER
+    .map(name => byName(name))
+    .filter(Boolean)
+    .map((p, i) => ({...p, number: i + 1, condition: 100}));
+  const xvIds = new Set(xv.map(p => p.id));
+  const bench = SELECAO_BENCH_ORDER
+    .map(name => byName(name))
+    .filter(p => p && !xvIds.has(p.id))
+    .map((p, i) => ({...p, number: 16 + i, condition: 100, status: 'reserva'}));
 
   return {xv, bench, pool};
 }
