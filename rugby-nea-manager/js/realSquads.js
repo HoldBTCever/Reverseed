@@ -346,7 +346,7 @@ const CURDA_ROSTER_RAW = [
   mkPlayer('Ignacio Cuevas', 'CE', 93, {pass: 92, reception: 90, tackle: 97, speed: 93, strength: 91, determination: 96}, {birthDate: '2002-01-30', nickname: 'Nacho', captain: true, note: 'melhor jogador do Paraguai; forte, rápido e difícil de ser tackleado; recusa convocações da seleção pra se manter fiel só ao Curda', refusesNationalTeam: true}, 91),
   mkPlayer('Sebas Urbieta', 'CE', 86, {}, {birthDate: '1993-05-11', age: 34, nationalTeam: 'seleção'}, 86),
   mkPlayer('Gianfranco Parodi', 'CE', 85, {pass: 85, tackle: 82, strength: 70}, {birthDate: '2000-03-09', nickname: 'Choclo', nationalTeam: 'seleção', altPos: ['WG']}, 82),
-  mkPlayer('Luiz Miguel', 'CE', 90, {speed: 95, sidestep: 93, agility: 90, reception: 86}, {birthDate: '1996-02-21', nickname: 'LuizMi', note: 'também joga de ponta', altPos: ['WG']}, 82),
+  mkPlayer('Luiz Miguel', 'CE', 90, {speed: 95, sidestep: 93, agility: 90, reception: 86}, {birthDate: '1996-02-21', nickname: 'LuizMi', note: 'também joga de ponta', nationalTeam: 'seleção', altPos: ['WG']}, 82),
   mkPlayer('Nico Allo', 'CE', 66, {}, {birthDate: '1999-10-18', age: 25}, 64),
   mkPlayer('Diego Argaña', 'CE', 66, {}, {birthDate: '1990-04-04'}, 63),
   mkPlayer('Marcelo Villaroel', 'CE', 66, {}, {birthDate: '2005-04-07', nickname: 'Negro'}, 60),
@@ -657,11 +657,30 @@ const CURNE_STAFF = [
   {role: 'Auxiliar Técnico', name: 'Beto Franco', note: 'assume o time B quando NEA e Interior caem no mesmo dia em locais diferentes'},
 ];
 
+// Comissão técnica real da seleção paraguaia (post "STAFF 2026" do
+// @urp_oficial).
+const SELECAO_STAFF = [
+  {role: 'Head Coach', name: 'Ramiro Peman'},
+  {role: 'Entrenador Asistente', name: 'Pablo Filippini'},
+  {role: 'Entrenador Asistente', name: 'Juan Ávila'},
+  {role: 'Entrenador Asistente', name: 'Ignacio Basterra'},
+  {role: 'Preparador Físico', name: 'Juan Manuel Brizuela'},
+  {role: 'Preparador Físico', name: 'Leonardo Eraso'},
+  {role: 'Analista de Vídeo', name: 'Eugenio Astesiano'},
+  {role: 'Fisioterapeuta', name: 'Patricia López'},
+  {role: 'Fisioterapeuta', name: 'Rodrigo Burgos'},
+  {role: 'Médico', name: 'Danilo Trinidad'},
+  {role: 'Nutricionista', name: 'Álvaro Andrada'},
+  {role: 'Manager', name: 'Oscar Méndez'},
+  {role: 'Logística', name: 'Sharif Ruiz'},
+];
+
 const STAFF = {
   'ARG-CUR': CURDA_STAFF,
   'PAR-CUR': CURDA_STAFF,
   'ARG-CNE': CURNE_STAFF,
   'INT-CNE': CURNE_STAFF,
+  'SEL-PAR': SELECAO_STAFF,
 };
 
 // Qualidade da comissão técnica: multiplica o ritmo de evolução dos
@@ -1041,12 +1060,23 @@ function isActiveAdultNationalTeamTag(tag) {
   return !/juvenil|^ex-/i.test(tag);
 }
 
-// Dois convocados que apareceram na escalação oficial (post "FORMACIÓN" do
-// @urp_oficial) mas cujo clube de origem não foi confirmado — entram só pra
-// seleção, sem vínculo com nenhum elenco de clube do jogo.
+// Convocados do "Plantel 2026" (post do @urp_oficial) cujo clube não tem
+// elenco próprio no jogo — entram só pra seleção, com o clube real guardado
+// em meta.clubOrigin (não o rótulo genérico do grupo "clubs" em
+// getParaguaySquad). Leonardo Segovia e Matías Alcaraz têm clube não
+// confirmado (não apareceram em nenhuma lista de convocados, só na
+// escalação titular/banco).
 const SELECAO_ONLY_KNOWN = [
   mkPlayer('Leonardo Segovia', 'N8', 82, {}, {nationalTeam: 'seleção'}, 82),
   mkPlayer('Matías Alcaraz', 'CE', 77, {}, {nationalTeam: 'seleção'}, 77),
+  mkPlayer('Francisco Gaspes', 'PI', 76, {}, {nationalTeam: 'seleção', clubOrigin: 'Hurling'}, 76),
+  mkPlayer('Nicolas Toth', 'HK', 75, {}, {nationalTeam: 'seleção', clubOrigin: 'Lomas Athletic'}, 75),
+  mkPlayer('Joaquin Dominguez', 'AL', 75, {}, {nationalTeam: 'seleção', clubOrigin: 'ASBC Bédarrides'}, 75),
+  mkPlayer('Lautaro Gonzalez', 'WG', 76, {}, {nationalTeam: 'seleção', clubOrigin: 'Palermo Bajo'}, 76),
+  mkPlayer('Valentino Marciali', 'SL', 75, {}, {nationalTeam: 'seleção', clubOrigin: 'Atlético de Rosario'}, 75),
+  mkPlayer('Valentino Quatrocchi', 'CE', 75, {}, {nationalTeam: 'seleção', clubOrigin: 'San Luis'}, 75),
+  mkPlayer('Francisco Calello', 'N8', 74, {}, {nationalTeam: 'seleção', clubOrigin: 'San Cirano'}, 74),
+  mkPlayer('Manuel Todaro', 'FB', 76, {}, {nationalTeam: 'seleção', clubOrigin: 'Universitario de Rosario'}, 76),
 ];
 
 // Escalação titular + banco oficiais mais recentes (post "FORMACIÓN" do
@@ -1104,7 +1134,7 @@ export function getParaguaySquad() {
   ];
   const pool = clubs.flatMap(({roster, club}) => roster
     .filter(p => isActiveAdultNationalTeamTag(p.meta.nationalTeam) && isNationalTeamEligible(p))
-    .map(p => ({...p, meta: {...p.meta, clubOrigin: club}}))
+    .map(p => ({...p, meta: {...p.meta, clubOrigin: p.meta.clubOrigin || club}}))
   );
 
   const byName = name => pool.find(p => p.name === name);

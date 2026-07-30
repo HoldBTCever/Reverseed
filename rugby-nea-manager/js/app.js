@@ -3519,6 +3519,18 @@ function renderSelection() {
     ...bench,
   ];
 
+  const selecaoStaff = getStaff(PARAGUAY_TEAM.id);
+  const selecaoStaffHtml = selecaoStaff ? `
+    <div class="card">
+      <h3>${t('comissaoTecnica')}</h3>
+      <table>
+        <tbody>
+          ${selecaoStaff.map(s => `<tr><td class="teamCol">${s.role}</td><td class="teamCol"><b>${escapeHtmlAttr(s.name)}</b>${s.note ? ` <span class="muted">— ${escapeHtmlAttr(s.note)}</span>` : ''}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  ` : '';
+
   const arcSectionHtml = `
     <div class="card">
       <h3>${t('arcTitle')}</h3>
@@ -3539,6 +3551,7 @@ function renderSelection() {
     <h1>${t('selecaoTitle')}</h1>
     ${arcSectionHtml}
     ${renderFormationHtml(xv, bench, PARAGUAY_TEAM.color, t('selecaoEscalacao'))}
+    ${selecaoStaffHtml}
     <div class="card">
       <h3>${t('selecaoConvocados')}</h3>
       <div class="tableScroll"><table class="squadTable">
