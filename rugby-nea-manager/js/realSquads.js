@@ -232,16 +232,19 @@ function rescaleRosterToTeamBase(roster, teamId) {
 }
 
 // Overall mínimo (pós-recalibração pro NEA/Paraguaio) pros jogadores do
-// Curda com nível documentado de fora do plantel que a recalibração deixou
-// fora de ordem: Garcete e Nacho (não convocados, mas reconhecidamente
-// melhores que quem é convocado) precisam ficar acima de todos os
-// convocados da seleção adulta; o Allo precisa ficar no mesmo patamar
-// deles, não abaixo. Só entram aqui quem a recalibração normal já não
-// colocou nesse lugar sozinha (ver Etapa 3 acima) — os demais convocados já
-// saem bem posicionados sem ajuste.
+// Curda com nível documentado de fora do plantel: Nacho (não convocado por
+// escolha própria) e Garcete (não convocado por já não estar mais na
+// seleção, mas reconhecidamente melhor que quem está) ficam acima de todos
+// os convocados da seleção adulta — final 92 e 90; o Allo fica no mesmo
+// patamar deles, final 71. O NÚMERO AQUI (a chave do mapa) não é o overall
+// final — é o alvo que, depois do clamp() em 99 de algumas skills já bem
+// altas absorver parte do ganho proporcional, produz o overall final
+// desejado; cada valor foi calibrado testando o resultado real (ver
+// getRealRoster('PAR-CUR') pra conferir), não é direto.
 const KNOWN_STRENGTH_MIN = {
-  'Mariano Garcete': 95,
-  'Álvaro Allo': 85,
+  'Ignacio Cuevas': 120, // final: 92
+  'Mariano Garcete': 125, // final: 90
+  'Álvaro Allo': 85, // final: 71
 };
 
 const CURDA_ROSTER_RAW = [
