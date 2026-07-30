@@ -82,7 +82,6 @@ export class MatchRenderer {
     this.gamePlanA = gamePlanA || null;
     this.gamePlanB = gamePlanB || null;
     this.dots = this.makeDots();
-    this.assignPods();
     this.currentPos = 50;
     this.jitterSeed = 0;
     this.lastX = null;
@@ -100,31 +99,37 @@ export class MatchRenderer {
     return dots;
   }
 
-  // Distribui os 8 forwards de cada equipe em "pods" (pequenos grupos)
-  // espalhados pela largura do campo, no formato real do sistema de jogo
-  // escolhido no Plano de Jogo (1-3-3-1, 1-3-2-1+1, 3-3-2+1 etc.) — é assim
-  // que times como a Irlanda jogam o "juego de fases": em vez de um bloco só
-  // de forwards sempre grudado no meio, cada pod ataca por um canal
-  // diferente. Fixo pra partida inteira (o sistema não muda durante o jogo).
-  assignPods() {
-    ['A', 'B'].forEach(team => {
-      const plan = team === 'A' ? this.gamePlanA : this.gamePlanB;
-      const sys = plan && plan.system ? PLAY_SYSTEMS[plan.system] : null;
-      const pods = parsePodSizes(sys ? sys.formation : '');
-      const forwardDots = this.dots
-        .filter(d => d.team === team && (d.kind === 'tight' || d.kind === 'loose'))
-        .sort((a, b) => a.num - b.num);
-      const n = pods.length;
-      let idx = 0;
-      pods.forEach((size, podIdx) => {
+  // Tamanho de cada pod de forwards NA ZONA onde a bola está agora (ver
+  // POD_FORMATIONS em engine.js — cada zona do plano tático pode ter um
+  // formato de pod diferente: pods grandes concentram poder de choque,
+  // formatos em duplas espalham mais pela largura). Cai pra formação do
+  // sistema geral se a zona não tiver um formato próprio definido (saves
+  // antigos), e pro comportamento padrão (bloco único) se não houver plano.
+  podSizesFor(team, pos) {
+    const plan = team === 'A' ? this.gamePlanA : this.gamePlanB;
+    if (!plan) return parsePodSizes('');
+    const zoneKey = zoneForPos(pos, team);
+    const zone = plan.zones && plan.zones[zoneKey];
+    if (zone && zone.pods) return parsePodSizes(zone.pods);
+    const sys = plan.system ? PLAY_SYSTEMS[plan.system] : null;
+    return parsePodSizes(sys ? sys.formation : '');
+  }
+
+  // Distribui os 8 forwards (numerados 1-8, na ordem) pelos pods calculados
+  // acima — recalculado a cada chamada porque muda de zona pra zona (o
+  // "sistema" de pods, ao contrário do Plano de Jogo antigo, não fica fixo a
+  // partida inteira).
+  podInfoForNumber(sizes, num) {
+    let cursor = 0;
+    for (let podIdx = 0; podIdx < sizes.length; podIdx++) {
+      cursor += sizes[podIdx];
+      if (num <= cursor) {
+        const n = sizes.length;
         const podY = n > 1 ? -0.82 + (1.64 * podIdx) / (n - 1) : 0;
-        for (let k = 0; k < size && idx < forwardDots.length; k++, idx++) {
-          forwardDots[idx].podY = podY;
-          forwardDots[idx].podIndex = podIdx;
-          forwardDots[idx].podCount = n;
-        }
-      });
-    });
+        return {podY, podIndex: podIdx, podCount: n};
+      }
+    }
+    return null;
   }
 
   resize() {
@@ -458,6 +463,10 @@ export class MatchRenderer {
     const styleForA = zoneStyleFor('A');
     const styleForB = zoneStyleFor('B');
     const isSetPiece = matchPhase === 'scrum' || matchPhase === 'lineout' || matchPhase === 'kickoff';
+    // Pods de forwards da zona atual (ver POD_FORMATIONS em engine.js) — só
+    // recalcula uma vez por frame, não por jogador.
+    const podSizesA = this.podSizesFor('A', pos);
+    const podSizesB = this.podSizesFor('B', pos);
 
     this.dots.forEach(dot => {
       const isAttacking = dot.team === this.attackingTeam;
@@ -486,10 +495,11 @@ export class MatchRenderer {
         // (apoio chegando de fora). O time que defende continua compacto
         // em volta do ponto de contato, como uma defesa em linha real.
         const depth = dot.kind === 'tight' ? TIGHT_DEPTH : LOOSE_DEPTH;
-        if (isAttacking && dot.podY != null && dot.podCount > 1) {
-          const spread = Math.abs(dot.podIndex - (dot.podCount - 1) / 2);
+        const podInfo = isAttacking ? this.podInfoForNumber(dot.team === 'A' ? podSizesA : podSizesB, dot.num) : null;
+        if (isAttacking && podInfo && podInfo.podCount > 1) {
+          const spread = Math.abs(podInfo.podIndex - (podInfo.podCount - 1) / 2);
           px = x - dirSign * (depth.attack + spread * 2.5) + bob;
-          wideY = dot.podY;
+          wideY = podInfo.podY;
         } else {
           const side = isAttacking ? -1 : 1; // ataque chega por trás da bola, defesa a encontra pela frente
           const d = isAttacking ? depth.attack : depth.defense;

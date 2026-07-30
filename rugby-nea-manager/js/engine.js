@@ -155,14 +155,29 @@ const PLAY_CODES = [
   '90', '100', '1000', 'VERDE', 'AZUL', 'PUMA', 'TUCUMÁN', 'MARADONA',
 ];
 
+// Formato dos "pods" de forwards dentro de CADA zona (independente do
+// sistema de jogo geral) — como o pack se agrupa pra atacar naquele pedaço
+// do campo: pods grandes concentram poder de choque (mais go-forward, mais
+// arriscado se ficam isolados longe do apoio); formatos mais espalhados em
+// duplas priorizam manter a bola (menos erro de mão, menos potência por
+// pod). Usado tanto no motor (ver simulateMatch) quanto na posição visual
+// dos forwards em jogo aberto (ver podSizesFor/podInfoForNumber em render.js).
+const POD_FORMATIONS = {
+  '3-3-2': {attackMod: 1.04, defenseMod: 1.0, breakMod: 1.08, errorMod: 1.02},
+  '1-3-3-1': {attackMod: 1.10, defenseMod: 0.94, breakMod: 1.15, errorMod: 1.10},
+  '3-3-1-1': {attackMod: 1.02, defenseMod: 1.06, breakMod: 1.0, errorMod: 0.96},
+  '2-2-2-2': {attackMod: 0.96, defenseMod: 1.0, breakMod: 0.92, errorMod: 0.85},
+};
+const POD_FORMATION_NEUTRAL = {attackMod: 1, defenseMod: 1, breakMod: 1, errorMod: 1};
+
 function defaultGamePlan() {
   return {
     system: 'ninguno',
     zones: {
-      red: {style: 'equilibrado', code: ''},
-      orange: {style: 'equilibrado', code: ''},
-      green: {style: 'equilibrado', code: ''},
-      yellow: {style: 'equilibrado', code: ''},
+      red: {style: 'equilibrado', code: '', pods: '3-3-2'},
+      orange: {style: 'equilibrado', code: '', pods: '3-3-2'},
+      green: {style: 'equilibrado', code: '', pods: '3-3-2'},
+      yellow: {style: 'equilibrado', code: '', pods: '3-3-2'},
     },
     pillars: {disciplina: 50, posse: 50, fisicalidade: 50, defesa: 50},
   };
@@ -172,7 +187,7 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
-export {TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, WEATHER_TYPES, zoneForPos, defaultGamePlan, pickLineoutUnit, rollWeather};
+export {TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, POD_FORMATIONS, WEATHER_TYPES, zoneForPos, defaultGamePlan, pickLineoutUnit, rollWeather};
 
 function rand(min, max) {
   return Math.random() * (max - min) + min;
@@ -547,13 +562,19 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     const zoneB = zoneForPos(pos, 'B');
     const styleA = ZONE_STYLES[planA.zones[zoneA].style] || ZONE_STYLES.equilibrado;
     const styleB = ZONE_STYLES[planB.zones[zoneB].style] || ZONE_STYLES.equilibrado;
+    // Formato dos pods de forwards NESSA zona específica (independente do
+    // sistema geral) — ver POD_FORMATIONS: pods grandes rendem mais
+    // go-forward mas mais risco de erro; formatos em duplas seguram melhor a
+    // bola mas com menos potência de choque.
+    const podsA = POD_FORMATIONS[planA.zones[zoneA].pods] || POD_FORMATION_NEUTRAL;
+    const podsB = POD_FORMATIONS[planB.zones[zoneB].pods] || POD_FORMATION_NEUTRAL;
 
     const homeAttackModA = neutralVenue ? 1 : HOME_ADVANTAGE.attackMod;
     const homeDefenseModA = neutralVenue ? 1 : HOME_ADVANTAGE.defenseMod;
-    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.attackMod * sysA.attackMod * weatherObj.attackMod * moraleModA * homeAttackModA;
-    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.defenseMod * sysA.defenseMod * weatherObj.defenseMod * moraleModA * homeDefenseModA;
-    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.attackMod * sysB.attackMod * weatherObj.attackMod * moraleModB;
-    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.defenseMod * sysB.defenseMod * weatherObj.defenseMod * moraleModB;
+    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.attackMod * sysA.attackMod * podsA.attackMod * weatherObj.attackMod * moraleModA * homeAttackModA;
+    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.defenseMod * sysA.defenseMod * podsA.defenseMod * weatherObj.defenseMod * moraleModA * homeDefenseModA;
+    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.attackMod * sysB.attackMod * podsB.attackMod * weatherObj.attackMod * moraleModB;
+    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.defenseMod * sysB.defenseMod * podsB.defenseMod * weatherObj.defenseMod * moraleModB;
 
     let push = ((effAttackA - effDefenseB) - (effAttackB - effDefenseA)) * 0.14;
     push += rand(-9, 9);
@@ -571,8 +592,8 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     // assim como a defesa dominante do rival (pared conectada dificulta) e a
     // tática/sistema de cada time (breakMod pro próprio ataque,
     // concedeBreakMod do rival pra quanto a própria defesa segura).
-    const breakChanceA = breakChance(paceA) * styleA.breakMod * sysA.breakMod * fisicalidadeFactorA * defesaGuardB * tacticObjA.breakMod * tacticObjB.concedeBreakMod * sysB.concedeBreakMod * weatherObj.breakMod;
-    const breakChanceB = breakChance(paceB) * styleB.breakMod * sysB.breakMod * fisicalidadeFactorB * defesaGuardA * tacticObjB.breakMod * tacticObjA.concedeBreakMod * sysA.concedeBreakMod * weatherObj.breakMod;
+    const breakChanceA = breakChance(paceA) * styleA.breakMod * sysA.breakMod * podsA.breakMod * fisicalidadeFactorA * defesaGuardB * tacticObjA.breakMod * tacticObjB.concedeBreakMod * sysB.concedeBreakMod * weatherObj.breakMod;
+    const breakChanceB = breakChance(paceB) * styleB.breakMod * sysB.breakMod * podsB.breakMod * fisicalidadeFactorB * defesaGuardA * tacticObjB.breakMod * tacticObjA.concedeBreakMod * sysA.concedeBreakMod * weatherObj.breakMod;
     const codeSuffix = (planCode, zoneKey) => {
       const code = planCode && planCode.zones[zoneKey] && planCode.zones[zoneKey].code;
       return code ? ` (código ${code.split('/')[0].trim()})` : '';
@@ -609,8 +630,8 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     // Chuva/vento (weatherObj.errorMod) atrapalha os dois lados igual; o
     // visitante ainda erra um pouco mais por jogar fora (pressão da torcida).
     const homeErrorModB = neutralVenue ? 1 : HOME_ADVANTAGE.awayErrorMod;
-    const handlingErrorA_eff = handlingErrorBaseA * styleA.errorMod * sysA.errorMod * tacticObjA.errorMod * weatherObj.errorMod + (1 - fatigueA) * 0.20;
-    const handlingErrorB_eff = handlingErrorBaseB * styleB.errorMod * sysB.errorMod * tacticObjB.errorMod * weatherObj.errorMod * homeErrorModB + (1 - fatigueB) * 0.20;
+    const handlingErrorA_eff = handlingErrorBaseA * styleA.errorMod * sysA.errorMod * podsA.errorMod * tacticObjA.errorMod * weatherObj.errorMod + (1 - fatigueA) * 0.20;
+    const handlingErrorB_eff = handlingErrorBaseB * styleB.errorMod * sysB.errorMod * podsB.errorMod * tacticObjB.errorMod * weatherObj.errorMod * homeErrorModB + (1 - fatigueB) * 0.20;
     if (!eventHandled && push > 0 && Math.random() < handlingErrorA_eff) {
       const culprit = pickHandlingCulprit(scrumHalfA, flyHalfA);
       addLog(minute, `Knock-on de ${teamA.name}: a ${culprit.name} se le escapa la pelota en el pase.`);

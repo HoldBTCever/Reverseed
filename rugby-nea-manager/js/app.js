@@ -1,5 +1,5 @@
 import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS, teamIdentity, TRAINING_TYPES, ATTENDANCE_CATEGORIES} from './data.js';
-import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, WEATHER_TYPES, zoneForPos, defaultGamePlan, pickLineoutUnit, rollWeather} from './engine.js';
+import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, POD_FORMATIONS, WEATHER_TYPES, zoneForPos, defaultGamePlan, pickLineoutUnit, rollWeather} from './engine.js';
 import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
@@ -51,10 +51,10 @@ function curdaDefaultGamePlan() {
   return {
     system: 'sudafrica', // identidade "Dominar el contacto" do clube
     zones: {
-      red: {style: 'chute', code: 'AVIÓN/TORMENTA/T1'},
-      orange: {style: 'chute', code: 'TORMENTA/T1/BOMBA'},
-      green: {style: 'forwards', code: 'IRLANDA/BURRO'},
-      yellow: {style: 'forwards', code: 'SUDAFRICA'},
+      red: {style: 'chute', code: 'AVIÓN/TORMENTA/T1', pods: '3-3-1-1'}, // saída segura: um forward recuado cobre o contra-chute
+      orange: {style: 'chute', code: 'TORMENTA/T1/BOMBA', pods: '3-3-2'},
+      green: {style: 'forwards', code: 'IRLANDA/BURRO', pods: '3-3-2'},
+      yellow: {style: 'forwards', code: 'SUDAFRICA', pods: '3-3-2'}, // pods grandes = mais potência de choque perto do ingoal
     },
     pillars: {disciplina: 75, posse: 75, fisicalidade: 85, defesa: 85},
   };
@@ -79,10 +79,10 @@ function aiGamePlanFor(team) {
   return {
     system,
     zones: {
-      red: {style: 'chute', code: ''},
-      orange: {style: 'equilibrado', code: ''},
-      green: {style: zoneStyle, code: ''},
-      yellow: {style: zoneStyle, code: ''},
+      red: {style: 'chute', code: '', pods: '3-3-2'},
+      orange: {style: 'equilibrado', code: '', pods: '3-3-2'},
+      green: {style: zoneStyle, code: '', pods: '3-3-2'},
+      yellow: {style: zoneStyle, code: '', pods: '3-3-2'},
     },
     pillars: {disciplina: pillar, posse: pillar, fisicalidade: pillar, defesa: pillar},
   };
@@ -164,7 +164,8 @@ const I18N = {
     trainLivre: 'Libre (automático)',
     navTatica: 'Táctica',
     taticaTitle: 'Táctica — {team}',
-    taticaHelp: 'Definí el plan de juego por zona del campo, igual que el "tablero de mando territorial" que usan los clubes de verdad: cada zona tiene un estilo propio, que se aplica en la simulación en vivo (y se ve en la franja de colores arriba de la cancha, con el código de la jugada activa).',
+    taticaHelp: 'Definí el plan de juego por zona del campo, igual que el "tablero de mando territorial" que usan los clubes de verdad: tocá una franja de la cancha para editar esa zona. Cada zona tiene un estilo y una formación de pods propios, que se aplican en la simulación en vivo (y se ven en la franja de colores arriba de la cancha, con el código de la jugada activa).',
+    zonasCampoTitle: 'Zonas del campo',
     zonaVermelha: 'Zona Roja (0-22 propia)',
     zonaLaranja: 'Zona Naranja (22-40)',
     zonaVerde: 'Zona Verde (40-80)',
@@ -175,6 +176,11 @@ const I18N = {
     estiloChute: 'Salida por el pie',
     estiloEquilibrado: 'Equilibrado',
     estiloForwards: 'Forwards / juego corrido',
+    podFormacaoLabel: 'Formación de forwards (pods)',
+    podDesc_332: 'Dos grupos de 3 adelante y un grupo de 2 de apoyo más atrás.',
+    podDesc_1331: 'Un forward abierto en cada punta del campo, dos grupos de 3 en el medio.',
+    podDesc_3311: 'Dos grupos de 3 adelante, un jugador de apoyo y otro más retrasado.',
+    podDesc_2222: 'Cuatro parejas escalonadas — un back queda detrás de las dos primeras, dando opción de pase.',
     sistemaTitle: 'Sistema de juego',
     sistemaHelp: 'La identidad táctica general del equipo, además del estilo por zona — cada sistema tiene su propia formación de apoyo. Se aplica en todo el partido.',
     sistema_ninguno: 'Ninguno (solo estilo por zona)',
@@ -402,7 +408,8 @@ const I18N = {
     trainLivre: 'Livre (automático)',
     navTatica: 'Tática',
     taticaTitle: 'Tática — {team}',
-    taticaHelp: 'Defina o plano de jogo por zona do campo, igual ao "tablero de mando territorial" que os clubes de verdade usam: cada zona tem um estilo próprio, aplicado na simulação ao vivo (e visível na faixa colorida acima do campo, com o código da jogada em vigor).',
+    taticaHelp: 'Defina o plano de jogo por zona do campo, igual ao "tablero de mando territorial" que os clubes de verdade usam: toque numa faixa do campo pra editar aquela zona. Cada zona tem um estilo e uma formação de pods próprios, aplicados na simulação ao vivo (e visíveis na faixa colorida acima do campo, com o código da jogada em vigor).',
+    zonasCampoTitle: 'Zonas do campo',
     zonaVermelha: 'Zona Vermelha (0-22 própria)',
     zonaLaranja: 'Zona Laranja (22-40)',
     zonaVerde: 'Zona Verde (40-80)',
@@ -413,6 +420,11 @@ const I18N = {
     estiloChute: 'Saída pelo chute',
     estiloEquilibrado: 'Equilibrado',
     estiloForwards: 'Forwards / jogo corrido',
+    podFormacaoLabel: 'Formação dos forwards (pods)',
+    podDesc_332: 'Dois grupos de 3 na frente e um grupo de 2 de apoio mais atrás.',
+    podDesc_1331: 'Um forward aberto em cada ponta do campo, dois grupos de 3 no meio.',
+    podDesc_3311: 'Dois grupos de 3 na frente, um jogador de apoio e outro mais recuado.',
+    podDesc_2222: 'Quatro duplas escalonadas — um back fica atrás das duas primeiras, dando opção de passe.',
     sistemaTitle: 'Sistema de jogo',
     sistemaHelp: 'A identidade tática geral do time, além do estilo por zona — cada sistema tem sua própria formação de apoio. Vale pra partida inteira.',
     sistema_ninguno: 'Nenhum (só estilo por zona)',
@@ -868,6 +880,7 @@ let lineupPickerAnchor = null; // {x, y} do clique que abriu o seletor, pra flut
 let manualBenchSlots = null; // array de até MAX_BENCH playerIds (reservas escolhidas pra hoje) em edição na tela de Dia de Jogo
 let openBenchSlot = null; // índice do slot de reserva com o seletor aberto, ou null se fechado
 let benchPickerAnchor = null; // {x, y} do clique que abriu o seletor de reserva
+let openTacticZone = null; // qual zona (red/orange/green/yellow) está com o editor aberto no campo tático da tela de Tática, ou null se fechado
 
 // Mesma mecânica de clique+popup do editor de Dia de Jogo, mas pro campo
 // clicável da tela de Plantel ("Escalação atual") — edita direto o preset
@@ -3437,11 +3450,21 @@ function escapeHtmlAttr(str) {
 const ZONE_COLORS = {red: '#c0392b', orange: '#d68a2c', green: '#1f7a43', yellow: '#c9a227'};
 const ZONE_LABEL_KEY = {red: 'zonaVermelha', orange: 'zonaLaranja', green: 'zonaVerde', yellow: 'zonaDourada'};
 const ZONE_STYLE_LABEL_KEY = {chute: 'estiloChute', equilibrado: 'estiloEquilibrado', forwards: 'estiloForwards'};
+// Altura de cada zona na imagem do campo, proporcional aos metros reais
+// (0-22/22-40/40-80/80-Ingoal, ver zoneForPos em engine.js) — soma 100%.
+const ZONE_HEIGHT_PCT = {red: 22, orange: 18, green: 40, yellow: 20};
+const POD_FORMATION_KEYS = Object.keys(POD_FORMATIONS);
+const podDescKey = pods => 'podDesc_' + pods.replace(/-/g, '');
 
 function ensureGamePlan() {
   if (!state.gamePlan) state.gamePlan = defaultGamePlan();
   if (!state.gamePlan.system) state.gamePlan.system = 'ninguno';
   if (state.gamePlan.pillars.defesa == null) state.gamePlan.pillars.defesa = 50;
+  // Saves antigos não tinham formação de pods por zona — cai pro formato
+  // neutro (3-3-2) em vez de quebrar (ver POD_FORMATIONS em engine.js).
+  ZONE_KEYS.forEach(z => {
+    if (!state.gamePlan.zones[z].pods) state.gamePlan.zones[z].pods = '3-3-2';
+  });
   if (!state.gamePlanPdfs) state.gamePlanPdfs = [];
   return state.gamePlan;
 }
@@ -3449,6 +3472,34 @@ function ensureGamePlan() {
 function formatFileSize(bytes) {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Editor da zona clicada no campo tático: estilo de jogo, formação de pods
+// dos forwards e código de comunicação — mesmos três campos de antes, só que
+// agora abrem sob demanda embaixo da faixa colorida em vez de ficarem todos
+// visíveis o tempo todo num grid de cards.
+function renderTacticZoneEditorHtml(zoneKey, plan) {
+  const zone = plan.zones[zoneKey];
+  return `
+    <div class="tacticZoneEditor" style="border-top: 3px solid ${ZONE_COLORS[zoneKey]}">
+      <h4>${t(ZONE_LABEL_KEY[zoneKey])}</h4>
+      <label class="zoneFieldLabel">${t('estiloDeJogo')}</label>
+      <select class="zoneStyleSelect" data-zone="${zoneKey}">
+        ${Object.keys(ZONE_STYLES).map(s => `<option value="${s}" ${zone.style === s ? 'selected' : ''}>${t(ZONE_STYLE_LABEL_KEY[s])}</option>`).join('')}
+      </select>
+      <label class="zoneFieldLabel">${t('podFormacaoLabel')}</label>
+      <select class="zonePodsSelect" data-zone="${zoneKey}">
+        ${POD_FORMATION_KEYS.map(p => `<option value="${p}" ${zone.pods === p ? 'selected' : ''}>${p}</option>`).join('')}
+      </select>
+      <p class="muted podDescText">${t(podDescKey(zone.pods))}</p>
+      <label class="zoneFieldLabel">${t('codigoComunicacao')}</label>
+      <input type="text" class="zoneCodeInput" list="playCodesList" data-zone="${zoneKey}" maxlength="24" value="${escapeHtmlAttr(zone.code)}" placeholder="${t('codigoPlaceholder')}" />
+      <datalist id="playCodesList">
+        ${PLAY_CODES.map(c => `<option value="${c}"></option>`).join('')}
+      </datalist>
+      <button type="button" class="ctrlBtn" id="closeTacticZoneBtn">${t('fecharSeletor')}</button>
+    </div>
+  `;
 }
 
 function renderTactics() {
@@ -3467,21 +3518,17 @@ function renderTactics() {
       </select>
       ${plan.system !== 'ninguno' ? `<p class="muted systemFormation">${t('formacaoApoio', {f: PLAY_SYSTEMS[plan.system].formation})}</p>` : ''}
     </div>
-    <div class="zoneGrid">
-      ${ZONE_KEYS.map(z => `
-        <div class="zoneCard" style="border-top: 4px solid ${ZONE_COLORS[z]}">
-          <h3>${t(ZONE_LABEL_KEY[z])}</h3>
-          <label class="zoneFieldLabel">${t('estiloDeJogo')}</label>
-          <select class="zoneStyleSelect" data-zone="${z}">
-            ${Object.keys(ZONE_STYLES).map(s => `<option value="${s}" ${plan.zones[z].style === s ? 'selected' : ''}>${t(ZONE_STYLE_LABEL_KEY[s])}</option>`).join('')}
-          </select>
-          <label class="zoneFieldLabel">${t('codigoComunicacao')}</label>
-          <input type="text" class="zoneCodeInput" list="playCodesList" data-zone="${z}" maxlength="24" value="${escapeHtmlAttr(plan.zones[z].code)}" placeholder="${t('codigoPlaceholder')}" />
-        </div>
-      `).join('')}
-      <datalist id="playCodesList">
-        ${PLAY_CODES.map(c => `<option value="${c}"></option>`).join('')}
-      </datalist>
+    <div class="card">
+      <h3>${t('zonasCampoTitle')}</h3>
+      <div class="tacticalFieldOuter">
+        ${ZONE_KEYS.slice().reverse().map(z => `
+          <button type="button" class="tacticZoneBand${openTacticZone === z ? ' zoneOpen' : ''}" data-zone="${z}" style="height:${ZONE_HEIGHT_PCT[z]}%; background:${ZONE_COLORS[z]}66;">
+            <div class="tacticZoneLabel">${t(ZONE_LABEL_KEY[z])}</div>
+            <div class="tacticZoneInfo">${t(ZONE_STYLE_LABEL_KEY[plan.zones[z].style])} · ${plan.zones[z].pods}${plan.zones[z].code ? ` · "${escapeHtmlAttr(plan.zones[z].code)}"` : ''}</div>
+          </button>
+        `).join('')}
+      </div>
+      ${openTacticZone ? renderTacticZoneEditorHtml(openTacticZone, plan) : ''}
     </div>
     <div class="card">
       <h3>${t('pilaresTitle')}</h3>
@@ -3519,10 +3566,25 @@ function renderTactics() {
     saveState();
     renderTactics();
   });
+  Array.from(document.querySelectorAll('.tacticZoneBand')).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const z = btn.dataset.zone;
+      openTacticZone = openTacticZone === z ? null : z;
+      renderTactics();
+    });
+  });
   Array.from(document.querySelectorAll('.zoneStyleSelect')).forEach(sel => {
     sel.addEventListener('change', () => {
       ensureGamePlan().zones[sel.dataset.zone].style = sel.value;
       saveState();
+      renderTactics();
+    });
+  });
+  Array.from(document.querySelectorAll('.zonePodsSelect')).forEach(sel => {
+    sel.addEventListener('change', () => {
+      ensureGamePlan().zones[sel.dataset.zone].pods = sel.value;
+      saveState();
+      renderTactics();
     });
   });
   Array.from(document.querySelectorAll('.zoneCodeInput')).forEach(inp => {
@@ -3530,7 +3592,15 @@ function renderTactics() {
       ensureGamePlan().zones[inp.dataset.zone].code = inp.value;
       saveState();
     });
+    inp.addEventListener('blur', () => renderTactics());
   });
+  const closeTacticZoneBtn = document.getElementById('closeTacticZoneBtn');
+  if (closeTacticZoneBtn) {
+    closeTacticZoneBtn.addEventListener('click', () => {
+      openTacticZone = null;
+      renderTactics();
+    });
+  }
   Array.from(document.querySelectorAll('.pillarSlider')).forEach(sl => {
     sl.addEventListener('input', () => {
       ensureGamePlan().pillars[sl.dataset.pillar] = Number(sl.value);
@@ -3540,6 +3610,7 @@ function renderTactics() {
   });
   document.getElementById('resetGamePlanBtn').addEventListener('click', () => {
     state.gamePlan = defaultGamePlan();
+    openTacticZone = null;
     saveState();
     renderTactics();
   });
@@ -3547,6 +3618,7 @@ function renderTactics() {
   if (loadCurdaBtn) {
     loadCurdaBtn.addEventListener('click', () => {
       state.gamePlan = curdaDefaultGamePlan();
+      openTacticZone = null;
       saveState();
       renderTactics();
     });

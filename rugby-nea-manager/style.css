@@ -462,22 +462,56 @@ canvas#pitch {
   border-radius: 6px; padding: 5px; font-size: 12px; max-width: 220px;
 }
 
-/* Tela de Tática: plano de jogo por zona + pilares + PDFs */
-.zoneGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+/* Tela de Tática: plano de jogo por zona (imagem do campo) + pilares + PDFs */
+.tacticalFieldOuter {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  aspect-ratio: 3 / 4;
+  display: flex;
+  flex-direction: column;
+  background: repeating-linear-gradient(90deg, #1c6b2e 0, #1c6b2e 8%, #1a6329 8%, #1a6329 16%);
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 10px;
+  overflow: hidden;
 }
-.zoneCard {
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-  padding: 14px; display: flex; flex-direction: column; gap: 6px;
+.tacticZoneBand {
+  flex: 0 0 auto;
+  width: 100%;
+  border: none;
+  border-top: 2px solid rgba(255,255,255,0.35);
+  border-left: 4px solid transparent;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 2px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: #fff;
+  transition: filter 0.15s;
 }
-.zoneCard h3 { margin: 0 0 4px; font-size: 14px; }
-.zoneFieldLabel { font-size: 11px; color: var(--muted); margin-top: 6px; }
-.zoneStyleSelect, .zoneCodeInput, .systemSelect {
+.tacticZoneBand:first-child { border-top: none; }
+.tacticZoneBand:hover { filter: brightness(1.15); }
+.tacticZoneBand.zoneOpen { border-left-color: #fff; filter: brightness(1.2); }
+.tacticZoneLabel { font-weight: 700; font-size: 13px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.tacticZoneInfo { font-size: 11px; opacity: 0.95; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.tacticZoneEditor {
+  margin-top: 14px; padding: 12px; background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.tacticZoneEditor h4 { margin: 0 0 8px; }
+.podDescText { font-size: 12px; margin: 6px 0 0; }
+.zoneFieldLabel { font-size: 11px; color: var(--muted); margin-top: 6px; display: block; }
+.zoneStyleSelect, .zoneCodeInput, .zonePodsSelect, .systemSelect {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 6px; font-size: 12px; width: 100%;
+}
+.tacticZoneEditor .zoneStyleSelect, .tacticZoneEditor .zoneCodeInput, .tacticZoneEditor .zonePodsSelect {
+  background: var(--panel); margin-bottom: 4px;
 }
 .systemSelect { max-width: 480px; }
 .systemFormation { margin-top: 8px; margin-bottom: 0; font-size: 12px; }
