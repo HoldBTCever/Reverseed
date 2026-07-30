@@ -967,22 +967,47 @@ function isNationalTeamEligible(p) {
   return (p.meta.yearsInParaguay || 0) >= required;
 }
 
+// meta.nationalTeam também guarda jogadores que NÃO estão convocados hoje:
+// "seleção juvenil" é a seleção de base (categoria de idade, não a Yacaré XV
+// adulta) e "ex-capitão..."/"ex-..." é alguém que já defendeu o país mas não
+// está mais na lista atual (ex.: Mariano Garcete — confirmado pelos próprios
+// comentários do post oficial do plantel 2026, "¿Ya no está más Mariano
+// Garcete?"). Só tags que indicam convocação ADULTA ATUAL contam pro pool do
+// Yacaré XV de hoje.
+function isActiveAdultNationalTeamTag(tag) {
+  if (!tag) return false;
+  return !/juvenil|^ex-/i.test(tag);
+}
+
 // ---- Seleção do Paraguai (Los Yacarés) -------------------------------------
 // A seleção é a lista real e documentada de convocados (meta.nationalTeam),
 // não um auto-pick pelos melhores overalls do país — um jogador pode ter
 // nível de seleção (ex.: Álvaro Allo, Gonza Alvarado no Curda) e mesmo assim
 // nunca ter sido convocado de fato. Por isso o pool junta só os jogadores
-// tagueados como seleção em cada clube onde a Paraguay tem convocados: Curda,
-// San José, Cristo Rey, Santa Clara (clubes paraguaios) e os expatriados que
-// jogam em clubes argentinos mas defendem a seleção (Belgrano Athletic,
-// Santa Fe, CAE, Champagnat). Ignacio "Nacho" Cuevas (Curda) é a exceção:
-// recusa convocações pra se manter fiel só ao clube (meta.refusesNationalTeam),
-// então nunca entra no pool mesmo sendo o melhor jogador do país. Jogadores
-// estrangeiros recém-chegados (ex.: Paco Lamas, argentino) também ficam de
-// fora até completarem os anos de residência exigidos (isNationalTeamEligible).
+// tagueados como seleção ATUAL adulta em cada clube onde a Paraguay tem
+// convocados: Curda, San José, Cristo Rey, Santa Clara (clubes paraguaios) e
+// os expatriados que jogam em clubes argentinos mas defendem a seleção
+// (Belgrano Athletic, Santa Fe, CAE, Champagnat) — conferido contra o plantel
+// 2026 oficial (posts do Instagram do URP). Ignacio "Nacho" Cuevas (Curda) é
+// a exceção: recusa convocações pra se manter fiel só ao clube
+// (meta.refusesNationalTeam), então nunca entra no pool mesmo sendo o melhor
+// jogador do país. Jogadores estrangeiros recém-chegados (ex.: Paco Lamas,
+// argentino) também ficam de fora até completarem os anos de residência
+// exigidos (isNationalTeamEligible).
+//
+// Usa CURDA_ROSTER_RAW (a força individual documentada de cada jogador, ANTES
+// do reajuste que alarga o elenco em torno da base estrutural do clube pra
+// competir no NEA/Paraguaio — ver rescaleRosterToTeamBase) em vez de
+// CURDA_ROSTER: o reajuste comprime a nota de quem não está entre os
+// destaques do PLANTEL DOMÉSTICO do Curda, o que teria empurrado pra baixo
+// justamente os convocados da seleção (ex.: Facundo Paiva, Sebas Urbieta,
+// Arturo López), mesmo sendo eles titulares documentados da Yacaré XV —
+// o nível de seleção de um jogador é uma força individual real, não deveria
+// depender de como o elenco do clube dele foi recalibrado pro campeonato
+// doméstico.
 export function getParaguaySquad() {
   const clubs = [
-    {roster: [...CURDA_ROSTER, ...recruitedIntoCurda], club: 'Curda'},
+    {roster: [...CURDA_ROSTER_RAW, ...recruitedIntoCurda], club: 'Curda'},
     {roster: SANJOSE_ROSTER, club: 'San José'},
     {roster: CRISTO_REY_ROSTER, club: 'Cristo Rey'},
     {roster: SANTA_CLARA_ROSTER, club: 'Santa Clara'},
@@ -992,7 +1017,7 @@ export function getParaguaySquad() {
     {roster: CHAMPAGNAT_ROSTER, club: 'Champagnat'},
   ];
   const pool = clubs.flatMap(({roster, club}) => roster
-    .filter(p => p.meta.nationalTeam && isNationalTeamEligible(p))
+    .filter(p => isActiveAdultNationalTeamTag(p.meta.nationalTeam) && isNationalTeamEligible(p))
     .map(p => ({...p, meta: {...p.meta, clubOrigin: club}}))
   );
 
