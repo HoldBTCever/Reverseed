@@ -256,6 +256,9 @@ const I18N = {
     indisponivel: 'No disponible (compromiso simultáneo)',
     titular: 'Titular #{n}',
     reserva: 'Reserva',
+    reservas: 'Reservas',
+    escolherReserva: 'Elegir suplente',
+    removerReserva: 'Quitar de la lista',
     elencoTitle: 'Plantel — {team}',
     escalacaoAtual: 'Formación titular actual',
     escalacaoSimples: 'Formación titular',
@@ -500,6 +503,9 @@ const I18N = {
     indisponivel: 'Indisponível (compromisso simultâneo)',
     titular: 'Titular #{n}',
     reserva: 'Reserva',
+    reservas: 'Reservas',
+    escolherReserva: 'Escolher reserva',
+    removerReserva: 'Remover da lista',
     elencoTitle: 'Elenco — {team}',
     escalacaoAtual: 'Escalação titular atual',
     escalacaoSimples: 'Escalação titular',
@@ -877,6 +883,9 @@ let manualSlots = null; // array de 15 playerIds (ou null nalguma posição = au
 let manualSlotsSignature = null; // identifica pra qual partida o manualSlots atual pertence, pra resetar ao mudar de jogo
 let openLineupSlot = null; // índice (0-14) do slot com o seletor de jogador aberto no campo clicável, ou null se fechado
 let lineupPickerAnchor = null; // {x, y} do clique que abriu o seletor, pra flutuar o popup perto do cursor
+let manualBenchSlots = null; // array de até MAX_BENCH playerIds (reservas escolhidas pra hoje) em edição na tela de Dia de Jogo
+let openBenchSlot = null; // índice do slot de reserva com o seletor aberto, ou null se fechado
+let benchPickerAnchor = null; // {x, y} do clique que abriu o seletor de reserva
 
 // Mesma mecânica de clique+popup do editor de Dia de Jogo, mas pro campo
 // clicável da tela de Plantel ("Escalação atual") — edita direto o preset
@@ -3078,6 +3087,47 @@ function resolveManualXV(teamId, myOptions) {
   return xv;
 }
 
+// Reservas escaladas manualmente pra hoje (até MAX_BENCH, regra real do
+// rugby) — sem isso, "banco" era simplesmente todo o elenco elegível que não
+// estava no XV (podiam ser dezenas de jogadores, e o manager não escolhia
+// quem entre eles realmente viaja pra partida).
+const MAX_BENCH = 8;
+
+// Preenche o banco automaticamente: garante primeiro cobertura de primeira
+// línea (2 pilares + 1 hooker, se houver disponível — scrum não aceita
+// improviso nessas posições, ver FRONT_ROW_POS/canPlay) e só depois completa
+// o resto dos slots pelos melhores overalls disponíveis, de qualquer posto.
+// Sem isso, um preenchimento puramente por overall podia deixar o time sem
+// NENHUM pilar/hooker reserva — bench de puros backs "melhor avaliados".
+function autoBenchSlots(teamId, myOptions, xvIds) {
+  const eligible = manualEligiblePlayers(teamId, myOptions).filter(p => !xvIds.has(p.id));
+  const pickedIds = new Set();
+  const picked = [];
+  const pickBest = pool => {
+    const candidate = pool.filter(p => !pickedIds.has(p.id)).sort((a, b) => b.rating - a.rating)[0];
+    if (candidate) { picked.push(candidate); pickedIds.add(candidate.id); }
+  };
+  pickBest(eligible.filter(p => p.posId === 'PI'));
+  pickBest(eligible.filter(p => p.posId === 'PI'));
+  pickBest(eligible.filter(p => p.posId === 'HK'));
+  for (const p of [...eligible].sort((a, b) => b.rating - a.rating)) {
+    if (picked.length >= MAX_BENCH) break;
+    if (!pickedIds.has(p.id)) { picked.push(p); pickedIds.add(p.id); }
+  }
+  return picked.slice(0, MAX_BENCH).map(p => p.id);
+}
+
+// Resolve os jogadores reais a partir de manualBenchSlots — diferente do XV,
+// o banco não tem posição fixa por slot, então não precisa reprocessar
+// posId/group, só filtra quem ainda é válido (saiu do elenco, foi lesionado
+// etc. viram null e o slot fica vazio).
+function resolveManualBench(teamId, myOptions) {
+  if (!manualBenchSlots) return null;
+  const eligible = manualEligiblePlayers(teamId, myOptions);
+  const byId = Object.fromEntries(eligible.map(p => [p.id, p]));
+  return manualBenchSlots.map(pid => (pid && byId[pid]) || null).filter(Boolean);
+}
+
 function matchSignature(key, c, match) {
   return `${key}|${c.stage}|${c.currentRoundIndex}|${match.home}|${match.away}`;
 }
@@ -3096,11 +3146,12 @@ function shortPlayerName(name) {
 function renderLineupEditorHtml(teamId, myOptions, teamColor) {
   const eligible = manualEligiblePlayers(teamId, myOptions);
   const byId = Object.fromEntries(eligible.map(p => [p.id, p]));
-  // Reservas recalculadas a partir da escalação manual ATUAL (não da
+  // IDs titulares recalculados a partir da escalação manual ATUAL (não da
   // automática) — senão quem acabou de ser trocado pra dentro/fora do
-  // titular continuava (ou sumia) errado na lista de reservas embaixo.
+  // titular continuava (ou sumia) errado do seletor de reserva embaixo.
   const startingIds = new Set((manualSlots || []).filter(Boolean));
-  const bench = eligible.filter(p => !startingIds.has(p.id)).sort((a, b) => b.rating - a.rating);
+  const benchIds = new Set((manualBenchSlots || []).filter(Boolean));
+  const benchPlayers = (manualBenchSlots || []).map(pid => (pid && byId[pid]) || null);
 
   const shirts = POSITIONS.map((slot, idx) => {
     const posId = slot.id;
@@ -3182,7 +3233,71 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor) {
       </div>
       ${openLineupSlot != null ? '<div class="lineupPickerBackdrop" id="lineupPickerBackdrop"></div>' : ''}
       ${pickerHtml}
-      ${renderBenchSectionHtml(bench, teamColor)}
+      ${renderBenchEditorHtml(benchPlayers, eligible, startingIds, benchIds, teamColor)}
+    </div>
+  `;
+}
+
+// Banco clicável (mesma mecânica de clique+popup do XV, mas sem posição fixa
+// por slot): até MAX_BENCH botões, cada um abre o seletor de quem entra
+// naquele lugar do banco — em vez do banco ser "todo mundo que não é
+// titular" (podiam ser dezenas de reservas), agora é uma lista fechada que o
+// manager escolhe, igual escalação real de 23.
+function renderBenchEditorHtml(benchPlayers, eligible, startingIds, benchIds, teamColor) {
+  const slots = Array.from({length: MAX_BENCH}, (_, i) => benchPlayers[i] || null);
+  const cards = slots.map((p, idx) => {
+    const openClass = openBenchSlot === idx ? ' slotOpen' : '';
+    const label = p ? shortPlayerName(p.name) : '+';
+    const cond = p ? Math.round(p.condition) : 100;
+    const titleAttr = p ? `${p.name} — ${p.position}` : t('escolherReserva');
+    return `
+      <button type="button" class="benchCard benchEditBtn${openClass}" data-benchslot="${idx}" title="${escapeHtmlAttr(titleAttr)}">
+        <div class="benchShirt" style="background:${teamColor}">${p ? p.posId : '+'}</div>
+        <div class="benchName">${escapeHtmlAttr(label)}</div>
+        ${p ? `<span class="ratingBar shirtCond"><span style="width:${cond}%"></span></span>` : ''}
+      </button>
+    `;
+  }).join('');
+
+  let pickerHtml = '';
+  if (openBenchSlot != null) {
+    const idx = openBenchSlot;
+    const current = slots[idx];
+    const options = eligible
+      .filter(p => !startingIds.has(p.id) && (!benchIds.has(p.id) || (current && p.id === current.id)))
+      .sort((a, b) => b.rating - a.rating);
+    const playerRow = p => `
+      <button type="button" class="lineupPickBtn ${current && p.id === current.id ? 'selected' : ''}" data-benchpick="${p.id}">
+        <span>${escapeHtmlAttr(p.name)}</span>
+        <span class="muted">${p.position} · ${p.rating} · ${Math.round(p.condition)}%</span>
+      </button>
+    `;
+    const popupW = Math.min(300, window.innerWidth - 24);
+    const popupMaxH = Math.min(420, window.innerHeight - 24);
+    const anchor = benchPickerAnchor || {x: window.innerWidth / 2, y: window.innerHeight / 2};
+    let left = anchor.x + 14;
+    let top = anchor.y + 14;
+    if (left + popupW > window.innerWidth - 12) left = anchor.x - popupW - 14;
+    left = Math.max(12, Math.min(left, window.innerWidth - popupW - 12));
+    if (top + popupMaxH > window.innerHeight - 12) top = window.innerHeight - popupMaxH - 12;
+    top = Math.max(12, top);
+
+    pickerHtml = `
+      <div class="lineupPicker lineupPickerFloating" style="left:${left}px; top:${top}px; width:${popupW}px; max-height:${popupMaxH}px;">
+        <h4>${t('reserva')} ${idx + 1}</h4>
+        ${current ? `<button type="button" class="lineupPickBtn" data-benchpick="">${t('removerReserva')}</button>` : ''}
+        ${!options.length ? `<p class="muted">${t('subsBankEmpty')}</p>` : `<div class="lineupPickList">${options.map(playerRow).join('')}</div>`}
+        <button type="button" class="ctrlBtn" id="closeBenchPickerBtn">${t('fecharSeletor')}</button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="benchSection">
+      <div class="benchTitle">${t('reservas')}</div>
+      <div class="benchRow">${cards}</div>
+      ${openBenchSlot != null ? '<div class="lineupPickerBackdrop" id="benchPickerBackdrop"></div>' : ''}
+      ${pickerHtml}
     </div>
   `;
 }
@@ -4046,6 +4161,9 @@ function renderMatchday() {
     manualSlotsSignature = sig;
     openLineupSlot = null;
     lineupPickerAnchor = null;
+    manualBenchSlots = null;
+    openBenchSlot = null;
+    benchPickerAnchor = null;
   }
 
   const isRealRoster = !!getRealRoster(c.teamId);
@@ -4053,6 +4171,9 @@ function renderMatchday() {
   if (isRealRoster && !manualSlots) manualSlots = slotsFromXV(autoXV);
   const manualXV = isRealRoster ? resolveManualXV(c.teamId, myOptions) : null;
   const effectiveXV = manualXV || autoXV;
+  if (isRealRoster && !manualBenchSlots) {
+    manualBenchSlots = autoBenchSlots(c.teamId, myOptions, new Set((manualSlots || []).filter(Boolean)));
+  }
 
   // Distingue as duas causas de exclusão pra mostrar a nota certa: choque de
   // agenda (mesma data, local diferente) é um aviso de UM jogo só; convocação
@@ -4123,6 +4244,7 @@ function renderMatchday() {
         manualSlots[idx] = newId;
         openLineupSlot = null;
         lineupPickerAnchor = null;
+        pruneBenchAgainstXV();
         renderMatchday();
       });
     });
@@ -4142,10 +4264,21 @@ function renderMatchday() {
         renderMatchday();
       });
     }
+    // Tira do banco qualquer jogador que acabou de virar titular (troca de
+    // XV automático, Time A ou Time B) — senão ele ficava escalado nos dois
+    // lugares ao mesmo tempo.
+    const pruneBenchAgainstXV = () => {
+      if (!manualBenchSlots) return;
+      const startingNow = new Set((manualSlots || []).filter(Boolean));
+      manualBenchSlots = manualBenchSlots.map(pid => (pid && startingNow.has(pid)) ? null : pid);
+    };
     document.getElementById('lineupAutoBtn').addEventListener('click', () => {
       manualSlots = slotsFromXV(autoXV);
       openLineupSlot = null;
       lineupPickerAnchor = null;
+      manualBenchSlots = autoBenchSlots(c.teamId, myOptions, new Set(manualSlots.filter(Boolean)));
+      openBenchSlot = null;
+      benchPickerAnchor = null;
       renderMatchday();
     });
     document.getElementById('lineupSaveABtn').addEventListener('click', () => {
@@ -4165,12 +4298,14 @@ function renderMatchday() {
       // Sem Time A salvo ainda: cai pra melhor escalação automática atual,
       // igual já é o padrão antes de qualquer edição manual.
       manualSlots = preset ? [...preset] : slotsFromXV(autoXV);
+      pruneBenchAgainstXV();
       renderMatchday();
     });
     document.getElementById('lineupLoadBBtn').addEventListener('click', () => {
       const preset = state.lineupPresets[c.teamId] && state.lineupPresets[c.teamId].B;
       if (preset) {
         manualSlots = [...preset];
+        pruneBenchAgainstXV();
         renderMatchday();
         return;
       }
@@ -4181,8 +4316,54 @@ function renderMatchday() {
       const altOptions = {...myOptions, excludedIds: new Set([...(myOptions.excludedIds || []), ...primaryIds])};
       const altXV = squadOf(c.teamId, altOptions);
       manualSlots = slotsFromXV(altXV);
+      pruneBenchAgainstXV();
       renderMatchday();
     });
+
+    Array.from(document.querySelectorAll('.benchEditBtn')).forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        const idx = Number(btn.dataset.benchslot);
+        if (openBenchSlot === idx) {
+          openBenchSlot = null;
+          benchPickerAnchor = null;
+        } else {
+          openBenchSlot = idx;
+          benchPickerAnchor = {x: ev.clientX, y: ev.clientY};
+        }
+        renderMatchday();
+      });
+    });
+    Array.from(document.querySelectorAll('[data-benchpick]')).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = openBenchSlot;
+        const newId = btn.dataset.benchpick || null;
+        if (!manualBenchSlots) manualBenchSlots = new Array(MAX_BENCH).fill(null);
+        if (newId) {
+          const dupIdx = manualBenchSlots.findIndex((pid, i) => pid === newId && i !== idx);
+          if (dupIdx !== -1) manualBenchSlots[dupIdx] = null;
+        }
+        manualBenchSlots[idx] = newId;
+        openBenchSlot = null;
+        benchPickerAnchor = null;
+        renderMatchday();
+      });
+    });
+    const closeBenchPickerBtn = document.getElementById('closeBenchPickerBtn');
+    if (closeBenchPickerBtn) {
+      closeBenchPickerBtn.addEventListener('click', () => {
+        openBenchSlot = null;
+        benchPickerAnchor = null;
+        renderMatchday();
+      });
+    }
+    const benchPickerBackdrop = document.getElementById('benchPickerBackdrop');
+    if (benchPickerBackdrop) {
+      benchPickerBackdrop.addEventListener('click', () => {
+        openBenchSlot = null;
+        benchPickerAnchor = null;
+        renderMatchday();
+      });
+    }
   }
 }
 
@@ -4261,8 +4442,14 @@ function renderLive() {
   // Substituições ao vivo: só faz sentido pra times com elenco real (curado),
   // que têm banco de reservas — times procedurais só têm os 15 gerados. Até
   // 8 trocas por partida (regra real do rugby); quem sai não volta a entrar.
+  // O banco é o escolhido manualmente na tela de Dia de Jogo (manualBenchSlots)
+  // — não mais "todo o elenco elegível que não é titular" (podiam ser
+  // dezenas de jogadores disponíveis pra entrar, em vez dos ~8 reais).
   const myRosterReal = !!getRealRoster(c.teamId);
-  const myBench = myRosterReal ? rosterWithStatus(c.teamId, myOptions).filter(p => p.status === 'reserva') : [];
+  const manualBench = myRosterReal ? resolveManualBench(c.teamId, myOptions) : null;
+  const myBench = manualBench && manualBench.length
+    ? manualBench
+    : (myRosterReal ? rosterWithStatus(c.teamId, myOptions).filter(p => p.status === 'reserva') : []);
   const MAX_SUBS = 8;
   let subsUsed = 0;
   let subOutSelected = null; // id do titular em campo escolhido pra sair
