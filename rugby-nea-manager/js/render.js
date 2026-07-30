@@ -351,9 +351,13 @@ export class MatchRenderer {
   // ingoal, B do seu), em forma de cunha real (não uma linha só): 1ª linha
   // (1/2/3) bem colada e centralizada, 2ª linha (4/5, os segunda-línea)
   // um passo atrás e mais aberta, 3ª linha (6/7, os alas) mais atrás e mais
-  // aberta ainda, e o 8 na base, entre os segunda-línea e os alas. Os
-  // backs recuam numa linha mais curta, já que ninguém corre solto
-  // enquanto o scrum não sai.
+  // aberta ainda, e o 8 na base, entre os segunda-línea e os alas — igual
+  // pros dois packs, já que a ligação em si não muda com a posse. Os backs
+  // é que mudam MUITO conforme quem tem a iniciativa (this.attackingTeam):
+  // o time que vai atacar já abre a linha, funda e espalhada, pronta pra
+  // receber a bola assim que ela sair; o time que defende fica compacto e
+  // fechado perto da base do scrum (impedido de avançar pela lei do
+  // offside até a bola sair).
   scrumLayout(dot, x) {
     const isForward = dot.kind === 'tight' || dot.kind === 'loose';
     const teamSign = dot.team === 'A' ? -1 : 1;
@@ -364,7 +368,10 @@ export class MatchRenderer {
     if (dot.num === 9) {
       return {px: x + teamSign * 18, wideY: dot.y * 0.6};
     }
-    return {px: x + teamSign * dot.attackDepth * 0.8, wideY: dot.y};
+    if (dot.team === this.attackingTeam) {
+      return {px: x + teamSign * dot.attackDepth * 0.85, wideY: dot.y};
+    }
+    return {px: x + teamSign * dot.defenseDepth * 0.6, wideY: dot.y * 0.85};
   }
 
   // Formação de lineout: fila de forwards perpendicular à linha de touch (o

@@ -661,7 +661,7 @@ const SKILL_DESC = {
   composure: 'Sangue-frio em momentos decisivos — pesa no chute, no drop goal e no lançamento de line-out sob pressão.',
   agility: 'Agilidade — pesa no overall físico, mais forte pros jogadores de ataque que precisam mudar de direção rápido.',
   recovery: 'Recuperação física entre fases de jogo (rucks e tackles seguidos) — distinta da resistência, que é sobre os 80 minutos inteiros.',
-  comunicacao: 'Comunicação — o chamado da jogada chegando certo antes da bola sair da mão; pesa forte no handling do médio scrum e do apertura (junto com o passe, define a chance de erro de mão do time) e evolui nos churrascos do grupo.',
+  comunicacao: 'Comunicação — o chamado da jogada chegando certo antes da bola sair da mão; pesa forte no handling do médio scrum e do apertura (junto com o passe, define a chance de erro de mão do time), também afeta a disciplina tática (comunicação baixa nesses dois postos aumenta a chance de cartão do time inteiro) e evolui nos churrascos do grupo.',
 };
 
 const SKILL_DESC_ES = {
@@ -687,7 +687,7 @@ const SKILL_DESC_ES = {
   composure: 'Sangre fría en momentos decisivos — pesa en la patada, el drop goal y el lanzamiento de line-out bajo presión.',
   agility: 'Agilidad — pesa en el overall físico, más fuerte para los jugadores de ataque que necesitan cambiar de dirección rápido.',
   recovery: 'Recuperación física entre fases de juego (rucks y tackles seguidos) — distinta de la resistencia, que es sobre los 80 minutos enteros.',
-  comunicacao: 'Comunicación — el llamado de la jugada llegando correcto antes de que la pelota salga de la mano; pesa fuerte en el handling del medio scrum y del apertura (junto con el pase, define la chance de error de mano del equipo) y evoluciona en los asados del plantel.',
+  comunicacao: 'Comunicación — el llamado de la jugada llegando correcto antes de que la pelota salga de la mano; pesa fuerte en el handling del medio scrum y del apertura (junto con el pase, define la chance de error de mano del equipo), también afecta la disciplina táctica (comunicación baja en esos dos puestos aumenta la chance de tarjeta de todo el equipo) y evoluciona en los asados del plantel.',
 };
 
 function skillDesc(key) {

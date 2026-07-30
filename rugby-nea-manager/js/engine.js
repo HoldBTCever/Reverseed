@@ -467,6 +467,16 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
   yellowChanceA *= disciplinaGuardA; redChanceA *= disciplinaGuardA;
   yellowChanceB *= disciplinaGuardB; redChanceB *= disciplinaGuardB;
 
+  // Comunicação baixa do 9/10 também vira indisciplina tática: chamado que
+  // não chega certo confunde a marcação/o pack sob pressão, aumentando a
+  // chance de cartão — comunicação alta faz o oposto, o time se organiza e
+  // se disciplina melhor.
+  const commsGuard = (sh, fh) => clamp(1.5 - (sh.skills.comunicacao + fh.skills.comunicacao) / 200, 0.85, 1.3);
+  const commsGuardA = commsGuard(scrumHalfA, flyHalfA);
+  const commsGuardB = commsGuard(scrumHalfB, flyHalfB);
+  yellowChanceA *= commsGuardA; redChanceA *= commsGuardA;
+  yellowChanceB *= commsGuardB; redChanceB *= commsGuardB;
+
   const posseGuardA = clamp(1 - (planA.pillars.posse - 50) * 0.005, 0.6, 1.4);
   const posseGuardB = clamp(1 - (planB.pillars.posse - 50) * 0.005, 0.6, 1.4);
   const handlingErrorBaseA = handlingErrorA * posseGuardA;
