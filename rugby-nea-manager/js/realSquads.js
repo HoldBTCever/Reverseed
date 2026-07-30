@@ -207,23 +207,24 @@ function rescaleRosterToTeamBase(roster, teamId) {
   // Etapa 3 (pequeno ajuste pontual, só pra quem viola a hierarquia real):
   // o alargamento da etapa 1 opera SKILL por SKILL em torno da média do
   // plantel inteiro, então mesmo jogadores com nível documentado de fora
-  // (convocados da seleção paraguaia, mais Nacho e Garcete — melhores que
-  // eles mas nunca convocados, um por recusar e o outro por já não estar
-  // mais na lista) podem sair fora de ordem dependendo de que skills
-  // específicas cada um tem acima/abaixo da média (ex.: o Allo, especialista
-  // de salto, tinha quase todas as OUTRAS skills abaixo da média, saindo
-  // pior avaliado que os próprios convocados). KNOWN_STRENGTH_MIN corrige só
-  // essas violações pontuais — sobe o overall pro mínimo dado (nunca desce),
-  // preservando o resultado natural pra quem já está em ordem. Precisa ser
-  // um ajuste pequeno: como esses jogadores ocupam a maioria das posições
-  // titulares, uma correção grande também puxaria a média geral do time pra
-  // cima, destoando do 5º-7º lugar real no NEA (a distância que mostra
-  // nível de seleção de verdade aparece no Paraguaio, na força ESTRUTURAL
-  // do time — bem mais alta lá — não no overall do jogador).
+  // (convocados da seleção paraguaia, Nacho e Garcete — melhores que eles
+  // mas nunca convocados, um por recusar e o outro por já não estar mais na
+  // lista — e o Camilo Orrego, bom jogador mas sem nível de seleção) podem
+  // sair fora de ordem dependendo de que skills específicas cada um tem
+  // acima/abaixo da média (ex.: o Allo, especialista de salto, tinha quase
+  // todas as OUTRAS skills abaixo da média, saindo pior avaliado que os
+  // próprios convocados). KNOWN_STRENGTH_TARGET corrige só essas violações
+  // pontuais, escalando pro overall final desejado (pra cima OU pra baixo,
+  // conforme o caso). Precisa ser um ajuste pequeno: como esses jogadores
+  // ocupam a maioria das posições titulares, uma correção grande também
+  // move a média geral do time, destoando do 5º-7º lugar real no NEA (a
+  // distância que mostra nível de seleção de verdade aparece no Paraguaio,
+  // na força ESTRUTURAL do time — bem mais alta lá — não no overall do
+  // jogador).
   return shifted.map(p => {
-    const min = KNOWN_STRENGTH_MIN[p.name];
-    if (min == null || p.rating >= min) return p;
-    const factor = min / p.rating;
+    const target = KNOWN_STRENGTH_TARGET[p.name];
+    if (target == null) return p;
+    const factor = target / p.rating;
     const skills = {};
     Object.entries(p.skills).forEach(([k, v]) => { skills[k] = clamp(v * factor); });
     const profile = SKILL_PROFILES[p.posId];
@@ -231,20 +232,20 @@ function rescaleRosterToTeamBase(roster, teamId) {
   });
 }
 
-// Overall mínimo (pós-recalibração pro NEA/Paraguaio) pros jogadores do
-// Curda com nível documentado de fora do plantel: Nacho (não convocado por
-// escolha própria) e Garcete (não convocado por já não estar mais na
-// seleção, mas reconhecidamente melhor que quem está) ficam acima de todos
-// os convocados da seleção adulta — final 92 e 90; o Allo fica no mesmo
-// patamar deles, final 71. O NÚMERO AQUI (a chave do mapa) não é o overall
-// final — é o alvo que, depois do clamp() em 99 de algumas skills já bem
-// altas absorver parte do ganho proporcional, produz o overall final
-// desejado; cada valor foi calibrado testando o resultado real (ver
-// getRealRoster('PAR-CUR') pra conferir), não é direto.
-const KNOWN_STRENGTH_MIN = {
-  'Ignacio Cuevas': 120, // final: 92
-  'Mariano Garcete': 125, // final: 90
+// Overall alvo (pós-recalibração pro NEA/Paraguaio) pros jogadores do Curda
+// que a recalibração normal deixa fora de ordem: Garcete no mesmo nível do
+// Mussi (o melhor convocado da seleção adulta, hoje 78), Nacho 2 pontos
+// acima do Garcete, Allo no mesmo patamar da seleção, e o Orrego — bom
+// jogador do Curda, mas sem nível de seleção — abaixo de todos os
+// convocados. O NÚMERO AQUI (a chave do mapa) não é o overall final — é o
+// alvo que, depois do clamp() em 30-99 absorver parte do ganho ou perda
+// proporcional, produz o overall final desejado; cada valor foi calibrado
+// testando o resultado real (ver getRealRoster('PAR-CUR') pra conferir).
+const KNOWN_STRENGTH_TARGET = {
+  'Ignacio Cuevas': 80, // final: 80
+  'Mariano Garcete': 84, // final: 78
   'Álvaro Allo': 85, // final: 71
+  'Camilo Orrego': 42, // final: abaixo do menor convocado da seleção
 };
 
 const CURDA_ROSTER_RAW = [
