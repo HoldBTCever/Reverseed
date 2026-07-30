@@ -197,20 +197,24 @@ function bestByGroup(players, skillKey, group) {
 // Qualidade de mão do time concentrada em quem mais toca a bola (9 e 10),
 // em vez de uma média diluída entre os 15 jogadores. Visão de jogo entra
 // junto do passe puro: um 9/10 com boa leitura erra menos, mesmo com
-// técnica de passe mediana.
+// técnica de passe mediana. Comunicação entra pesado aqui também — é o que
+// faz o chamado da jogada chegar certo antes da bola sair da mão.
 function handlingRating(scrumHalf, flyHalf) {
-  return scrumHalf.skills.pass * 0.40 + scrumHalf.skills.reception * 0.12 + scrumHalf.skills.vision * 0.13
-    + flyHalf.skills.pass * 0.20 + flyHalf.skills.reception * 0.08 + flyHalf.skills.vision * 0.07;
+  return scrumHalf.skills.pass * 0.30 + scrumHalf.skills.reception * 0.10 + scrumHalf.skills.vision * 0.10 + scrumHalf.skills.comunicacao * 0.15
+    + flyHalf.skills.pass * 0.15 + flyHalf.skills.reception * 0.07 + flyHalf.skills.vision * 0.06 + flyHalf.skills.comunicacao * 0.07;
 }
 
 function handlingErrorChance(handling) {
   return Math.max(0.01, Math.min(0.09, 0.04 - (handling - 65) * 0.0015));
 }
 
-// O jogador de pior passe entre 9 e 10 é o mais provável de errar a bola.
+// O jogador de pior combinação passe+comunicação entre 9 e 10 é o mais
+// provável de errar a bola — um 9/10 com mãos boas mas mal entrosado no
+// chamado da jogada também erra.
 function pickHandlingCulprit(scrumHalf, flyHalf) {
-  const wSH = Math.pow(100 - scrumHalf.skills.pass, 2) + 1;
-  const wFH = Math.pow(100 - flyHalf.skills.pass, 2) + 1;
+  const quality = p => p.skills.pass * 0.65 + p.skills.comunicacao * 0.35;
+  const wSH = Math.pow(100 - quality(scrumHalf), 2) + 1;
+  const wFH = Math.pow(100 - quality(flyHalf), 2) + 1;
   return Math.random() * (wSH + wFH) < wSH ? scrumHalf : flyHalf;
 }
 

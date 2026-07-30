@@ -35,25 +35,25 @@ export const POSITIONS = [
 // resistência ao longo dos 80 minutos e entre partidas).
 export const SKILL_PROFILES = {
   PI: {pass: 0.5, reception: 0.4, lineoutThrow: 0.3, jump: 0.4, tackle: 1.0, kicking: 0.2, speed: 0.4, strength: 1.2, stamina: 0.9, determination: 0.7,
-    ruck: 0.8, turnover: 0.3, scrum: 1.3, dropGoal: 0.1, sidestep: 0.2, vision: 0.3, positioning: 0.5, discipline: 0.6, leadership: 0.4, composure: 0.4, agility: 0.4, recovery: 0.7},
+    ruck: 0.8, turnover: 0.3, scrum: 1.3, dropGoal: 0.1, sidestep: 0.2, vision: 0.3, positioning: 0.5, discipline: 0.6, leadership: 0.4, composure: 0.4, agility: 0.4, recovery: 0.7, comunicacao: 0.3},
   HK: {pass: 0.7, reception: 0.6, lineoutThrow: 1.3, jump: 0.5, tackle: 1.0, kicking: 0.2, speed: 0.4, strength: 1.0, stamina: 0.9, determination: 0.7,
-    ruck: 0.8, turnover: 0.4, scrum: 1.1, dropGoal: 0.1, sidestep: 0.2, vision: 0.4, positioning: 0.5, discipline: 0.6, leadership: 0.5, composure: 0.4, agility: 0.4, recovery: 0.7},
+    ruck: 0.8, turnover: 0.4, scrum: 1.1, dropGoal: 0.1, sidestep: 0.2, vision: 0.4, positioning: 0.5, discipline: 0.6, leadership: 0.5, composure: 0.4, agility: 0.4, recovery: 0.7, comunicacao: 0.5},
   SL: {pass: 0.5, reception: 0.6, lineoutThrow: 0.4, jump: 1.3, tackle: 1.1, kicking: 0.2, speed: 0.4, strength: 1.15, stamina: 1.0, determination: 0.7,
-    ruck: 0.9, turnover: 0.5, scrum: 1.0, dropGoal: 0.1, sidestep: 0.2, vision: 0.4, positioning: 0.6, discipline: 0.5, leadership: 0.5, composure: 0.4, agility: 0.4, recovery: 0.7},
+    ruck: 0.9, turnover: 0.5, scrum: 1.0, dropGoal: 0.1, sidestep: 0.2, vision: 0.4, positioning: 0.6, discipline: 0.5, leadership: 0.5, composure: 0.4, agility: 0.4, recovery: 0.7, comunicacao: 0.3},
   AL: {pass: 0.7, reception: 0.7, lineoutThrow: 0.4, jump: 0.6, tackle: 1.2, kicking: 0.3, speed: 0.7, strength: 1.0, stamina: 1.2, determination: 0.8,
-    ruck: 1.2, turnover: 1.3, scrum: 0.6, dropGoal: 0.1, sidestep: 0.4, vision: 0.6, positioning: 0.7, discipline: 0.6, leadership: 0.5, composure: 0.5, agility: 0.8, recovery: 0.9},
+    ruck: 1.2, turnover: 1.3, scrum: 0.6, dropGoal: 0.1, sidestep: 0.4, vision: 0.6, positioning: 0.7, discipline: 0.6, leadership: 0.5, composure: 0.5, agility: 0.8, recovery: 0.9, comunicacao: 0.4},
   N8: {pass: 0.7, reception: 0.7, lineoutThrow: 0.5, jump: 0.7, tackle: 1.1, kicking: 0.3, speed: 0.7, strength: 1.15, stamina: 1.2, determination: 0.8,
-    ruck: 1.1, turnover: 0.9, scrum: 0.7, dropGoal: 0.15, sidestep: 0.5, vision: 0.7, positioning: 0.7, discipline: 0.6, leadership: 0.6, composure: 0.5, agility: 0.7, recovery: 0.9},
+    ruck: 1.1, turnover: 0.9, scrum: 0.7, dropGoal: 0.15, sidestep: 0.5, vision: 0.7, positioning: 0.7, discipline: 0.6, leadership: 0.6, composure: 0.5, agility: 0.7, recovery: 0.9, comunicacao: 0.5},
   MS: {pass: 1.3, reception: 0.8, lineoutThrow: 0.2, jump: 0.2, tackle: 0.6, kicking: 0.8, speed: 0.7, strength: 0.4, stamina: 1.0, determination: 0.7,
-    ruck: 0.7, turnover: 0.4, scrum: 0.3, dropGoal: 0.4, sidestep: 0.7, vision: 1.2, positioning: 0.9, discipline: 0.6, leadership: 0.7, composure: 0.7, agility: 0.9, recovery: 0.7},
+    ruck: 0.7, turnover: 0.4, scrum: 0.3, dropGoal: 0.4, sidestep: 0.7, vision: 1.2, positioning: 0.9, discipline: 0.6, leadership: 0.7, composure: 0.7, agility: 0.9, recovery: 0.7, comunicacao: 1.3},
   AP: {pass: 1.15, reception: 0.9, lineoutThrow: 0.2, jump: 0.2, tackle: 0.6, kicking: 1.3, speed: 0.7, strength: 0.4, stamina: 0.8, determination: 0.7,
-    ruck: 0.4, turnover: 0.2, scrum: 0.2, dropGoal: 1.3, sidestep: 0.7, vision: 1.3, positioning: 1.0, discipline: 0.6, leadership: 0.8, composure: 1.1, agility: 0.8, recovery: 0.6},
+    ruck: 0.4, turnover: 0.2, scrum: 0.2, dropGoal: 1.3, sidestep: 0.7, vision: 1.3, positioning: 1.0, discipline: 0.6, leadership: 0.8, composure: 1.1, agility: 0.8, recovery: 0.6, comunicacao: 1.2},
   CE: {pass: 1.0, reception: 0.8, lineoutThrow: 0.2, jump: 0.3, tackle: 1.1, kicking: 0.6, speed: 1.0, strength: 0.7, stamina: 0.9, determination: 0.6,
-    ruck: 0.5, turnover: 0.3, scrum: 0.2, dropGoal: 0.2, sidestep: 1.1, vision: 0.9, positioning: 0.8, discipline: 0.5, leadership: 0.6, composure: 0.7, agility: 0.9, recovery: 0.7},
+    ruck: 0.5, turnover: 0.3, scrum: 0.2, dropGoal: 0.2, sidestep: 1.1, vision: 0.9, positioning: 0.8, discipline: 0.5, leadership: 0.6, composure: 0.7, agility: 0.9, recovery: 0.7, comunicacao: 0.6},
   WG: {pass: 0.7, reception: 0.9, lineoutThrow: 0.2, jump: 0.4, tackle: 0.7, kicking: 0.4, speed: 1.3, strength: 0.5, stamina: 0.8, determination: 0.6,
-    ruck: 0.3, turnover: 0.2, scrum: 0.1, dropGoal: 0.1, sidestep: 1.2, vision: 0.6, positioning: 0.7, discipline: 0.4, leadership: 0.4, composure: 0.6, agility: 1.1, recovery: 0.6},
+    ruck: 0.3, turnover: 0.2, scrum: 0.1, dropGoal: 0.1, sidestep: 1.2, vision: 0.6, positioning: 0.7, discipline: 0.4, leadership: 0.4, composure: 0.6, agility: 1.1, recovery: 0.6, comunicacao: 0.3},
   FB: {pass: 0.8, reception: 1.2, lineoutThrow: 0.2, jump: 0.5, tackle: 0.8, kicking: 1.0, speed: 1.0, strength: 0.5, stamina: 0.8, determination: 0.6,
-    ruck: 0.3, turnover: 0.2, scrum: 0.1, dropGoal: 0.3, sidestep: 0.9, vision: 1.0, positioning: 0.9, discipline: 0.5, leadership: 0.5, composure: 0.8, agility: 0.9, recovery: 0.6},
+    ruck: 0.3, turnover: 0.2, scrum: 0.1, dropGoal: 0.3, sidestep: 0.9, vision: 1.0, positioning: 0.9, discipline: 0.5, leadership: 0.5, composure: 0.8, agility: 0.9, recovery: 0.6, comunicacao: 0.5},
 };
 
 export const SKILL_LABELS = {
@@ -79,13 +79,14 @@ export const SKILL_LABELS = {
   composure: 'Compostura',
   agility: 'Agilidade',
   recovery: 'Recuperação',
+  comunicacao: 'Comunicação',
 };
 
 // Categorias de atributos, usadas pra agrupar a exibição na tela de Elenco
 // em vez de uma tabela única com 20+ colunas ilegíveis.
 export const SKILL_CATEGORIES = {
   técnico: ['pass', 'reception', 'lineoutThrow', 'jump', 'tackle', 'kicking', 'ruck', 'turnover', 'scrum', 'dropGoal', 'sidestep'],
-  mental: ['vision', 'positioning', 'discipline', 'leadership', 'composure', 'determination'],
+  mental: ['vision', 'positioning', 'discipline', 'leadership', 'composure', 'determination', 'comunicacao'],
   físico: ['speed', 'strength', 'stamina', 'agility', 'recovery'],
 };
 
@@ -95,7 +96,7 @@ export const SKILL_CATEGORIES = {
 // (ver renderTrainingFocusHtml/tickTraining em app.js). Todo atributo
 // aparece em pelo menos um tipo.
 export const TRAINING_TYPES = {
-  duelo: {label: 'Duelo', skills: ['vision', 'pass', 'reception', 'speed']},
+  duelo: {label: 'Duelo', skills: ['vision', 'pass', 'reception', 'speed', 'comunicacao']},
   tocata: {label: 'Tocata', skills: ['stamina', 'positioning', 'vision', 'pass']},
   contato: {label: 'Contato', skills: ['tackle', 'ruck', 'turnover', 'strength']},
   formacao: {label: 'Formação (scrum/maul)', skills: ['scrum', 'strength', 'discipline', 'positioning']},
@@ -103,9 +104,23 @@ export const TRAINING_TYPES = {
   pique: {label: 'Pique', skills: ['speed', 'agility', 'stamina', 'recovery']},
   chuteAGol: {label: 'Chute a gol', skills: ['kicking', 'dropGoal', 'composure', 'positioning']},
   quebraDeLinha: {label: 'Quebra de linha', skills: ['sidestep', 'agility', 'speed', 'vision']},
-  lideranca: {label: 'Liderança', skills: ['leadership', 'discipline', 'composure', 'determination']},
+  lideranca: {label: 'Liderança', skills: ['leadership', 'discipline', 'composure', 'determination', 'comunicacao']},
   recuperacao: {label: 'Recuperação', skills: ['recovery', 'stamina', 'discipline']},
 };
+
+// Assiduidade do jogador (rúgbi amador: ninguém é obrigado a aparecer),
+// agora quebrada em 6 atividades específicas em vez de um número único —
+// cada jogador pode ser assíduo numa e relapso noutra. Ordem fixa, usada
+// pra iterar a UI e os ticks de treino (ver app.js):
+// - churrasco: convívio do grupo — alimenta entrosamento (chemistry) e a
+//   skill de comunicação.
+// - geral: treino de clube de segunda/terça/quinta (foco da semana).
+// - individual: treino intensivo (DIP) no atributo escolhido.
+// - grupo: treino em grupo (ex.: grupo de line-out).
+// - academia: musculação/mobilidade — evolui força, agilidade e resistência.
+// - video: análise de vídeo/palestras táticas — evolui visão de jogo e
+//   posicionamento.
+export const ATTENDANCE_CATEGORIES = ['churrasco', 'geral', 'individual', 'grupo', 'academia', 'video'];
 
 // Traits ocultos: sorteados na geração do jogador, dão personalidade e têm
 // efeito mecânico real (ver engine.js / app.js).

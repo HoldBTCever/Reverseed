@@ -1,4 +1,4 @@
-import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS, teamIdentity, TRAINING_TYPES} from './data.js';
+import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS, teamIdentity, TRAINING_TYPES, ATTENDANCE_CATEGORIES} from './data.js';
 import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, WEATHER_TYPES, zoneForPos, defaultGamePlan, pickLineoutUnit, rollWeather} from './engine.js';
 import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
@@ -147,9 +147,7 @@ const I18N = {
     noneClubTraining: 'Ninguno (solo entrenamiento de club)',
     dipHelp: 'Entrenamiento individual intensivo (DIP): mejora garantizada en el atributo elegido, más rápido que el entrenamiento de club, a costa de mucho más desgaste físico. Rinde según la frecuencia de entreno del jugador — de 0 (frecuencia 15 o menos) hasta 5 veces por semana (frecuencia 20).',
     dipDaysCap: 'Esta semana rinde {days}/{max} veces (frecuencia de entreno y físico actuales).',
-    trainingFrequencyLabel: 'Frecuencia de entreno',
-    trainingFrequencyShort: 'FREQ',
-    trainingFrequencyDesc: 'Asiduidad del jugador a los entrenamientos del club — el rugby amateur no obliga a nadie a entrenar. Escala 8-20: 20 = va a todos los entrenamientos del mes y rinde 5 DIP/semana; por debajo de 15 falta algunos entrenamientos generales por mes y no rinde ningún DIP.',
+    assiduidadeTitle: 'Asiduidad',
     treinoIndisponivel: 'Este club no tiene plantel curado, así que no hay entrenamiento individual para gestionar.',
     trainingFocusTitle: 'Foco de entrenamiento de la semana',
     trainingFocusHelp: 'Elegí un tipo de entrenamiento por día — cada tipo trabaja varios atributos relacionados a la vez (ej.: "Duelo" mejora decisión, pase, recepción y aceleración juntos), siempre respetando la posición de cada jugador. Sin nada elegido, vuelve al sorteo automático.',
@@ -393,9 +391,7 @@ const I18N = {
     noneClubTraining: 'Nenhum (só treino de clube)',
     dipHelp: 'Treino individual intensivo (DIP): evolui garantido no atributo escolhido, mais rápido que o treino de clube, à custa de bem mais desgaste físico. Rende conforme a frequência de treino do jogador — de 0 (frequência 15 ou menos) até 5x por semana (frequência 20).',
     dipDaysCap: 'Essa semana rende {days}/{max} vezes (frequência de treino e físico atuais).',
-    trainingFrequencyLabel: 'Frequência de treino',
-    trainingFrequencyShort: 'FREQ',
-    trainingFrequencyDesc: 'Assiduidade do jogador aos treinos do clube — o rúgbi amador não obriga ninguém a treinar. Escala 8-20: 20 = vai a todos os treinos do mês e rende 5 DIP/semana; abaixo de 15 falta a alguns treinos gerais por mês e não rende nenhum DIP.',
+    assiduidadeTitle: 'Assiduidade',
     treinoIndisponivel: 'Esse clube não tem plantel curado, então não tem treino individual pra gerenciar.',
     trainingFocusTitle: 'Foco de treino da semana',
     trainingFocusHelp: 'Escolha um tipo de treino por dia — cada tipo trabalha vários atributos relacionados ao mesmo tempo (ex.: "Duelo" evolui decisão, passe, recepção e aceleração juntos), sempre respeitando a posição de cada jogador. Sem nada escolhido, volta pro sorteio automático.',
@@ -630,7 +626,7 @@ const SKILL_LABELS_ES = {
   stamina: 'Resistencia', determination: 'Determinación',
   ruck: 'Ruck', turnover: 'Jackal', scrum: 'Scrum', dropGoal: 'Drop Goal', sidestep: 'Quiebre',
   vision: 'Visión', positioning: 'Posicionamiento', discipline: 'Disciplina', leadership: 'Liderazgo',
-  composure: 'Compostura', agility: 'Agilidad', recovery: 'Recuperación',
+  composure: 'Compostura', agility: 'Agilidad', recovery: 'Recuperación', comunicacao: 'Comunicación',
 };
 
 function skillLabel(key) {
@@ -665,6 +661,7 @@ const SKILL_DESC = {
   composure: 'Sangue-frio em momentos decisivos — pesa no chute, no drop goal e no lançamento de line-out sob pressão.',
   agility: 'Agilidade — pesa no overall físico, mais forte pros jogadores de ataque que precisam mudar de direção rápido.',
   recovery: 'Recuperação física entre fases de jogo (rucks e tackles seguidos) — distinta da resistência, que é sobre os 80 minutos inteiros.',
+  comunicacao: 'Comunicação — o chamado da jogada chegando certo antes da bola sair da mão; pesa forte no handling do médio scrum e do apertura (junto com o passe, define a chance de erro de mão do time) e evolui nos churrascos do grupo.',
 };
 
 const SKILL_DESC_ES = {
@@ -690,10 +687,48 @@ const SKILL_DESC_ES = {
   composure: 'Sangre fría en momentos decisivos — pesa en la patada, el drop goal y el lanzamiento de line-out bajo presión.',
   agility: 'Agilidad — pesa en el overall físico, más fuerte para los jugadores de ataque que necesitan cambiar de dirección rápido.',
   recovery: 'Recuperación física entre fases de juego (rucks y tackles seguidos) — distinta de la resistencia, que es sobre los 80 minutos enteros.',
+  comunicacao: 'Comunicación — el llamado de la jugada llegando correcto antes de que la pelota salga de la mano; pesa fuerte en el handling del medio scrum y del apertura (junto con el pase, define la chance de error de mano del equipo) y evoluciona en los asados del plantel.',
 };
 
 function skillDesc(key) {
   return lang === 'es' ? (SKILL_DESC_ES[key] || SKILL_DESC[key]) : SKILL_DESC[key];
+}
+
+// Assiduidade quebrada em 6 atividades (ver ATTENDANCE_CATEGORIES em
+// data.js) — mesmo padrão de label/desc/abreviação dos skillLabel/skillDesc
+// acima, só que pra cada atividade em vez de cada atributo de jogo.
+// "CHU" já é a abreviação do skill kicking (Chute) — usa "CHR" pro
+// churrasco pra não colidir na tela de detalhe do jogador.
+const ATTENDANCE_SHORT = {churrasco: 'CHR', geral: 'GER', individual: 'IND', grupo: 'GRU', academia: 'ACA', video: 'VID'};
+const ATTENDANCE_LABEL = {
+  churrasco: 'Churrascos', geral: 'Treino geral', individual: 'Treino individual',
+  grupo: 'Treino em grupo', academia: 'Academia', video: 'Análise de vídeo/palestras',
+};
+const ATTENDANCE_LABEL_ES = {
+  churrasco: 'Asados', geral: 'Entreno general', individual: 'Entreno individual',
+  grupo: 'Entreno en grupo', academia: 'Gimnasio', video: 'Análisis de video/charlas',
+};
+const ATTENDANCE_DESC = {
+  churrasco: 'Convívio do grupo fora do campo — quem aparece entrosa com o resto do plantel presente e evolui um pouco a comunicação. Escala 8-20, sem desgaste físico.',
+  geral: 'Assiduidade ao treino de clube de segunda/terça/quinta (foco da semana). Escala 8-20: abaixo de 15 o jogador chega a faltar treinos gerais.',
+  individual: 'Assiduidade ao treino intensivo individual (DIP) no atributo escolhido no Elenco. Escala 8-20: 20 = 5x/semana, 15 ou menos = nenhuma sessão.',
+  grupo: 'Assiduidade ao treino em grupo (ex.: grupo de line-out). Escala 8-20, mesmo funcionamento do treino individual.',
+  academia: 'Assiduidade à musculação/mobilidade — evolui força, agilidade e resistência. Escala 8-20.',
+  video: 'Assiduidade à análise de vídeo e palestras táticas — evolui visão de jogo e posicionamento. Escala 8-20.',
+};
+const ATTENDANCE_DESC_ES = {
+  churrasco: 'Convivencia del grupo fuera de la cancha — quien aparece se entrosa con el resto del plantel presente y evoluciona un poco la comunicación. Escala 8-20, sin desgaste físico.',
+  geral: 'Asiduidad al entreno de club de lunes/martes/jueves (foco de la semana). Escala 8-20: por debajo de 15 el jugador llega a faltar entrenos generales.',
+  individual: 'Asiduidad al entreno intensivo individual (DIP) en el atributo elegido en el Plantel. Escala 8-20: 20 = 5x/semana, 15 o menos = ninguna sesión.',
+  grupo: 'Asiduidad al entreno en grupo (ej.: grupo de line-out). Escala 8-20, mismo funcionamiento del entreno individual.',
+  academia: 'Asiduidad al gimnasio/movilidad — evoluciona fuerza, agilidad y resistencia. Escala 8-20.',
+  video: 'Asiduidad al análisis de video y charlas tácticas — evoluciona visión de juego y posicionamiento. Escala 8-20.',
+};
+function attendanceLabel(key) {
+  return lang === 'es' ? (ATTENDANCE_LABEL_ES[key] || ATTENDANCE_LABEL[key]) : ATTENDANCE_LABEL[key];
+}
+function attendanceDesc(key) {
+  return lang === 'es' ? (ATTENDANCE_DESC_ES[key] || ATTENDANCE_DESC[key]) : ATTENDANCE_DESC[key];
 }
 
 const TRAINING_TYPES_ES = {
@@ -1377,18 +1412,19 @@ function weightedRandomSkill(posId, pool) {
   return keys[keys.length - 1];
 }
 
-// Treino intensivo individual (DIP ou grupo) rende conforme a frequência de
-// treino do jogador (meta.trainingFrequency, escala compacta ~8-20,
-// independente das demais skills): 20 = 5x/semana, 19 = 4x, 18 = 3x, 17 =
-// 2x, 16 = 1x, 15 = nenhum DIP mas frequência plena nos treinos gerais do
-// clube; abaixo de 15 o jogador falta alguns treinos gerais por mês (ver
-// tickTraining). O quanto disso vira crescimento de skill/fadiga é sempre
-// days/MAX, então quem tem frequência mediana ainda treina, só que rende
-// proporcionalmente menos — nunca trava o jogador inteiro fora do treino
-// intensivo.
+// Treino intensivo (DIP individual ou em grupo) rende conforme a assiduidade
+// do jogador NAQUELA categoria específica (meta.trainingAttendance —
+// ATTENDANCE_CATEGORIES em data.js, escala compacta ~8-20, independente das
+// demais skills): 20 = 5x/semana, 19 = 4x, 18 = 3x, 17 = 2x, 16 = 1x, 15 =
+// nenhuma sessão intensiva mas presença plena na atividade; abaixo de 15 o
+// jogador chega a faltar. O quanto disso vira crescimento de skill/fadiga é
+// sempre days/MAX, então quem tem assiduidade mediana ainda treina, só que
+// rende proporcionalmente menos — nunca trava o jogador inteiro fora do
+// treino intensivo. `category` é 'individual' (DIP) por padrão, ou 'grupo'
+// pro treino em grupo (ver tickGroupTraining).
 const MAX_INTENSIVE_DAYS_PER_WEEK = 5;
-function trainingIntensityCap(player, currentCondition) {
-  const freq = player.meta.trainingFrequency || 0;
+function trainingIntensityCap(player, currentCondition, category = 'individual') {
+  const freq = (player.meta.trainingAttendance && player.meta.trainingAttendance[category]) || 0;
   let days = Math.max(0, Math.min(MAX_INTENSIVE_DAYS_PER_WEEK, freq - 15));
   if (currentCondition < 45) days = Math.max(0, days - 1);
   return days;
@@ -1425,14 +1461,14 @@ function tickTraining() {
 
     const current = currentConditionOf(p);
     const dipKey = state.dipTraining[p.id];
-    const dipDays = dipKey ? trainingIntensityCap(p, current) : 0;
+    const dipDays = dipKey ? trainingIntensityCap(p, current, 'individual') : 0;
     let fatigue;
     if (dipDays > 0) {
       const frac = dipDays / MAX_INTENSIVE_DAYS_PER_WEEK;
       growSkill(p.id, p.skills, dipKey, 2 * quality * frac);
       fatigue = (10 + Math.random() * 8) * frac;
     } else {
-      const freq = p.meta.trainingFrequency || 0;
+      const freq = (p.meta.trainingAttendance && p.meta.trainingAttendance.geral) || 0;
       const missChance = freq < 15 ? Math.min(0.6, (15 - freq) * 0.08) : 0;
       if (Math.random() < missChance) {
         fatigue = 1 + Math.random() * 2; // faltou o treino geral: quase sem desgaste, mas também sem evolução
@@ -1503,7 +1539,7 @@ function tickGroupTraining() {
     const injuryWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
     if (injuryWeeks) { capOf[p.id] = 0; return; }
     const current = currentConditionOf(p);
-    const days = trainingIntensityCap(p, current);
+    const days = trainingIntensityCap(p, current, 'grupo');
     capOf[p.id] = days;
     if (days > 0) {
       const frac = days / MAX_INTENSIVE_DAYS_PER_WEEK;
@@ -1523,6 +1559,65 @@ function tickGroupTraining() {
       bumpChemistry(a.id, b.id, 4 * (weakest / MAX_INTENSIVE_DAYS_PER_WEEK));
     }
   }
+}
+
+// Pool fixo de skills que cada atividade de assiduidade evolui — academia
+// (musculação/mobilidade) mexe no físico, análise de vídeo/palestras mexe
+// na cabeça tática. Mesmo cap 8-20 por assiduidade das demais atividades:
+// abaixo de 15 o jogador chega a faltar (sem desgaste, sem evolução).
+const ACADEMIA_SKILL_POOL = ['strength', 'agility', 'stamina'];
+const VIDEO_SKILL_POOL = ['vision', 'positioning'];
+
+function tickCategoryTraining(roster, quality, category, pool) {
+  roster.forEach(p => {
+    const override = state.playerOverrides[p.id];
+    const injuryWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
+    if (injuryWeeks) return;
+    const att = (p.meta.trainingAttendance && p.meta.trainingAttendance[category]) || 0;
+    const missChance = att < 15 ? Math.min(0.6, (15 - att) * 0.08) : 0;
+    if (Math.random() < missChance) return;
+    const current = currentConditionOf(p);
+    const fatigue = 2 + Math.random() * 3;
+    state.playerCondition[p.id] = {condition: Math.max(15, current - fatigue), atDay: currentCalendarDay()};
+    if (Math.random() < 0.3 * quality) {
+      growSkill(p.id, p.skills, weightedRandomSkill(p.posId, pool), Math.max(1, Math.round(quality)));
+    }
+  });
+}
+
+// Churrasco: convívio do grupo, não é treino — quem aparece entrosa com todo
+// mundo que também apareceu (bumpChemistry, mesmo mecanismo do treino em
+// grupo) e evolui um pouco a comunicação, essencial pro chamado da jogada
+// entre o 9 e o 10 (ver handlingRating em engine.js). Sem desgaste físico
+// nenhum (é um churrasco, não um treino).
+function tickChurrasco(roster, quality) {
+  const attendees = roster.filter(p => {
+    const override = state.playerOverrides[p.id];
+    const injuryWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
+    if (injuryWeeks) return false;
+    const att = (p.meta.trainingAttendance && p.meta.trainingAttendance.churrasco) || 0;
+    return Math.random() * 20 < att;
+  });
+  for (let i = 0; i < attendees.length; i++) {
+    for (let j = i + 1; j < attendees.length; j++) {
+      bumpChemistry(attendees[i].id, attendees[j].id, 1.2);
+    }
+    if (Math.random() < 0.25 * quality) {
+      growSkill(attendees[i].id, attendees[i].skills, 'comunicacao', Math.max(1, Math.round(quality)));
+    }
+  }
+}
+
+// Reúne as 3 atividades de assiduidade que ainda não tinham lugar no motor
+// (academia, análise de vídeo/palestras e churrasco) — chamada junto de
+// tickTraining/tickGroupTraining a cada rodada finalizada.
+function tickAttendanceExtras() {
+  const roster = getRealRoster(state.myTeamId);
+  if (!roster) return;
+  const quality = getStaffQuality(state.myTeamId);
+  tickCategoryTraining(roster, quality, 'academia', ACADEMIA_SKILL_POOL);
+  tickCategoryTraining(roster, quality, 'video', VIDEO_SKILL_POOL);
+  tickChurrasco(roster, quality);
 }
 
 // ---- Captação de promessas (clubes menores do Paraguaio) ------------------
@@ -2383,7 +2478,7 @@ const SKILL_SHORT = {
   stamina: 'RES', determination: 'DET',
   ruck: 'RUK', turnover: 'TUR', scrum: 'SCR', dropGoal: 'DRO', sidestep: 'DRI',
   vision: 'VIS', positioning: 'POS', discipline: 'DIS', leadership: 'LID', composure: 'CAL',
-  agility: 'AGI', recovery: 'RCP',
+  agility: 'AGI', recovery: 'RCP', comunicacao: 'COM',
 };
 
 const TRAIT_ICON = {
@@ -2450,9 +2545,18 @@ function skillDetailHtml(p, colspan) {
             <h4>${t('biometria')}</h4>
             <div class="skillDetailRow"><span class="skillDetailLabel">${t('altura')}</span> ${p.heightCm ? `${p.heightCm} cm` : '—'}</div>
             <div class="skillDetailRow"><span class="skillDetailLabel">${t('peso')}</span> ${p.weightKg ? `${p.weightKg} kg` : '—'}</div>
-            ${p.meta.trainingFrequency != null ? `<div class="skillDetailRow"><span class="skillDetailLabel" title="${escapeHtmlAttr(t('trainingFrequencyLabel'))}: ${escapeHtmlAttr(t('trainingFrequencyDesc'))}">${t('trainingFrequencyShort')}</span> ${p.meta.trainingFrequency}</div>` : ''}
             ${p.meta.traits && p.meta.traits.length ? `<div class="skillDetailRow"><span class="skillDetailLabel">${t('traitsLabel')}</span> ${p.meta.traits.map(tr => `${TRAIT_ICON[tr] || '★'} ${traitLabel(tr)}`).join(', ')}</div>` : ''}
           </div>
+          ${p.meta.trainingAttendance ? `
+          <div class="skillDetailGroup">
+            <h4>${t('assiduidadeTitle')}</h4>
+            ${ATTENDANCE_CATEGORIES.map(cat => `
+              <div class="skillDetailRow">
+                <span class="skillDetailLabel" title="${escapeHtmlAttr(attendanceLabel(cat))}: ${escapeHtmlAttr(attendanceDesc(cat))}">${ATTENDANCE_SHORT[cat]}</span>
+                ${p.meta.trainingAttendance[cat]}
+              </div>
+            `).join('')}
+          </div>` : ''}
         </div>
       </td>
     </tr>
@@ -2746,13 +2850,14 @@ function renderDipListHtml() {
   const rows = roster
     .filter(p => !p.meta.injuryWeeks)
     .map(p => ({...p, condition: currentConditionOf(p)}))
-    .sort((a, b) => (b.meta.trainingFrequency || 0) - (a.meta.trainingFrequency || 0));
+    .sort((a, b) => ((b.meta.trainingAttendance && b.meta.trainingAttendance.individual) || 0) - ((a.meta.trainingAttendance && a.meta.trainingAttendance.individual) || 0));
   const rowHtml = p => {
-    const days = trainingIntensityCap(p, p.condition);
+    const days = trainingIntensityCap(p, p.condition, 'individual');
+    const indAtt = (p.meta.trainingAttendance && p.meta.trainingAttendance.individual) || 0;
     return `
       <div class="dipListRow">
         <span class="dipListName">${escapeHtmlAttr(p.name)}</span>
-        <span class="muted dipListMeta" title="${t('trainingFrequencyLabel')}">${t('trainingFrequencyShort')} ${p.meta.trainingFrequency || 0} · ${Math.round(p.condition)}%</span>
+        <span class="muted dipListMeta" title="${escapeHtmlAttr(attendanceLabel('individual'))}">${ATTENDANCE_SHORT.individual} ${indAtt} · ${Math.round(p.condition)}%</span>
         <select class="dipSelect" data-player="${p.id}">
           <option value="">${t('noneClubTraining')}</option>
           ${SKILL_KEYS.map(k => `<option value="${k}" ${state.dipTraining[p.id] === k ? 'selected' : ''}>${skillLabel(k)}</option>`).join('')}
@@ -4692,6 +4797,7 @@ function finalizeRound() {
   tickInjuries();
   tickTraining();
   tickGroupTraining();
+  tickAttendanceExtras();
   tickScouting();
   tickYouthAcademy();
   if (pendingMyXV && pendingMyXV.length) {
