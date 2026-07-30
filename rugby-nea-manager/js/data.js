@@ -171,25 +171,27 @@ export const LEAGUES = [
     // mais 3 rodadas entre si (ver startSuperGroupsFromLeague); a chave Ouro
     // termina em mata-mata (semifinal + final) pro título.
     //
-    // Força do campeonato paraguaio: Curda e San José usam o mesmo
-    // ataque/defesa/físico do NEA (mesmo plantel), calibrado pelo ranking
-    // real de clubes argentinos — bem mais modesto do que a antiga força
-    // "de elite" que tinham antes NO CONTEXTO ARGENTINO, mas ainda assim são
-    // disparados os dois times mais fortes do Paraguai (por isso costumam
-    // ganhar o nacional). Os demais clubes paraguaios (sem dado real
-    // disponível, já que não disputam ligas argentinas) ficam num patamar
-    // bem mais baixo, equivalente a um "time B" do Curda — não um segundo
-    // escalão próximo: Luque e Santa Clara formam o melhor desse grupo mais
-    // fraco; Cristo Rey e Asunción vêm atrás disso; Jararas e Fernando de la
-    // Mora fecham a tabela.
+    // Força do campeonato paraguaio: o elenco (overall dos jogadores) do
+    // Curda e do San José é o MESMO nas duas ligas — o que muda entre NEA e
+    // Paraguaio é só a força ESTRUTURAL do time aqui embaixo (attack/defense/
+    // stamina), que entra pesada na simulação (ver teamStrength em engine.js,
+    // 50% time + 50% elenco). No NEA os dois são times medianos (5º-7º
+    // lugar); no Paraguaio, com o mesmo elenco — puxado principalmente pelos
+    // vários convocados da seleção paraguaia adulta que os dois têm — são
+    // disparados os dois mais fortes do país, muito acima de qualquer outro
+    // clube paraguaio. Os demais clubes (sem elenco real, procedurais) ficam
+    // em três patamares: Luque e Santa Clara formam o segundo escalão,
+    // competitivo o bastante pra ocasionalmente tirar a vaga de final do
+    // Curda/San José; Cristo Rey e Asunción vêm num nível parecido entre si,
+    // um degrau abaixo; Jararas e Fernando de la Mora fecham a tabela.
     teams: [
-      team('PAR-SNJ', 'San José', '#0D47A1', 62, 61, 60),
-      team('PAR-CUR', 'Curda', '#F9A825', 64, 63, 62),
-      team('PAR-STC', 'Santa Clara', '#1976D2', 48, 46, 47),
-      team('PAR-LUQ', 'Luque', '#FBC02D', 48, 46, 47),
-      team('PAR-ASU', 'Asunción', '#6D4C29', 41, 40, 43),
+      team('PAR-SNJ', 'San José', '#0D47A1', 86, 84, 80),
+      team('PAR-CUR', 'Curda', '#F9A825', 88, 85, 82),
+      team('PAR-STC', 'Santa Clara', '#1976D2', 62, 58, 60),
+      team('PAR-LUQ', 'Luque', '#FBC02D', 62, 58, 60),
+      team('PAR-ASU', 'Asunción', '#6D4C29', 52, 48, 50),
       team('PAR-JAR', 'Jararas', '#AD1457', 35, 33, 39),
-      team('PAR-CRI', 'Cristo Rey', '#1B5E20', 41, 40, 43),
+      team('PAR-CRI', 'Cristo Rey', '#1B5E20', 52, 48, 50),
       team('PAR-FDM', 'Fernando de la Mora', '#D32F2F', 35, 33, 39),
     ],
   },

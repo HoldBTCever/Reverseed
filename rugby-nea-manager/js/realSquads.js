@@ -197,13 +197,52 @@ function rescaleRosterToTeamBase(roster, teamId) {
   const xv1 = pickStartingXV(spread, {});
   const currentAvg = xv1.reduce((s, p) => s + p.rating, 0) / xv1.length;
   const shift = targetAvg - currentAvg;
-  return spread.map(p => {
+  const shifted = spread.map(p => {
     const skills = {};
     Object.entries(p.skills).forEach(([k, v]) => { skills[k] = clamp(v + shift); });
     const profile = SKILL_PROFILES[p.posId];
     return {...p, skills, rating: computeOverall(skills, profile)};
   });
+
+  // Etapa 3 (pequeno ajuste pontual, só pra quem viola a hierarquia real):
+  // o alargamento da etapa 1 opera SKILL por SKILL em torno da média do
+  // plantel inteiro, então mesmo jogadores com nível documentado de fora
+  // (convocados da seleção paraguaia, mais Nacho e Garcete — melhores que
+  // eles mas nunca convocados, um por recusar e o outro por já não estar
+  // mais na lista) podem sair fora de ordem dependendo de que skills
+  // específicas cada um tem acima/abaixo da média (ex.: o Allo, especialista
+  // de salto, tinha quase todas as OUTRAS skills abaixo da média, saindo
+  // pior avaliado que os próprios convocados). KNOWN_STRENGTH_MIN corrige só
+  // essas violações pontuais — sobe o overall pro mínimo dado (nunca desce),
+  // preservando o resultado natural pra quem já está em ordem. Precisa ser
+  // um ajuste pequeno: como esses jogadores ocupam a maioria das posições
+  // titulares, uma correção grande também puxaria a média geral do time pra
+  // cima, destoando do 5º-7º lugar real no NEA (a distância que mostra
+  // nível de seleção de verdade aparece no Paraguaio, na força ESTRUTURAL
+  // do time — bem mais alta lá — não no overall do jogador).
+  return shifted.map(p => {
+    const min = KNOWN_STRENGTH_MIN[p.name];
+    if (min == null || p.rating >= min) return p;
+    const factor = min / p.rating;
+    const skills = {};
+    Object.entries(p.skills).forEach(([k, v]) => { skills[k] = clamp(v * factor); });
+    const profile = SKILL_PROFILES[p.posId];
+    return {...p, skills, rating: computeOverall(skills, profile)};
+  });
 }
+
+// Overall mínimo (pós-recalibração pro NEA/Paraguaio) pros jogadores do
+// Curda com nível documentado de fora do plantel que a recalibração deixou
+// fora de ordem: Garcete e Nacho (não convocados, mas reconhecidamente
+// melhores que quem é convocado) precisam ficar acima de todos os
+// convocados da seleção adulta; o Allo precisa ficar no mesmo patamar
+// deles, não abaixo. Só entram aqui quem a recalibração normal já não
+// colocou nesse lugar sozinha (ver Etapa 3 acima) — os demais convocados já
+// saem bem posicionados sem ajuste.
+const KNOWN_STRENGTH_MIN = {
+  'Mariano Garcete': 95,
+  'Álvaro Allo': 85,
+};
 
 const CURDA_ROSTER_RAW = [
   // Pilares (ordem: Aranda, Salta, Tiago, Sitjar, Ballasch, Josechi, Petiño,
@@ -323,7 +362,7 @@ const CURDA_ROSTER = rescaleRosterToTeamBase(CURDA_ROSTER_RAW, 'ARG-CUR');
 // que sobraram pro Apertura formam o time intermédio. Três jogadores
 // (Adrián León, Nicolás Arias, Jerónimo Arrellaga) aparecem nas duas listas:
 // jogam os dois compromissos no mesmo dia.
-const SANJOSE_ROSTER = [
+const SANJOSE_ROSTER_RAW = [
   // Convocados do NEA (time principal) — titulares
   mkPlayer('Nicolás Cáceres', 'PI', 78),
   mkPlayer('Agustín Benítez', 'HK', 84, {}, {nationalTeam: 'seleção'}, 84),
@@ -384,16 +423,22 @@ const SANJOSE_ROSTER = [
 // (mesmo esquema do Curne acima) pra ficar no patamar de elenco "em dobro".
 {
   const sanjoseExtraRng = mulberry32(seedFromString('ARG-SNJ-extra'));
-  const sanjoseExtraUsed = new Set(SANJOSE_ROSTER.map(p => p.name));
+  const sanjoseExtraUsed = new Set(SANJOSE_ROSTER_RAW.map(p => p.name));
   Object.entries({MS: 2, AP: 1, FB: 1}).forEach(([posId, count]) => {
     for (let i = 0; i < count; i++) {
       const name = randomName(sanjoseExtraRng, sanjoseExtraUsed);
       const variance = Math.floor(sanjoseExtraRng() * 16) - 8;
       const overall = Math.max(32, Math.min(96, 61 + variance));
-      SANJOSE_ROSTER.push(mkPlayer(name, posId, overall, {}, {generated: true}));
+      SANJOSE_ROSTER_RAW.push(mkPlayer(name, posId, overall, {}, {generated: true}));
     }
   });
 }
+
+// Igual ao Curda (ver rescaleRosterToTeamBase/CURDA_ROSTER): sem isso, o XV
+// titular do San José ficava com overall médio ~83 (nível de seleção
+// inteira), quando pela tabela real ele também é um time mediano do NEA
+// (base ~61, 5º-7º lugar — mesmo patamar do Curda).
+const SANJOSE_ROSTER = rescaleRosterToTeamBase(SANJOSE_ROSTER_RAW, 'ARG-SNJ');
 
 // Elenco do Curne, mesmo clube que disputa o NEA argentino e também o
 // Torneio do Interior (competição regional própria, times de cidades do
@@ -993,21 +1038,15 @@ function isActiveAdultNationalTeamTag(tag) {
 // (meta.refusesNationalTeam), então nunca entra no pool mesmo sendo o melhor
 // jogador do país. Jogadores estrangeiros recém-chegados (ex.: Paco Lamas,
 // argentino) também ficam de fora até completarem os anos de residência
-// exigidos (isNationalTeamEligible).
-//
-// Usa CURDA_ROSTER_RAW (a força individual documentada de cada jogador, ANTES
-// do reajuste que alarga o elenco em torno da base estrutural do clube pra
-// competir no NEA/Paraguaio — ver rescaleRosterToTeamBase) em vez de
-// CURDA_ROSTER: o reajuste comprime a nota de quem não está entre os
-// destaques do PLANTEL DOMÉSTICO do Curda, o que teria empurrado pra baixo
-// justamente os convocados da seleção (ex.: Facundo Paiva, Sebas Urbieta,
-// Arturo López), mesmo sendo eles titulares documentados da Yacaré XV —
-// o nível de seleção de um jogador é uma força individual real, não deveria
-// depender de como o elenco do clube dele foi recalibrado pro campeonato
-// doméstico.
+// exigidos (isNationalTeamEligible). Usa CURDA_ROSTER (o mesmo overall único
+// usado nas partidas do clube, não uma versão "pré-ajuste" separada só pra
+// seleção) — o Curda ser muito mais forte no Paraguaio do que no NEA é
+// modelado no nível estrutural do TIME por competição (ver os valores de
+// attack/defense/stamina de PAR-CUR/PAR-SNJ em data.js, bem mais altos que
+// os de ARG-CUR/ARG-SNJ), não no overall individual do jogador.
 export function getParaguaySquad() {
   const clubs = [
-    {roster: [...CURDA_ROSTER_RAW, ...recruitedIntoCurda], club: 'Curda'},
+    {roster: [...CURDA_ROSTER, ...recruitedIntoCurda], club: 'Curda'},
     {roster: SANJOSE_ROSTER, club: 'San José'},
     {roster: CRISTO_REY_ROSTER, club: 'Cristo Rey'},
     {roster: SANTA_CLARA_ROSTER, club: 'Santa Clara'},
