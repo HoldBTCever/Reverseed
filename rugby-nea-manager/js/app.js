@@ -3145,7 +3145,7 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor) {
     const openClass = openLineupSlot === idx ? ' slotOpen' : '';
     const titleAttr = `#${idx + 1} ${POS_LABEL[posId]}${player ? ' — ' + player.name : ''}`;
     return `
-      <button type="button" class="shirtSlot lineupShirtBtn${openClass}" data-slot="${idx}" style="top:${pos.top}; left:${pos.left};" title="${escapeHtmlAttr(titleAttr)}">
+      <button type="button" class="shirtSlot lineupShirtBtn${openClass}" data-slot="${idx}" data-filled="${player ? '1' : '0'}" style="top:${pos.top}; left:${pos.left};" title="${escapeHtmlAttr(titleAttr)}">
         <span class="shirt" style="background:${teamColor}">${idx + 1}</span>
         <span class="shirtName">${escapeHtmlAttr(label)}</span>
         <span class="ratingBar shirtCond"><span style="width:${cond}%"></span></span>
@@ -3233,7 +3233,7 @@ function renderBenchEditorHtml(benchPlayers, eligible, startingIds, benchIds, te
     const cond = p ? Math.round(p.condition) : 100;
     const titleAttr = p ? `${p.name} — ${p.position}` : t('escolherReserva');
     return `
-      <button type="button" class="benchCard benchEditBtn${openClass}" data-benchslot="${idx}" title="${escapeHtmlAttr(titleAttr)}">
+      <button type="button" class="benchCard benchEditBtn${openClass}" data-benchslot="${idx}" data-filled="${p ? '1' : '0'}" title="${escapeHtmlAttr(titleAttr)}">
         <div class="benchShirt" style="background:${teamColor}">${p ? p.posId : '+'}</div>
         <div class="benchName">${escapeHtmlAttr(label)}</div>
         ${p ? `<span class="ratingBar shirtCond"><span style="width:${cond}%"></span></span>` : ''}
@@ -4154,7 +4154,115 @@ function renderMatchday() {
         renderMatchday();
       });
     }
+
+    setupLineupDragDrop(renderMatchday);
   }
+}
+
+// Arrastar-e-soltar pra trocar/substituir jogadores no editor de escalação:
+// arrasta uma camisa (titular ou reserva) até outra pra trocarem de lugar —
+// dentro do XV troca posição, dentro do banco reordena, e entre XV e banco é
+// a própria substituição (o titular arrastado vira reserva no slot largado, e
+// vice-versa). Baseado em Pointer Events (não HTML5 DnD) pra funcionar igual
+// com mouse e toque; só intercepta o clique normal de abrir o seletor (ver
+// handlers de .lineupShirtBtn/.benchEditBtn acima) quando o ponteiro realmente
+// se move além do limiar de arrasto — um toque/clique parado no lugar não é
+// afetado.
+function setupLineupDragDrop(rerender) {
+  const DRAG_THRESHOLD = 8;
+  let drag = null; // {pointerId, source: {type, idx, el}, sourceEl, startX, startY, moved, ghost}
+
+  function slotInfoFromEl(el) {
+    const shirt = el && el.closest && el.closest('.lineupShirtBtn');
+    if (shirt) return {type: 'xv', idx: Number(shirt.dataset.slot), el: shirt};
+    const bench = el && el.closest && el.closest('.benchEditBtn');
+    if (bench) return {type: 'bench', idx: Number(bench.dataset.benchslot), el: bench};
+    return null;
+  }
+
+  function clearDragHighlight() {
+    document.querySelectorAll('.dragOverTarget').forEach(el => el.classList.remove('dragOverTarget'));
+  }
+
+  function applySwap(source, target) {
+    if (source.type === target.type && source.idx === target.idx) return false;
+    if (source.type === 'xv' && target.type === 'xv') {
+      [manualSlots[source.idx], manualSlots[target.idx]] = [manualSlots[target.idx], manualSlots[source.idx]];
+    } else if (source.type === 'bench' && target.type === 'bench') {
+      if (!manualBenchSlots) return false;
+      [manualBenchSlots[source.idx], manualBenchSlots[target.idx]] = [manualBenchSlots[target.idx], manualBenchSlots[source.idx]];
+    } else {
+      if (!manualBenchSlots) manualBenchSlots = new Array(MAX_BENCH).fill(null);
+      const xvIdx = source.type === 'xv' ? source.idx : target.idx;
+      const benchIdx = source.type === 'bench' ? source.idx : target.idx;
+      [manualSlots[xvIdx], manualBenchSlots[benchIdx]] = [manualBenchSlots[benchIdx], manualSlots[xvIdx]];
+    }
+    return true;
+  }
+
+  function cleanupDrag() {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onCancel);
+    if (drag) {
+      if (drag.ghost) drag.ghost.remove();
+      drag.sourceEl.classList.remove('dragging');
+    }
+    clearDragHighlight();
+  }
+
+  function onMove(ev) {
+    if (!drag || ev.pointerId !== drag.pointerId) return;
+    const dx = ev.clientX - drag.startX;
+    const dy = ev.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+      drag.moved = true;
+      drag.sourceEl.classList.add('dragging');
+      const ghost = drag.sourceEl.cloneNode(true);
+      ghost.className = drag.sourceEl.className.replace(/\bdragging\b/, '').trim() + ' dragGhost';
+      ghost.style.position = 'fixed';
+      ghost.style.margin = '0';
+      document.body.appendChild(ghost);
+      drag.ghost = ghost;
+    }
+    if (!drag.moved) return;
+    ev.preventDefault();
+    drag.ghost.style.left = `${ev.clientX}px`;
+    drag.ghost.style.top = `${ev.clientY}px`;
+    drag.ghost.style.transform = 'translate(-50%, -50%) scale(1.08)';
+    clearDragHighlight();
+    const target = slotInfoFromEl(document.elementFromPoint(ev.clientX, ev.clientY));
+    if (target && !(target.type === drag.source.type && target.idx === drag.source.idx)) {
+      target.el.classList.add('dragOverTarget');
+    }
+  }
+
+  function onUp(ev) {
+    if (!drag || ev.pointerId !== drag.pointerId) return;
+    const wasMoved = drag.moved;
+    const target = wasMoved ? slotInfoFromEl(document.elementFromPoint(ev.clientX, ev.clientY)) : null;
+    cleanupDrag();
+    const didSwap = target && applySwap(drag.source, target);
+    drag = null;
+    if (didSwap) rerender();
+  }
+
+  function onCancel() {
+    cleanupDrag();
+    drag = null;
+  }
+
+  Array.from(document.querySelectorAll('.lineupShirtBtn[data-filled="1"], .benchEditBtn[data-filled="1"]')).forEach(el => {
+    el.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      const source = slotInfoFromEl(el);
+      if (!source) return;
+      drag = {pointerId: ev.pointerId, source, sourceEl: el, startX: ev.clientX, startY: ev.clientY, moved: false, ghost: null};
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onCancel);
+    });
+  });
 }
 
 // Tática inicial do adversário: pondera pela força relativa em vez de

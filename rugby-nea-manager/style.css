@@ -345,6 +345,24 @@ canvas#pitch {
 .lineupShirtBtn .shirt { transition: transform 0.1s, box-shadow 0.1s; }
 .lineupShirtBtn:hover .shirt { transform: scale(1.08); }
 .lineupShirtBtn.slotOpen .shirt { box-shadow: 0 0 0 3px var(--accent); }
+
+/* Arrastar-e-soltar pra trocar/substituir (ver setupLineupDragDrop em app.js) */
+.lineupShirtBtn[data-filled="1"],
+.benchEditBtn[data-filled="1"] {
+  cursor: grab;
+  touch-action: none;
+}
+.dragging { opacity: 0.35; }
+.dragOverTarget .shirt,
+.dragOverTarget.benchCard {
+  box-shadow: 0 0 0 3px var(--accent-2);
+}
+.dragGhost {
+  pointer-events: none;
+  z-index: 2000;
+  opacity: 0.85;
+  transition: none;
+}
 .lineupPicker {
   margin-top: 14px; padding: 12px; background: var(--panel-2); border: 1px solid var(--border);
   border-radius: 8px;
