@@ -423,7 +423,18 @@ export class MatchRenderer {
     if (dot.num === 9) {
       return {px: x + sideSign * 14, wideY: -0.12};
     }
-    return {px: x + sideSign * dot.attackDepth * 0.9, wideY: dot.y};
+    // Resto da linha de três-quartos: quem ganhou o line forma a linha de
+    // ataque de verdade — funda, pronta pra correr com espaço — enquanto
+    // quem defende fica achatado, colado perto da disputa pra pressionar
+    // assim que a bola sai (mesma lógica de profundidade do jogo aberto,
+    // ver isAttacking mais abaixo em draw(), só que aplicada aqui porque o
+    // line não passa por aquele branch).
+    const dirSign = this.attackingTeam === 'A' ? 1 : -1;
+    const isAttacking = dot.team === this.attackingTeam;
+    if (isAttacking) {
+      return {px: x - dirSign * dot.attackDepth * 0.85, wideY: dot.y};
+    }
+    return {px: x + dirSign * dot.defenseDepth * 0.5, wideY: dot.y};
   }
 
   // Pontapé inicial: os 30 jogadores alinhados na linha do meio-campo — o
