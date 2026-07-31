@@ -3938,7 +3938,11 @@ function renderCopaArgentinaLive() {
   let tickIndex = 0;
   let playing = true;
   let speed = 1;
-  const baseMsPerTick = 650;
+  // Cada tick representa 2 minutos de jogo — 650ms fazia a bola "teleportar"
+  // de posição em vez de dar tempo de acompanhar o movimento. 1000ms deixa a
+  // partida inteira (40 ticks) em ~40s no 1x, ainda rápido mas dá pra ver a
+  // bola correndo de verdade.
+  const baseMsPerTick = 1000;
   let lastTime = performance.now();
   let accum = 0;
   let lastPhase = 'kickoff';
@@ -4619,7 +4623,11 @@ function renderLive() {
   let tickIndex = 0;
   let playing = true;
   let speed = 1;
-  const baseMsPerTick = 650;
+  // Cada tick representa 2 minutos de jogo — 650ms fazia a bola "teleportar"
+  // de posição em vez de dar tempo de acompanhar o movimento. 1000ms deixa a
+  // partida inteira (40 ticks) em ~40s no 1x, ainda rápido mas dá pra ver a
+  // bola correndo de verdade.
+  const baseMsPerTick = 1000;
   let lastTime = performance.now();
   let accum = 0;
   let lastPhase = 'kickoff';
