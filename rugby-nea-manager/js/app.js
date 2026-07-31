@@ -3114,6 +3114,14 @@ function topCandidates(list, posId, n = LINEUP_PICKER_MAX) {
   return [...list].sort((a, b) => effectiveOverallAt(b, posId) - effectiveOverallAt(a, posId)).slice(0, n);
 }
 
+// Lista completa (sem cortar em 5), ordenada do melhor pro pior overall
+// efetivo naquela posição — usada em "outras posições", que deve mostrar TODO
+// o elenco disponível pra improviso (exceto primeira línea, que não aceita
+// improviso, ver FRONT_ROW_POS).
+function sortCandidates(list, posId) {
+  return [...list].sort((a, b) => effectiveOverallAt(b, posId) - effectiveOverallAt(a, posId));
+}
+
 function manualEligiblePlayers(teamId, myOptions) {
   const full = rosterWithStatus(teamId, myOptions);
   return full.filter(p => p.status !== 'lesionado' && p.status !== 'indisponivel');
@@ -3240,7 +3248,7 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor) {
     const posId = slot.id;
     const currentId = manualSlots ? manualSlots[idx] : null;
     const specialists = topCandidates(eligible.filter(p => canPlay(p, posId)), posId);
-    const outros = FRONT_ROW_POS.has(posId) ? [] : topCandidates(eligible.filter(p => !canPlay(p, posId)), posId);
+    const outros = FRONT_ROW_POS.has(posId) ? [] : sortCandidates(eligible.filter(p => !canPlay(p, posId)), posId);
     const playerRow = p => `
       <button type="button" class="lineupPickBtn ${p.id === currentId ? 'selected' : ''}" data-pick="${p.id}">
         <span>${escapeHtmlAttr(p.name)}${p.posId !== posId ? ' ⇄' : ''}</span>
@@ -3408,7 +3416,7 @@ function renderSquadFormationEditorHtml(teamId, myOptions, teamColor, autoXV) {
     const posId = slot.id;
     const currentId = slots[idx];
     const specialists = topCandidates(eligible.filter(p => canPlay(p, posId)), posId);
-    const outros = FRONT_ROW_POS.has(posId) ? [] : topCandidates(eligible.filter(p => !canPlay(p, posId)), posId);
+    const outros = FRONT_ROW_POS.has(posId) ? [] : sortCandidates(eligible.filter(p => !canPlay(p, posId)), posId);
     const playerRow = p => `
       <button type="button" class="lineupPickBtn ${p.id === currentId ? 'selected' : ''}" data-pick="${p.id}">
         <span>${escapeHtmlAttr(p.name)}${p.posId !== posId ? ' ⇄' : ''}</span>
