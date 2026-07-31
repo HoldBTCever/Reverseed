@@ -40,6 +40,14 @@ const ROLE_TEMPLATE = [
 const TIGHT_DEPTH = {attack: 8, defense: 8};
 const LOOSE_DEPTH = {attack: 13, defense: 11};
 
+// Sequência de try: quando a linha de três-quartos varre o campo até o
+// escanteio (ver startTrySequence), cada camisa da linha entra com um
+// atraso diferente (9 sai primeiro, a ponta chega por último pra terminar
+// a jogada) e abre pra um afastamento lateral diferente, formando o leque
+// clássico de uma jogada de linha em fases até o try.
+const TRY_SWEEP_DELAY = {9: 0, 10: 0.06, 12: 0.14, 13: 0.22, 15: 0.3, 11: 0.38, 14: 0.38};
+const TRY_SWEEP_WIDE = {9: 0.22, 10: 0.38, 12: 0.52, 13: 0.66, 15: 0.48, 11: 0.85, 14: 0.85};
+
 // Formato de cunha de um pack real de scrum (profundidade a partir da bola
 // e afastamento lateral por número de camisa): 1ª linha (1/2/3) colada e
 // centralizada, 2ª linha (4/5) um passo atrás e mais aberta, 3ª linha
@@ -86,6 +94,19 @@ export class MatchRenderer {
     this.jitterSeed = 0;
     this.lastX = null;
     this.attackingTeam = 'A';
+    this.trySequence = null;
+  }
+
+  // Dispara a animação de try: a linha de três-quartos do time que marcou
+  // varre o campo em fases até o escanteio, em vez da bola só aparecer
+  // presa no meio de campo (ver TRY_SWEEP_DELAY/TRY_SWEEP_WIDE e o uso de
+  // trySequence dentro de draw()). O lado do escanteio é sorteado a cada
+  // try, pra não repetir sempre a mesma pontinha.
+  startTrySequence(team) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const startPos = team === 'A' ? 74 : 26;
+    const endPos = team === 'A' ? 99 : 1;
+    this.trySequence = {team, side, startPos, endPos, startTime: performance.now(), duration: 1500};
   }
 
   // Os 15 jogadores de cada equipe, com numeração e posto reais.
@@ -437,6 +458,12 @@ export class MatchRenderer {
     this.lastX = x;
     const dirSign = this.attackingTeam === 'A' ? 1 : -1; // sentido do ataque no eixo x
 
+    const trySeq = this.trySequence;
+    const inTrySeq = matchPhase === 'try' && !!trySeq;
+    const seqProgress = inTrySeq
+      ? Math.max(0, Math.min(1, (performance.now() - trySeq.startTime) / trySeq.duration))
+      : 0;
+
     const yTop = fieldGeom.marginY + 10;
     const yBot = fieldGeom.marginY + fieldGeom.fieldH - 10;
     const yHalfSpan = (yBot - yTop) / 2;
@@ -481,7 +508,16 @@ export class MatchRenderer {
       let px;
       let wideY = dot.y;
 
-      if (matchPhase === 'scrum') {
+      if (inTrySeq && dot.team === trySeq.team && !isForward) {
+        // Linha de três-quartos do time que marcou varre o campo até o
+        // escanteio, cada camisa com seu atraso e abertura (ver
+        // TRY_SWEEP_DELAY/TRY_SWEEP_WIDE) — a jogada de fases da referência.
+        const delay = TRY_SWEEP_DELAY[dot.num] ?? 0.3;
+        const localT = Math.max(0, Math.min(1, (seqProgress - delay) / (1 - delay)));
+        const posNow = trySeq.startPos + (trySeq.endPos - trySeq.startPos) * localT;
+        px = this.posToX(posNow) + bob * 0.5;
+        wideY = trySeq.side * (TRY_SWEEP_WIDE[dot.num] ?? 0.5) * localT;
+      } else if (matchPhase === 'scrum') {
         ({px, wideY} = this.scrumLayout(dot, x));
       } else if (matchPhase === 'lineout') {
         ({px, wideY} = this.lineoutLayout(dot, x));
@@ -543,7 +579,17 @@ export class MatchRenderer {
     let ballWideY = 0;
     let ballBobY = 0;
     let ballScale = 1;
-    if (matchPhase === 'lineout') {
+    let ballX = x;
+    if (inTrySeq) {
+      // A bola acompanha o progresso geral da jogada (não o atraso de
+      // nenhuma camisa em particular), chegando ao escanteio junto com quem
+      // termina a jogada — com um leve "estufar" no instante do try.
+      const posNow = trySeq.startPos + (trySeq.endPos - trySeq.startPos) * seqProgress;
+      ballX = this.posToX(posNow);
+      ballWideY = trySeq.side * 0.85 * seqProgress;
+      ballBobY = Math.sin(this.jitterSeed * 2) * 1;
+      ballScale = 1 + seqProgress * 0.2;
+    } else if (matchPhase === 'lineout') {
       ballWideY = -0.85; // lançada da lateral, perto de onde o hooker joga (ver lineoutLayout)
     } else if (matchPhase === 'penalty' || matchPhase === 'dropgoal' || matchPhase === 'try') {
       ballScale = 1.15; // chute a gol: bola maior, "no ar" indo pros paus
@@ -557,7 +603,7 @@ export class MatchRenderer {
     const ballY = centerY + ballWideY * yHalfSpan + ballBobY;
 
     ctx.save();
-    ctx.translate(x, ballY);
+    ctx.translate(ballX, ballY);
     ctx.rotate(Math.sin(this.jitterSeed) * 0.15);
     ctx.scale(ballScale, ballScale);
     ctx.beginPath();
@@ -572,6 +618,22 @@ export class MatchRenderer {
     ctx.lineWidth = 0.8;
     ctx.stroke();
     ctx.restore();
+
+    // Flash "¡TRY!" perto do escanteio, no fim da varredura.
+    if (inTrySeq && seqProgress > 0.72) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, (seqProgress - 0.72) / 0.18);
+      ctx.font = 'bold 18px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffd23f';
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 2;
+      const flashY = ballY - 18 * trySeq.side;
+      ctx.strokeText('¡TRY!', ballX, flashY);
+      ctx.fillText('¡TRY!', ballX, flashY);
+      ctx.restore();
+    }
 
     this.currentPos = pos;
   }

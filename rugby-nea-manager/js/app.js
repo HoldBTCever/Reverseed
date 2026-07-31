@@ -3967,9 +3967,15 @@ function renderCopaArgentinaLive() {
   // partida inteira (40 ticks) em ~40s no 1x, ainda rápido mas dá pra ver a
   // bola correndo de verdade.
   const baseMsPerTick = 1000;
+  // Quanto tempo real a animação de try (varredura da linha de três-quartos
+  // até o escanteio, ver MatchRenderer.startTrySequence) segura o avanço dos
+  // ticks — sem isso, no 2x/4x o try passaria rápido demais pra dar tempo de
+  // ver a jogada.
+  const TRY_ANIM_MS = 1500;
   let lastTime = performance.now();
   let accum = 0;
   let lastPhase = 'kickoff';
+  let freezeUntil = 0;
 
   function pushLog(minute, text) {
     const line = document.createElement('div');
@@ -4006,17 +4012,25 @@ function renderCopaArgentinaLive() {
     const dt = now - lastTime;
     lastTime = now;
     if (playing) {
-      accum += dt * speed;
-      const msPerTick = baseMsPerTick;
-      while (accum >= msPerTick && tickIndex < ticks.length) {
-        accum -= msPerTick;
-        tickIndex++;
-        const tk = ticks[tickIndex - 1];
-        applyMinute(tk.minute);
-        scoreHomeEl.textContent = tk.scoreA;
-        scoreAwayEl.textContent = tk.scoreB;
-        clockEl.textContent = tk.minute + "'";
-        lastPhase = tk.phase || 'open';
+      if (now >= freezeUntil) {
+        accum += dt * speed;
+        const msPerTick = baseMsPerTick;
+        while (accum >= msPerTick && tickIndex < ticks.length) {
+          accum -= msPerTick;
+          const prevTk = ticks[tickIndex - 1] || {scoreA: 0, scoreB: 0};
+          tickIndex++;
+          const tk = ticks[tickIndex - 1];
+          applyMinute(tk.minute);
+          scoreHomeEl.textContent = tk.scoreA;
+          scoreAwayEl.textContent = tk.scoreB;
+          clockEl.textContent = tk.minute + "'";
+          if (tk.phase === 'try' && lastPhase !== 'try') {
+            renderer.startTrySequence(tk.scoreA > prevTk.scoreA ? 'A' : 'B');
+            freezeUntil = now + TRY_ANIM_MS;
+          }
+          lastPhase = tk.phase || 'open';
+          if (now < freezeUntil) break;
+        }
       }
       const curr = ticks[Math.min(tickIndex, ticks.length - 1)] || {pos: 50};
       const prev = ticks[Math.max(tickIndex - 1, 0)] || {pos: 50};
@@ -4657,9 +4671,15 @@ function renderLive() {
   // partida inteira (40 ticks) em ~40s no 1x, ainda rápido mas dá pra ver a
   // bola correndo de verdade.
   const baseMsPerTick = 1000;
+  // Quanto tempo real a animação de try (varredura da linha de três-quartos
+  // até o escanteio, ver MatchRenderer.startTrySequence) segura o avanço dos
+  // ticks — sem isso, no 2x/4x o try passaria rápido demais pra dar tempo de
+  // ver a jogada.
+  const TRY_ANIM_MS = 1500;
   let lastTime = performance.now();
   let accum = 0;
   let lastPhase = 'kickoff';
+  let freezeUntil = 0;
 
   function pushLog(minute, text) {
     const line = document.createElement('div');
@@ -4691,19 +4711,27 @@ function renderLive() {
     const dt = now - lastTime;
     lastTime = now;
     if (playing) {
-      accum += dt * speed;
-      const msPerTick = baseMsPerTick;
-      while (accum >= msPerTick && tickIndex < ticks.length) {
-        accum -= msPerTick;
-        tickIndex++;
-        const t = ticks[tickIndex - 1];
-        applyMinute(t.minute);
-        handleMedicalTickEvents();
-        handleAiSubTickEvents();
-        scoreHomeEl.textContent = ticks[tickIndex - 1].scoreA;
-        scoreAwayEl.textContent = ticks[tickIndex - 1].scoreB;
-        clockEl.textContent = t.minute + "'";
-        lastPhase = t.phase || 'open';
+      if (now >= freezeUntil) {
+        accum += dt * speed;
+        const msPerTick = baseMsPerTick;
+        while (accum >= msPerTick && tickIndex < ticks.length) {
+          accum -= msPerTick;
+          const prevTk = ticks[tickIndex - 1] || {scoreA: 0, scoreB: 0};
+          tickIndex++;
+          const t = ticks[tickIndex - 1];
+          applyMinute(t.minute);
+          handleMedicalTickEvents();
+          handleAiSubTickEvents();
+          scoreHomeEl.textContent = ticks[tickIndex - 1].scoreA;
+          scoreAwayEl.textContent = ticks[tickIndex - 1].scoreB;
+          clockEl.textContent = t.minute + "'";
+          if (t.phase === 'try' && lastPhase !== 'try') {
+            renderer.startTrySequence(t.scoreA > prevTk.scoreA ? 'A' : 'B');
+            freezeUntil = now + TRY_ANIM_MS;
+          }
+          lastPhase = t.phase || 'open';
+          if (now < freezeUntil) break;
+        }
       }
       const curr = ticks[Math.min(tickIndex, ticks.length - 1)] || {pos: 50};
       const prev = ticks[Math.max(tickIndex - 1, 0)] || {pos: 50};
