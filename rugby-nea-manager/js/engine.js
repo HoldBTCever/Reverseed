@@ -167,6 +167,12 @@ const POD_FORMATIONS = {
   '1-3-3-1': {attackMod: 1.10, defenseMod: 0.94, breakMod: 1.15, errorMod: 1.10},
   '3-3-1-1': {attackMod: 1.02, defenseMod: 1.06, breakMod: 1.0, errorMod: 0.96},
   '2-2-2-2': {attackMod: 0.96, defenseMod: 1.0, breakMod: 0.92, errorMod: 0.85},
+  // Dois grupos de 4 bem juntos — o formato clássico de pick-and-go perto do
+  // próprio ingoal rival: não busca quebrar linha (breakMod baixo, não é
+  // disso que se trata), é o mais seguro de todos (errorMod baixo, carregada
+  // simples sem passe) e o mais forte no choque (attackMod mais alto de
+  // todos) pra ganhar metro a metro até a linha.
+  '4-4': {attackMod: 1.14, defenseMod: 1.02, breakMod: 0.85, errorMod: 0.80},
 };
 const POD_FORMATION_NEUTRAL = {attackMod: 1, defenseMod: 1, breakMod: 1, errorMod: 1};
 
@@ -185,6 +191,33 @@ function defaultGamePlan() {
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
+}
+
+// Estatísticas reais da partida (ver resumo pós-jogo em app.js/showSummary):
+// cada contador soma exatamente no ponto do motor onde o evento já é
+// resolvido com um vencedor claro (não é inferido depois, por parsing de
+// log ou de posição) — por isso, ao contrário de scoreA/scoreB, precisa ser
+// carregado explicitamente pelo resumeState (ver performLiveSub/
+// halftimeResumeState em app.js), senão uma substituição ao vivo reiniciaria
+// os contadores do zero pro segundo trecho recalculado.
+function emptyMatchStats() {
+  return {
+    A: emptyTeamStats(),
+    B: emptyTeamStats(),
+  };
+}
+function emptyTeamStats() {
+  return {
+    lineBreaks: 0, turnoversWon: 0, handlingErrors: 0,
+    scrumsWon: 0, scrumsTotal: 0, lineoutsWon: 0, lineoutsTotal: 0,
+    conversionsMade: 0, conversionsAttempted: 0,
+    penaltiesMade: 0, penaltiesAttempted: 0,
+    dropGoalsMade: 0, dropGoalsAttempted: 0,
+  };
+}
+function cloneMatchStats(stats) {
+  if (!stats) return emptyMatchStats();
+  return {A: {...stats.A}, B: {...stats.B}};
 }
 
 export {TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, POD_FORMATIONS, WEATHER_TYPES, zoneForPos, defaultGamePlan, pickLineoutUnit, rollWeather};
@@ -401,7 +434,16 @@ function scrumTeamBaseScore(players, rivalAvgWeight) {
 // resultados recentes de cada time (ver moraleModFromForm); weather é uma
 // chave de WEATHER_TYPES já sorteada fora daqui (rollWeather), pra ficar
 // igual em todos os recálculos de um resumeState da mesma partida.
-export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB, gamePlanA, gamePlanB, resumeState, matchContext = {}) {
+//
+// statsCheckpointTick (opcional): tira uma "foto" das estatísticas (ver
+// emptyMatchStats) bem no fim desse tick, devolvida em statsAtCheckpoint —
+// usado só pelo ajuste tático de intervalo (ver app.js): a chamada inicial
+// roda os 80 minutos inteiros com a tática antiga, mas se a tática mudar no
+// intervalo, o SEGUNDO tempo é recalculado do zero via resumeState — sem
+// essa foto do minuto 40, não teria como saber quanto das estatísticas
+// finais já eram do 1º tempo (que fica valendo) e quanto era do 2º tempo
+// descartado (que não pode contar).
+export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB, gamePlanA, gamePlanB, resumeState, matchContext = {}, statsCheckpointTick = null) {
   const planA = gamePlanA || defaultGamePlan();
   const planB = gamePlanB || defaultGamePlan();
   const tacticObjA = TACTICS[tacticA] || TACTICS.equilibrado;
@@ -524,6 +566,8 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
   let scoreB = resumeState ? resumeState.scoreB : 0;
   let cardPenaltyA = resumeState ? resumeState.cardPenaltyA : 0; // ticks restantes de desvantagem por cartão amarelo
   let cardPenaltyB = resumeState ? resumeState.cardPenaltyB : 0;
+  const stats = cloneMatchStats(resumeState && resumeState.stats);
+  let statsAtCheckpoint = null;
   let redCardA = resumeState ? resumeState.redCardA : false; // expulso: desvantagem por todo o resto da partida
   let redCardB = resumeState ? resumeState.redCardB : false;
 
@@ -602,10 +646,12 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       push += rand(15, 26);
       addLog(minute, `¡${fastestBackA.name} rompe la línea con velocidad y avanza para ${teamA.name}!${codeSuffix(planA, zoneA)}`);
       phase = 'break';
+      stats.A.lineBreaks++;
     } else if (Math.random() < breakChanceB) {
       push -= rand(15, 26);
       addLog(minute, `¡${fastestBackB.name} rompe la línea con velocidad y avanza para ${teamB.name}!${codeSuffix(planB, zoneB)}`);
       phase = 'break';
+      stats.B.lineBreaks++;
     }
 
     // Turnover/jackal: robo de la pelota en el tackle, muy dependiente del
@@ -616,11 +662,13 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       addLog(minute, `¡${turnoverForwardA.name} le roba la pelota al rival en el tackle para ${teamA.name}!${dominantSuffix(planA.pillars.defesa)}`);
       eventHandled = true;
       phase = 'turnover';
+      stats.A.turnoversWon++;
     } else if (!eventHandled && Math.random() < turnoverChanceB) {
       push -= rand(6, 14);
       addLog(minute, `¡${turnoverForwardB.name} le roba la pelota al rival en el tackle para ${teamB.name}!${dominantSuffix(planB.pillars.defesa)}`);
       eventHandled = true;
       phase = 'turnover';
+      stats.B.turnoversWon++;
     }
 
     // Error de manos: concentrado en el 9 y el 10, que son quienes más tocan la
@@ -638,12 +686,14 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       push = -rand(4, 10);
       eventHandled = true;
       phase = 'knockon';
+      stats.A.handlingErrors++;
     } else if (!eventHandled && push < 0 && Math.random() < handlingErrorB_eff) {
       const culprit = pickHandlingCulprit(scrumHalfB, flyHalfB);
       addLog(minute, `Knock-on de ${teamB.name}: a ${culprit.name} se le escapa la pelota en el pase.`);
       push = rand(4, 10);
       eventHandled = true;
       phase = 'knockon';
+      stats.B.handlingErrors++;
     }
 
     // Line-out disputado: o time que lança combina a técnica+compostura do
@@ -669,9 +719,12 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
         + lineoutLifterScore(rivalUnit.lifters) * 0.25;
 
       const success = rand(0, 100) < clamp(76 + (throwQuality - contestQuality) * 0.45, 12, 97);
+      const throwStats = throwingA ? stats.A : stats.B;
+      throwStats.lineoutsTotal++;
       if (success) {
         addLog(minute, `Line-out limpio para ${throwTeam.name}: lanzamiento preciso de ${throwUnit.thrower.name}, bien sostenido en el aire.`);
         push += throwingA ? rand(5, 12) : -rand(5, 12);
+        throwStats.lineoutsWon++;
       } else {
         addLog(minute, `${rivalTeam.name} roba el line-out con el salto de ${rivalUnit.jumper.name}.`);
         push += throwingA ? -rand(5, 12) : rand(5, 12);
@@ -694,9 +747,12 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       const feedTeam = feedA ? teamA : teamB;
       const rivalTeam = feedA ? teamB : teamA;
       const diff = ownScore - rivalScore;
+      const feedStats = feedA ? stats.A : stats.B;
+      feedStats.scrumsTotal++;
       if (diff > 10) {
         push += (feedA ? 1 : -1) * rand(8, 16);
         addLog(minute, `¡Scrum dominante de ${feedTeam.name}! El pack avanza con autoridad.`);
+        feedStats.scrumsWon++;
       } else if (diff < -10) {
         push += (feedA ? -1 : 1) * rand(8, 16);
         if (Math.random() < 0.3) {
@@ -707,6 +763,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       } else {
         push += (feedA ? 1 : -1) * rand(1, 5);
         addLog(minute, `Scrum estable, salida limpia para ${feedTeam.name}.`);
+        feedStats.scrumsWon++;
       }
       eventHandled = true;
       phase = 'scrum';
@@ -757,9 +814,11 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       scoreA += 5;
       scorersA.push({minute, player: scorer.name});
       addLog(minute, `¡TRY de ${teamA.name}! Anota ${scorer.name}.`);
+      stats.A.conversionsAttempted++;
       if (Math.random() * 100 < (kickEffective(kickerA, tick, weatherObj.kickMod) + homeKickBonusA) * 0.9) {
         scoreA += 2;
         addLog(minute, `${kickerA.name} convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
+        stats.A.conversionsMade++;
       } else {
         addLog(minute, `${kickerA.name} falla la conversión.`);
       }
@@ -771,9 +830,11 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       scoreB += 5;
       scorersB.push({minute, player: scorer.name});
       addLog(minute, `¡TRY de ${teamB.name}! Anota ${scorer.name}.`);
+      stats.B.conversionsAttempted++;
       if (Math.random() * 100 < kickEffective(kickerB, tick, weatherObj.kickMod) * 0.9) {
         scoreB += 2;
         addLog(minute, `${kickerB.name} convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
+        stats.B.conversionsMade++;
       } else {
         addLog(minute, `${kickerB.name} falla la conversión.`);
       }
@@ -784,9 +845,11 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
     // Penal
     if (!eventHandled && pos >= 72 && pos < 94 && Math.random() < 0.08) {
+      stats.A.penaltiesAttempted++;
       if (Math.random() * 100 < (kickEffective(kickerA, tick, weatherObj.kickMod) + homeKickBonusA) * 0.85) {
         scoreA += 3;
         addLog(minute, `Penal para ${teamA.name}. ${kickerA.name} patea y convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
+        stats.A.penaltiesMade++;
       } else {
         addLog(minute, `Penal para ${teamA.name}, pero ${kickerA.name} erra el pique.`);
       }
@@ -794,9 +857,11 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       eventHandled = true;
       phase = 'penalty';
     } else if (!eventHandled && pos <= 28 && pos > 6 && Math.random() < 0.08) {
+      stats.B.penaltiesAttempted++;
       if (Math.random() * 100 < kickEffective(kickerB, tick, weatherObj.kickMod) * 0.85) {
         scoreB += 3;
         addLog(minute, `Penal para ${teamB.name}. ${kickerB.name} patea y convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
+        stats.B.penaltiesMade++;
       } else {
         addLog(minute, `Penal para ${teamB.name}, pero ${kickerB.name} erra el pique.`);
       }
@@ -809,9 +874,11 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     // técnica específica de drop (DRO) e da compostura do chutador.
     if (!eventHandled && pos >= 60 && pos < 80 && Math.random() < 0.02) {
       const dropper = bestBy(playersA, 'dropGoal', 'AP');
+      stats.A.dropGoalsAttempted++;
       if (Math.random() * 100 < dropper.skills.dropGoal * 0.75 + dropper.skills.composure * 0.15) {
         scoreA += 3;
         addLog(minute, `¡Drop de ${dropper.name}! ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
+        stats.A.dropGoalsMade++;
       } else {
         addLog(minute, `${dropper.name} intenta el drop pero erra el palo.`);
       }
@@ -820,9 +887,11 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       phase = 'dropgoal';
     } else if (!eventHandled && pos <= 40 && pos > 20 && Math.random() < 0.02) {
       const dropper = bestBy(playersB, 'dropGoal', 'AP');
+      stats.B.dropGoalsAttempted++;
       if (Math.random() * 100 < dropper.skills.dropGoal * 0.75 + dropper.skills.composure * 0.15) {
         scoreB += 3;
         addLog(minute, `¡Drop de ${dropper.name}! ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
+        stats.B.dropGoalsMade++;
       } else {
         addLog(minute, `${dropper.name} intenta el drop pero erra el palo.`);
       }
@@ -832,6 +901,9 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     }
 
     ticks.push({minute, pos, scoreA, scoreB, cardPenaltyA, cardPenaltyB, redCardA, redCardB, phase});
+    if (statsCheckpointTick != null && tick === statsCheckpointTick) {
+      statsAtCheckpoint = cloneMatchStats(stats);
+    }
   }
 
   addLog(80, `Final del partido: ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
@@ -852,6 +924,8 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
     scorersA,
     scorersB,
     cards,
+    stats,
+    statsAtCheckpoint,
     motm: motm ? motm.name : null,
     weather,
     weatherLabel: weatherObj.label,

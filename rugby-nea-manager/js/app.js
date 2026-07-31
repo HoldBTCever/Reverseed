@@ -54,7 +54,7 @@ function curdaDefaultGamePlan() {
       red: {style: 'chute', code: 'AVIÓN/TORMENTA/T1', pods: '3-3-1-1'}, // saída segura: um forward recuado cobre o contra-chute
       orange: {style: 'chute', code: 'TORMENTA/T1/BOMBA', pods: '3-3-2'},
       green: {style: 'forwards', code: 'IRLANDA/BURRO', pods: '3-3-2'},
-      yellow: {style: 'forwards', code: 'SUDAFRICA', pods: '3-3-2'}, // pods grandes = mais potência de choque perto do ingoal
+      yellow: {style: 'forwards', code: 'SUDAFRICA', pods: '4-4'}, // pick-and-go perto do ingoal, o uso real desse formato
     },
     pillars: {disciplina: 75, posse: 75, fisicalidade: 85, defesa: 85},
   };
@@ -181,6 +181,7 @@ const I18N = {
     podDesc_1331: 'Un forward abierto en cada punta del campo, dos grupos de 3 en el medio.',
     podDesc_3311: 'Dos grupos de 3 adelante, un jugador de apoyo y otro más retrasado.',
     podDesc_2222: 'Cuatro parejas escalonadas — un back queda detrás de las dos primeras, dando opción de pase.',
+    podDesc_44: 'Dos grupos de 4 bien juntos — pick and go cerca del ingoal, ganando metros de a poco con potencia.',
     sistemaTitle: 'Sistema de juego',
     sistemaHelp: 'La identidad táctica general del equipo, además del estilo por zona — cada sistema tiene su propia formación de apoyo. Se aplica en todo el partido.',
     sistema_ninguno: 'Ninguno (solo estilo por zona)',
@@ -331,6 +332,17 @@ const I18N = {
     triesDe: 'Tries {team}',
     semTries: 'Sin tries.',
     craqueDaPartida: 'Mejor jugador del partido:',
+    statsTitle: 'Estadísticas del partido',
+    statTerritorio: 'Territorio',
+    statQuiebres: 'Quiebres de línea',
+    statTurnovers: 'Turnovers ganados',
+    statErrores: 'Errores de manejo',
+    statScrums: 'Scrums ganados',
+    statLineouts: 'Lineouts ganados',
+    statConversiones: 'Conversiones',
+    statPenales: 'Penales',
+    statDrops: 'Drop goals',
+    statTarjetas: 'Tarjetas',
     continuar: 'Continuar',
     lesaoFadigaAlert: 'Lesión por fatiga: {names} no va a poder jugar por un tiempo — el desgaste acumulado cobró su precio.',
     semana1: '{n} semana',
@@ -425,6 +437,7 @@ const I18N = {
     podDesc_1331: 'Um forward aberto em cada ponta do campo, dois grupos de 3 no meio.',
     podDesc_3311: 'Dois grupos de 3 na frente, um jogador de apoio e outro mais recuado.',
     podDesc_2222: 'Quatro duplas escalonadas — um back fica atrás das duas primeiras, dando opção de passe.',
+    podDesc_44: 'Dois grupos de 4 bem juntos — pick and go perto do ingoal, ganhando metros aos poucos com potência.',
     sistemaTitle: 'Sistema de jogo',
     sistemaHelp: 'A identidade tática geral do time, além do estilo por zona — cada sistema tem sua própria formação de apoio. Vale pra partida inteira.',
     sistema_ninguno: 'Nenhum (só estilo por zona)',
@@ -575,6 +588,17 @@ const I18N = {
     triesDe: 'Tries {team}',
     semTries: 'Sem tries.',
     craqueDaPartida: 'Craque da partida:',
+    statsTitle: 'Estatísticas da partida',
+    statTerritorio: 'Território',
+    statQuiebres: 'Quebras de linha',
+    statTurnovers: 'Turnovers ganhos',
+    statErrores: 'Erros de manuseio',
+    statScrums: 'Scrums ganhos',
+    statLineouts: 'Lineouts ganhos',
+    statConversiones: 'Conversões',
+    statPenales: 'Penais',
+    statDrops: 'Drop goals',
+    statTarjetas: 'Cartões',
     continuar: 'Continuar',
     lesaoFadigaAlert: 'Lesão por fadiga: {names} não vai poder jogar por um tempo — o desgaste acumulado cobrou o preço.',
     semana1: '{n} semana',
@@ -4499,7 +4523,7 @@ function renderLive() {
     homeTeam, homeSquad, tacticHome,
     awayTeam, awaySquad, tacticAway,
     gamePlanHome, gamePlanAway,
-    undefined, matchContext,
+    undefined, matchContext, 20,
   );
 
   // Ajuste tático do adversário no intervalo: reavalia o placar parcial (tick
@@ -4521,6 +4545,10 @@ function renderLive() {
         cardPenaltyA: halftimeTick.cardPenaltyA || 0, cardPenaltyB: halftimeTick.cardPenaltyB || 0,
         redCardA: !!halftimeTick.redCardA, redCardB: !!halftimeTick.redCardB,
         tick: 20,
+        // Estatísticas só do 1º tempo (ver statsCheckpointTick) — sem isso, o
+        // 2º tempo recalculado ia somar em cima das estatísticas do 2º tempo
+        // ANTIGO (descartado), inflando os números do resumo pós-jogo.
+        stats: result.statsAtCheckpoint,
       };
       const secondHalf = simulateMatch(
         homeTeam, homeSquad, tacticHome,
@@ -4533,6 +4561,7 @@ function renderLive() {
       result.scorersA = result.scorersA.filter(s => s.minute <= 40).concat(secondHalf.scorersA);
       result.scorersB = result.scorersB.filter(s => s.minute <= 40).concat(secondHalf.scorersB);
       result.cards = result.cards.filter(cd => cd.minute <= 40).concat(secondHalf.cards);
+      result.stats = secondHalf.stats;
       const lastHalftimeTick = result.ticks[result.ticks.length - 1];
       if (lastHalftimeTick) { result.scoreA = lastHalftimeTick.scoreA; result.scoreB = lastHalftimeTick.scoreB; }
       if (secondHalf.motm) result.motm = secondHalf.motm;
@@ -4738,6 +4767,7 @@ function renderLive() {
       cardPenaltyA: last.cardPenaltyA || 0, cardPenaltyB: last.cardPenaltyB || 0,
       redCardA: !!last.redCardA, redCardB: !!last.redCardB,
       tick: tickIndex,
+      stats: result.stats, // sem isso, o trecho recalculado zerava as estatísticas do resumo pós-jogo
     };
   }
 
@@ -4776,6 +4806,7 @@ function renderLive() {
     result.scorersA = result.scorersA.filter(s => s.minute <= currentMinute).concat(newSegment.scorersA);
     result.scorersB = result.scorersB.filter(s => s.minute <= currentMinute).concat(newSegment.scorersB);
     result.cards = result.cards.filter(cd => cd.minute <= currentMinute).concat(newSegment.cards);
+    result.stats = newSegment.stats;
     const lastTick = ticks[ticks.length - 1];
     if (lastTick) { result.scoreA = lastTick.scoreA; result.scoreB = lastTick.scoreB; }
     if (newSegment.motm) result.motm = newSegment.motm;
@@ -5037,6 +5068,87 @@ function renderLive() {
   }
 }
 
+function computeTerritoryPct(ticks) {
+  if (!ticks || !ticks.length) return {pctA: 50, pctB: 50};
+  let a = 0, b = 0;
+  ticks.forEach(tk => {
+    if (tk.pos > 50) a += 1;
+    else if (tk.pos < 50) b += 1;
+    else { a += 0.5; b += 0.5; }
+  });
+  const total = a + b;
+  if (total <= 0) return {pctA: 50, pctB: 50};
+  const pctA = Math.round((a / total) * 100);
+  return {pctA, pctB: 100 - pctA};
+}
+
+function statBarRow(label, homeColor, awayColor, homeNum, awayNum, homeText, awayText) {
+  const total = homeNum + awayNum;
+  const homeShare = total > 0 ? (homeNum / total) * 100 : 50;
+  const awayShare = 100 - homeShare;
+  return `
+    <div class="statRow">
+      <div class="statLabel">${label}</div>
+      <div class="statValLine">
+        <span class="statVal">${homeText}</span>
+        <span class="statVal">${awayText}</span>
+      </div>
+      <div class="statBarTrack">
+        <div class="statBarFill" style="width:${homeShare}%; background:${homeColor};"></div>
+        <div class="statBarFill" style="width:${awayShare}%; background:${awayColor};"></div>
+      </div>
+    </div>
+  `;
+}
+
+function cardText(yellow, red) {
+  const parts = [];
+  if (yellow > 0) parts.push(`🟨×${yellow}`);
+  if (red > 0) parts.push(`🟥×${red}`);
+  return parts.length ? parts.join(' ') : '—';
+}
+
+function renderMatchStatsHtml(result, homeTeam, awayTeam) {
+  const stats = result.stats;
+  if (!stats) return '';
+  const A = stats.A, B = stats.B;
+  const homeColor = homeTeam.color || '#3b82f6';
+  const awayColor = awayTeam.color || '#ef4444';
+  const territory = computeTerritoryPct(result.ticks);
+
+  const cardsA = (result.cards || []).filter(c => c.team === homeTeam.name);
+  const cardsB = (result.cards || []).filter(c => c.team === awayTeam.name);
+  const yellowA = cardsA.filter(c => c.type === 'yellow').length;
+  const redA = cardsA.filter(c => c.type === 'red').length;
+  const yellowB = cardsB.filter(c => c.type === 'yellow').length;
+  const redB = cardsB.filter(c => c.type === 'red').length;
+  const showCards = (yellowA + redA + yellowB + redB) > 0;
+  const showDrops = (A.dropGoalsAttempted + B.dropGoalsAttempted) > 0;
+
+  let rows = '';
+  rows += statBarRow(t('statTerritorio'), homeColor, awayColor, territory.pctA, territory.pctB, `${territory.pctA}%`, `${territory.pctB}%`);
+  rows += statBarRow(t('statQuiebres'), homeColor, awayColor, A.lineBreaks, B.lineBreaks, `${A.lineBreaks}`, `${B.lineBreaks}`);
+  rows += statBarRow(t('statTurnovers'), homeColor, awayColor, A.turnoversWon, B.turnoversWon, `${A.turnoversWon}`, `${B.turnoversWon}`);
+  rows += statBarRow(t('statErrores'), homeColor, awayColor, A.handlingErrors, B.handlingErrors, `${A.handlingErrors}`, `${B.handlingErrors}`);
+  rows += statBarRow(t('statScrums'), homeColor, awayColor, A.scrumsWon, B.scrumsWon, `${A.scrumsWon}/${A.scrumsTotal}`, `${B.scrumsWon}/${B.scrumsTotal}`);
+  rows += statBarRow(t('statLineouts'), homeColor, awayColor, A.lineoutsWon, B.lineoutsWon, `${A.lineoutsWon}/${A.lineoutsTotal}`, `${B.lineoutsWon}/${B.lineoutsTotal}`);
+  rows += statBarRow(t('statConversiones'), homeColor, awayColor, A.conversionsMade, B.conversionsMade, `${A.conversionsMade}/${A.conversionsAttempted}`, `${B.conversionsMade}/${B.conversionsAttempted}`);
+  rows += statBarRow(t('statPenales'), homeColor, awayColor, A.penaltiesMade, B.penaltiesMade, `${A.penaltiesMade}/${A.penaltiesAttempted}`, `${B.penaltiesMade}/${B.penaltiesAttempted}`);
+  if (showDrops) {
+    rows += statBarRow(t('statDrops'), homeColor, awayColor, A.dropGoalsMade, B.dropGoalsMade, `${A.dropGoalsMade}/${A.dropGoalsAttempted}`, `${B.dropGoalsMade}/${B.dropGoalsAttempted}`);
+  }
+  if (showCards) {
+    rows += statBarRow(t('statTarjetas'), homeColor, awayColor, yellowA + redA, yellowB + redB, cardText(yellowA, redA), cardText(yellowB, redB));
+  }
+
+  return `
+    <div class="statsSection">
+      <h3>${t('statsTitle')}</h3>
+      ${rows}
+    </div>
+  `;
+}
+
 function showSummary(result, isHome) {
   const match = myMatchThisRound();
   const homeTeam = teamById[match.home];
@@ -5058,6 +5170,7 @@ function showSummary(result, isHome) {
       <h3>${t('triesDe', {team: awayTeam.name})}</h3>
       ${scorersHtml(result.scorersB)}
       ${result.motm ? `<p><b>${t('craqueDaPartida')}</b> ${result.motm}</p>` : ''}
+      ${renderMatchStatsHtml(result, homeTeam, awayTeam)}
       <div class="center"><button class="playBtn" id="continueBtn">${t('continuar')}</button></div>
     </div>
   `;

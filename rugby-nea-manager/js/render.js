@@ -533,35 +533,44 @@ export class MatchRenderer {
       ctx.fillText(String(dot.num), clampedX, clampedY + 0.5);
     });
 
-    // bola oval de rugby (ícone estilo prancheta tática: corpo bege/dourado
-    // com sombreamento leve, costura central e travessas escuras) — não a
-    // bola marrom de futebol americano
+    // Bola de rugby de verdade: branca, sem costura de futebol americano —
+    // só a forma oval com sombreamento leve pra dar volume. A posição
+    // também reage à fase da jogada em vez de ficar sempre grudada no eixo
+    // central: sai lateral no line-out (jogada real vem da touch, ver
+    // lineoutLayout), ganha destaque nos chutes a gol (bola "no ar" indo
+    // pros paus) e balança suavemente em jogo aberto, como se estivesse
+    // passando de mão em mão.
+    let ballWideY = 0;
+    let ballBobY = 0;
+    let ballScale = 1;
+    if (matchPhase === 'lineout') {
+      ballWideY = -0.85; // lançada da lateral, perto de onde o hooker joga (ver lineoutLayout)
+    } else if (matchPhase === 'penalty' || matchPhase === 'dropgoal' || matchPhase === 'try') {
+      ballScale = 1.15; // chute a gol: bola maior, "no ar" indo pros paus
+      ballBobY = Math.sin(this.jitterSeed * 2) * 1.5;
+    } else if (matchPhase !== 'scrum' && matchPhase !== 'kickoff') {
+      // jogo aberto/quebra/turnover/knock-on: deriva lateral leve, dando a
+      // impressão de bola circulando de mão em mão em vez de presa no meio.
+      ballWideY = Math.sin(this.jitterSeed * 0.7) * 0.18;
+      ballBobY = Math.cos(this.jitterSeed * 0.9) * 1.2;
+    }
+    const ballY = centerY + ballWideY * yHalfSpan + ballBobY;
+
     ctx.save();
-    ctx.translate(x, centerY);
+    ctx.translate(x, ballY);
     ctx.rotate(Math.sin(this.jitterSeed) * 0.15);
+    ctx.scale(ballScale, ballScale);
     ctx.beginPath();
     const ballGrad = ctx.createLinearGradient(0, -5.5, 0, 5.5);
-    ballGrad.addColorStop(0, '#e8c77a');
-    ballGrad.addColorStop(0.5, '#d4a94a');
-    ballGrad.addColorStop(1, '#b9863a');
+    ballGrad.addColorStop(0, '#ffffff');
+    ballGrad.addColorStop(0.5, '#f2f2f2');
+    ballGrad.addColorStop(1, '#d9d9d9');
     ctx.fillStyle = ballGrad;
     ctx.ellipse(0, 0, 9, 5.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
     ctx.lineWidth = 0.8;
     ctx.stroke();
-    ctx.strokeStyle = '#2b1d0a';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(-6.5, 0);
-    ctx.lineTo(6.5, 0);
-    ctx.stroke();
-    [-3.2, 0, 3.2].forEach(cx => {
-      ctx.beginPath();
-      ctx.moveTo(cx, -1.6);
-      ctx.lineTo(cx, 1.6);
-      ctx.stroke();
-    });
     ctx.restore();
 
     this.currentPos = pos;
