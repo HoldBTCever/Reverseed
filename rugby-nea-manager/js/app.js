@@ -4670,6 +4670,7 @@ function renderLive() {
         const t = ticks[tickIndex - 1];
         applyMinute(t.minute);
         handleMedicalTickEvents();
+        handleAiSubTickEvents();
         scoreHomeEl.textContent = ticks[tickIndex - 1].scoreA;
         scoreAwayEl.textContent = ticks[tickIndex - 1].scoreB;
         clockEl.textContent = t.minute + "'";
@@ -4712,6 +4713,7 @@ function renderLive() {
       const t = ticks[tickIndex - 1];
       applyMinute(t.minute);
       handleMedicalTickEvents();
+      handleAiSubTickEvents();
     }
     scoreHomeEl.textContent = result.scoreA;
     scoreAwayEl.textContent = result.scoreB;
@@ -4880,6 +4882,74 @@ function renderLive() {
     if (tickIndex === 0) return;
     processMedicalReturns();
     tryTriggerMedicalEvent();
+  }
+
+  // ---- Substituições táticas da IA rival ------------------------------------
+  // O motor não rastreia fadiga por jogador dentro da partida (só a média do
+  // time inteiro, ver inMatchFatigueFactor em engine.js), então o gatilho é o
+  // próprio relógio — o mesmo padrão real de troca: primeira-línea renovada
+  // por volta dos 50-60', resto do pack em seguida, backs entrando mais na
+  // reta final. Só mexe no time RIVAL (o usuário sempre controla as próprias
+  // trocas pelo painel de substituições) e só em times com elenco real —
+  // procedurais não têm banco de jogadores nomeados pra entrar em campo.
+  const AI_SUB_MAX = MAX_SUBS;
+  const aiSubsUsed = {home: 0, away: 0};
+  const aiSubbedOffIds = {home: new Set(), away: new Set()};
+
+  // Janela de posições liberadas pra troca em cada fase da partida — null
+  // (68'+) libera qualquer posição, inclusive backs.
+  function aiSubPositionPool(tick) {
+    if (tick < 30) return ['PI', 'HK'];
+    if (tick < 34) return ['PI', 'HK', 'SL', 'AL', 'N8'];
+    return null;
+  }
+
+  function tryTriggerAiSub(side) {
+    const teamId = side === 'home' ? homeId : awayId;
+    if (teamId === c.teamId) return; // usuário controla suas próprias trocas
+    if (!getRealRoster(teamId)) return; // sem banco nomeado pra entrar
+    if (aiSubsUsed[side] >= AI_SUB_MAX) return;
+    if (pendingMedicalCount[side] > 0) return; // não empilha com evento médico pendente
+    if (tickIndex < 25) return; // antes de ~50' a IA não mexe
+
+    const pool = aiSubPositionPool(tickIndex);
+    const squadArr = squadForSide(side);
+    const candidates = squadArr.filter(p => !aiSubbedOffIds[side].has(p.id) && (!pool || pool.includes(p.posId)));
+    if (!candidates.length) return;
+
+    // Time perdendo de 10+ arrisca uma troca a mais (impacto ofensivo);
+    // ganhando de 10+ prioriza frescor na frente pra segurar o placar no
+    // ponto de contato — mesmo espírito do ajuste tático de intervalo
+    // (reactiveOpponentTactic), só que espalhado ao longo do 2º tempo.
+    const lastTick = ticks[Math.max(tickIndex - 1, 0)];
+    const myScore = side === 'home' ? lastTick.scoreA : lastTick.scoreB;
+    const oppScore = side === 'home' ? lastTick.scoreB : lastTick.scoreA;
+    const diff = myScore - oppScore;
+    const urgency = diff <= -10 ? 0.06 : diff >= 10 ? -0.02 : 0;
+    const progress = tickIndex / 40;
+    const chance = Math.max(0, 0.05 + progress * 0.09 + urgency);
+    if (Math.random() > chance) return;
+
+    // Troca quem está rendendo menos em campo, não sorteia à toa.
+    const outPlayer = candidates.reduce((worst, p) => (p.rating < worst.rating ? p : worst), candidates[0]);
+    const replacement = pickBestBenchFor(benchForSide(side), squadArr, outPlayer.posId);
+    if (!replacement) return;
+
+    const logText = t('subChangeLog', {team: teamNameForSide(side), in: replacement.name, out: outPlayer.name});
+    const res = performLiveSub(squadArr, outPlayer.id, replacement, logText);
+    if (!res) return;
+    aiSubsUsed[side]++;
+    // Marca os DOIS lados da troca — quem saiu não volta, e quem entrou não
+    // pode ser trocado de novo depois (sem isso os mesmos dois jogadores
+    // ficavam entrando e saindo em looping, gastando as 8 trocas à toa).
+    aiSubbedOffIds[side].add(res.outPlayer.id);
+    aiSubbedOffIds[side].add(res.newPlayer.id);
+  }
+
+  function handleAiSubTickEvents() {
+    if (tickIndex === 0) return;
+    tryTriggerAiSub('home');
+    tryTriggerAiSub('away');
   }
 
   const subsBtn = document.getElementById('subsBtn');
