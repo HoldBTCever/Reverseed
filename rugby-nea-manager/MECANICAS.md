@@ -47,12 +47,20 @@ disponível, o clube convoca um juvenil de 18 anos de urgência
 Cada membro do staff (`STAFF` em `realSquads.js`) tem `role`/`name`/`note`
 como sempre, e opcionalmente `skills` — 0 a 99, mesma escala dos jogadores,
 schema em `STAFF_SKILL_LABELS`: `youthDevelopment` (trabalho com a base),
-`backsCoaching`, `forwardsCoaching`, `kickingCoaching`, `sportsNutrition`
-(nutrição esportiva), `communication`, `patience`, `didactics`. Nem todo
-mundo no staff tem `skills` — a maioria continua só com texto
-(`role`/`note`), igual antes.
+`backsCoaching`, `forwardsCoaching`, `kickingCoaching`, `setPieceCoaching`
+(estruturas fixas: scrum/ruck/line-out), `physicalConditioning` (preparação
+física), `physiotherapy` (fisioterapia), `sportsNutrition` (nutrição
+esportiva), `communication`, `patience`, `didactics`. Nem todo mundo no
+staff tem `skills` — a maioria continua só com texto (`role`/`note`), igual
+antes.
 
 Exemplos:
+- **Lito Molina** (Head Coach do Curda) — `setPieceCoaching: 94, didactics:
+  88`, excepcional nas estruturas fixas do jogo (scrum, ruck e line-out) e
+  gosta que o time realmente aprenda tática e técnica.
+- **Alexis Cibils** (Treinador Geral do Curda) — `physicalConditioning: 89,
+  communication: 82, didactics: 85`, muito bom em preparação física,
+  organização de treinos e controle de carga da academia.
 - **Figu Super** (Preparador Técnico do Curda) — `youthDevelopment: 88,
   backsCoaching: 85, kickingCoaching: 82, communication: 84, patience: 90,
   didactics: 87`, refletindo que lida muito bem com jovens/infantis, é ótimo
@@ -60,6 +68,9 @@ Exemplos:
 - **Cemilson** (Nutricionista do Curda) — `sportsNutrition: 91,
   communication: 78`, referência em nutrição esportiva com boa comunicação
   com o grupo.
+- **Juan Carmona** (Fisioterapeuta do Curda) — `physiotherapy: 93,
+  physicalConditioning: 80`, excelente em fisioterapia e muito bom na
+  análise de condicionamento físico dos jogadores.
 
 `specialtyStaffBonus(teamId, specialtyKey)` escala `getStaffQuality(teamId)`
 por 0,7x a 1,3x conforme a média de skill de quem no staff tem aquela
@@ -83,6 +94,19 @@ especialidade — sem ninguém cadastrado numa especialidade, cai pro
   'communication')`, em vez do `getStaffQuality` genérico, como qualidade do
   churrasco semanal e do churrasco dos forwards — que já evoluíam a skill de
   comunicação dos jogadores que aparecem (ver `applyChurrascoEffect`).
+- `tickAttendanceExtras`/`tickCategoryTraining` (app.js) usam
+  `specialtyStaffBonus(..., 'physicalConditioning')` como qualidade da
+  academia (musculação/mobilidade), e o excedente sobre o `getStaffQuality`
+  genérico também reduz o desgaste (`loadControl`) aplicado a cada sessão —
+  controle de carga de verdade, não só texto.
+- `tickInjuries` (app.js) usa o excedente de `specialtyStaffBonus(...,
+  'physiotherapy')` sobre o `getStaffQuality` genérico como chance, a cada
+  rodada, de tirar uma semana extra da recuperação de qualquer lesão em
+  andamento.
+- `tickGroupTraining` (app.js) usa `specialtyStaffBonus(...,
+  'setPieceCoaching')`, em vez do `getStaffQuality` genérico, como qualidade
+  do treino de grupo de line-out (evolução das skills de lançamento/salto/
+  força e do entrosamento entre lançadores, saltadores e levantadores).
 
 ## Treino semanal
 

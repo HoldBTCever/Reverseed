@@ -649,6 +649,9 @@ export const STAFF_SKILL_LABELS = {
   backsCoaching: 'Treino de backs',
   forwardsCoaching: 'Treino de forwards',
   kickingCoaching: 'Treino de chute',
+  setPieceCoaching: 'Estruturas fixas (scrum/ruck/line-out)',
+  physicalConditioning: 'Preparação física',
+  physiotherapy: 'Fisioterapia',
   sportsNutrition: 'Nutrição esportiva',
   communication: 'Comunicação',
   patience: 'Paciência',
@@ -657,8 +660,18 @@ export const STAFF_SKILL_LABELS = {
 
 const CURDA_STAFF = [
   {role: 'Presidente do Clube', name: 'Tío Nacho'},
-  {role: 'Treinador Principal (Head Coach)', name: 'Lito Molina'},
-  {role: 'Treinador Geral', name: 'Alexis Cibils'},
+  {
+    role: 'Treinador Principal (Head Coach)',
+    name: 'Lito Molina',
+    skills: {setPieceCoaching: 94, didactics: 88},
+    note: 'Excepcional nas estruturas fixas do jogo (scrum, ruck e line-out) — gosta que o time realmente aprenda a tática e a técnica, não só decore jogadas',
+  },
+  {
+    role: 'Treinador Geral',
+    name: 'Alexis Cibils',
+    skills: {physicalConditioning: 89, communication: 82, didactics: 85},
+    note: 'Muito bom em preparação física e condicionamento, organização dos treinos e controle de carga da academia — comunicação e didática acima da média',
+  },
   {
     role: 'Preparador Técnico',
     name: 'Figu Super',
@@ -672,7 +685,12 @@ const CURDA_STAFF = [
     skills: {sportsNutrition: 91, communication: 78},
     note: 'Referência em nutrição esportiva do plantel, com boa comunicação com os jogadores',
   },
-  {role: 'Fisioterapeuta', name: 'Juan Carmona'},
+  {
+    role: 'Fisioterapeuta',
+    name: 'Juan Carmona',
+    skills: {physiotherapy: 93, physicalConditioning: 80},
+    note: 'Excelente em fisioterapia, também muito bom na análise de condicionamento físico dos jogadores',
+  },
   {role: 'Auxiliar Técnico', name: 'Sebas Bereta', note: 'assume o time B quando NEA e Paraguaio caem no mesmo dia em locais diferentes'},
   {role: 'Treinador das Categorias de Base', name: 'Dante Legui', note: 'comanda as categorias M18, M16, M15 e M14 do clube'},
   {role: 'Auxiliar', name: 'Facundo Rafael Navas'},

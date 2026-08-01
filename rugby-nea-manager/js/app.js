@@ -1385,16 +1385,21 @@ function injuryLabelWithBodyPart(weeks, bodyPart) {
 // Ao curar uma lesão de ombro, mantém uma penalidade residual leve por mais
 // algumas semanas (recentInjuryBodyPart), que o motor usa no lineout/scrum
 // (ver shoulderPenalty em engine.js) — mesmo recuperado, o ombro ainda não
-// está 100%.
+// está 100%. Um fisioterapeuta especialista (ver STAFF_SKILL_LABELS.
+// physiotherapy, ex.: Juan Carmona) dá uma chance de tirar uma semana extra
+// da recuperação a cada rodada — mesmo excedente sobre o baseline usado nos
+// outros bônus de especialidade, então times sem especialista não mudam nada.
 function tickInjuries() {
   const roster = getRealRoster(state.myTeamId);
   if (!roster) return;
+  const physioBonus = Math.max(0, specialtyStaffBonus(state.myTeamId, 'physiotherapy') - getStaffQuality(state.myTeamId));
   roster.forEach(p => {
     const override = state.playerOverrides[p.id];
     const effectiveWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
 
     if (effectiveWeeks) {
-      const remaining = Math.max(0, effectiveWeeks - 1);
+      const extraWeek = Math.random() < physioBonus ? 1 : 0;
+      const remaining = Math.max(0, effectiveWeeks - 1 - extraWeek);
       const bodyPart = (override && override.bodyPart) || p.meta.bodyPart;
       const justHealed = remaining === 0;
       state.playerOverrides[p.id] = {
@@ -1736,7 +1741,10 @@ function tickGroupTraining() {
   if (!getRealRoster(state.myTeamId)) return;
   const group = state.trainingGroups && state.trainingGroups.lineout;
   if (!group || !group.active) return;
-  const quality = getStaffQuality(state.myTeamId);
+  // Estrutura fixa (ver STAFF_SKILL_LABELS.setPieceCoaching, ex.: Lito
+  // Molina) acelera o treino de grupo de line-out em vez do getStaffQuality
+  // genérico.
+  const quality = specialtyStaffBonus(state.myTeamId, 'setPieceCoaching');
 
   const skillsById = {};
   Object.entries(LINEOUT_GROUP_ROLE_SKILL).forEach(([role, skillKey]) => {
@@ -1783,7 +1791,12 @@ function tickGroupTraining() {
 const ACADEMIA_SKILL_POOL = ['strength', 'agility', 'stamina'];
 const VIDEO_SKILL_POOL = ['vision', 'positioning'];
 
-function tickCategoryTraining(roster, quality, category, pool) {
+// loadControl: excedente de especialidade em preparação física (ver
+// STAFF_SKILL_LABELS.physicalConditioning, ex.: Alexis Cibils/Juan Carmona)
+// sobre o getStaffQuality genérico — controle de carga de verdade reduz o
+// desgaste desnecessário da academia sem mudar a evolução. Times sem
+// especialista (loadControl 0) não mudam nada.
+function tickCategoryTraining(roster, quality, category, pool, loadControl = 0) {
   roster.forEach(p => {
     const override = state.playerOverrides[p.id];
     const injuryWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
@@ -1792,7 +1805,7 @@ function tickCategoryTraining(roster, quality, category, pool) {
     const missChance = att < 15 ? Math.min(0.6, (15 - att) * 0.08) : 0;
     if (Math.random() < missChance) return;
     const current = currentConditionOf(p);
-    const fatigue = 2 + Math.random() * 3;
+    const fatigue = Math.max(0.5, 2 + Math.random() * 3 - loadControl * 3);
     state.playerCondition[p.id] = {condition: Math.max(15, current - fatigue), atDay: currentCalendarDay()};
     if (Math.random() < 0.3 * quality) {
       growSkill(p.id, p.skills, weightedRandomSkill(p.posId, pool), Math.max(1, Math.round(quality)));
@@ -1850,7 +1863,12 @@ function tickAttendanceExtras() {
   const roster = getRealRoster(state.myTeamId);
   if (!roster) return;
   const quality = getStaffQuality(state.myTeamId);
-  tickCategoryTraining(roster, quality, 'academia', ACADEMIA_SKILL_POOL);
+  // Academia usa o especialista em preparação física (ex.: Alexis Cibils,
+  // Juan Carmona) tanto pra evoluir mais rápido quanto pro controle de carga
+  // (menos desgaste desnecessário) — ver tickCategoryTraining.
+  const conditioningQuality = specialtyStaffBonus(state.myTeamId, 'physicalConditioning');
+  const conditioningLoadControl = conditioningQuality - getStaffQuality(state.myTeamId);
+  tickCategoryTraining(roster, conditioningQuality, 'academia', ACADEMIA_SKILL_POOL, conditioningLoadControl);
   tickCategoryTraining(roster, quality, 'video', VIDEO_SKILL_POOL);
   // Churrasco evolui comunicação (ver applyChurrascoEffect) — quem no staff
   // tem boa comunicação (ex.: Figu Super, Cemilson) puxa isso pra cima.
@@ -2412,7 +2430,7 @@ const ABOUT_HTML_PT = `
   </div>
   <div class="card">
     <h3>Comissão técnica</h3>
-    <p>Além do papel/função de cada um, alguns membros do staff têm skills próprias (0-99, como as dos jogadores): trabalho com a base, treino de backs, treino de forwards, treino de chute, nutrição esportiva, comunicação, paciência e didática. Ex.: o preparador técnico Figu Super lida muito bem com jovens/infantis, é ótimo treinador de backs e de chute, com boa comunicação, paciência e didática — isso acelera de verdade o treino de backs, de chute e o nível dos novos garotos que entram na base, não é só um texto de sabor. Já o nutricionista Cemilson é referência em nutrição esportiva e tem boa comunicação com o grupo: isso acelera a recuperação da condição física de todo o elenco entre uma partida e outra, e ajuda a evolução da comunicação nos churrascos do time.</p>
+    <p>Além do papel/função de cada um, alguns membros do staff têm skills próprias (0-99, como as dos jogadores): trabalho com a base, treino de backs, treino de forwards, treino de chute, estruturas fixas (scrum/ruck/line-out), preparação física, fisioterapia, nutrição esportiva, comunicação, paciência e didática. Ex.: o preparador técnico Figu Super lida muito bem com jovens/infantis, é ótimo treinador de backs e de chute, com boa comunicação, paciência e didática — isso acelera de verdade o treino de backs, de chute e o nível dos novos garotos que entram na base, não é só um texto de sabor. O nutricionista Cemilson é referência em nutrição esportiva e tem boa comunicação com o grupo: isso acelera a recuperação da condição física de todo o elenco entre uma partida e outra, e ajuda a evolução da comunicação nos churrascos do time. O head coach Lito Molina é excepcional nas estruturas fixas do jogo (scrum, ruck e line-out), o que acelera o treino de grupo de line-out. O treinador geral Alexis Cibils é muito bom em preparação física e controle de carga da academia, o que acelera a evolução física na academia e reduz o desgaste desnecessário do treino. E o fisioterapeuta Juan Carmona é excelente em fisioterapia, dando uma chance real de encurtar em uma semana a recuperação de cada lesão.</p>
   </div>
   <div class="card">
     <h3>Treino semanal</h3>
@@ -2480,7 +2498,7 @@ const ABOUT_HTML_ES = `
   </div>
   <div class="card">
     <h3>Comisión técnica</h3>
-    <p>Además del rol/función de cada uno, algunos miembros del staff tienen skills propias (0-99, como las de los jugadores): trabajo con la base, entrenamiento de backs, entrenamiento de forwards, entrenamiento de pateo, nutrición deportiva, comunicación, paciencia y didáctica. Ej.: el preparador técnico Figu Super lidia muy bien con jóvenes/niños, es un excelente entrenador de backs y de pateo, con buena comunicación, paciencia y didáctica — eso acelera de verdad el entrenamiento de backs, de pateo y el nivel de los nuevos chicos que entran a la base, no es solo un texto de sabor. El nutricionista Cemilson, en cambio, es referente en nutrición deportiva y tiene buena comunicación con el grupo: eso acelera la recuperación de la condición física de todo el plantel entre un partido y otro, y ayuda a la evolución de la comunicación en los asados del equipo.</p>
+    <p>Además del rol/función de cada uno, algunos miembros del staff tienen skills propias (0-99, como las de los jugadores): trabajo con la base, entrenamiento de backs, entrenamiento de forwards, entrenamiento de pateo, estructuras fijas (scrum/ruck/line-out), preparación física, fisioterapia, nutrición deportiva, comunicación, paciencia y didáctica. Ej.: el preparador técnico Figu Super lidia muy bien con jóvenes/niños, es un excelente entrenador de backs y de pateo, con buena comunicación, paciencia y didáctica — eso acelera de verdad el entrenamiento de backs, de pateo y el nivel de los nuevos chicos que entran a la base, no es solo un texto de sabor. El nutricionista Cemilson es referente en nutrición deportiva y tiene buena comunicación con el grupo: eso acelera la recuperación de la condición física de todo el plantel entre un partido y otro, y ayuda a la evolución de la comunicación en los asados del equipo. El head coach Lito Molina es excepcional en las estructuras fijas del juego (scrum, ruck y line-out), lo que acelera el entrenamiento de grupo de line-out. El entrenador general Alexis Cibils es muy bueno en preparación física y control de carga de la academia, lo que acelera la evolución física en la academia y reduce el desgaste innecesario del entrenamiento. Y el fisioterapeuta Juan Carmona es excelente en fisioterapia, dando una chance real de acortar en una semana la recuperación de cada lesión.</p>
   </div>
   <div class="card">
     <h3>Entrenamiento semanal</h3>
