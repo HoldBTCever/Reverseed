@@ -1517,14 +1517,20 @@ function trainingIntensityCap(player, currentCondition, category = 'individual')
 // intensivo, ver tickTraining) por evolução focada só nas skills que
 // DEFINEM a posição alvo (peso >= 1.0 no SKILL_PROFILES) — em vez do
 // manager escolher um atributo solto, escolhe a posição e o jogador foca
-// tudo nela. Depois de POSITION_TRAINING_ROUNDS_NEEDED semanas rendendo
-// (mesma fração de rendimento do DIP, por frequência/físico — ver
-// trainingIntensityCap), o jogador "aprende" a posição de vez (vira
-// posição alternativa permanente, ver grantAltPos). Primeira línea
-// (pilar/hooker) fica de fora: mesma regra de "sem improviso" já aplicada
-// no seletor de escalação (ver FRONT_ROW_POS), scrum não é algo que se
-// aprende em algumas semanas de treino.
-const POSITION_TRAINING_ROUNDS_NEEDED = 10;
+// tudo nela. Depois de rondar o número de semanas necessário (mesma fração
+// de rendimento do DIP, por frequência/físico — ver trainingIntensityCap),
+// o jogador "aprende" a posição de vez (vira posição alternativa
+// permanente, ver grantAltPos) e só a partir daí fica apto pra ser
+// escalado ali (ver canPlay/FRONT_ROW_POS no seletor de escalação —
+// continua sem improviso ANTES de terminar o treino). Primeira línea
+// (pilar/hooker) pode ser treinada como qualquer outra posição, só que
+// exige bem mais tempo: scrum de verdade não se aprende em semanas, leva
+// uns 3 meses de trabalho técnico dedicado até ficar seguro pra jogar ali.
+const POSITION_TRAINING_ROUNDS_NEEDED = 10; // ~10 semanas, posições em geral
+const FRONT_ROW_TRAINING_ROUNDS_NEEDED = 13; // ~3 meses, pilar/hooker
+function positionTrainingRoundsNeeded(posId) {
+  return FRONT_ROW_POS.has(posId) ? FRONT_ROW_TRAINING_ROUNDS_NEEDED : POSITION_TRAINING_ROUNDS_NEEDED;
+}
 
 // Concede uma posição alternativa nova a um jogador (aprendida por treino,
 // ver tickTraining), sem mutar o elenco estático — grava em
@@ -1582,7 +1588,7 @@ function tickTraining() {
       growSkill(p.id, p.skills, weightedRandomSkill(posTarget, keyPool), 2 * quality * frac);
       fatigue = (10 + Math.random() * 8) * frac;
       const progress = (state.positionTrainingProgress[p.id] || 0) + frac;
-      if (progress >= POSITION_TRAINING_ROUNDS_NEEDED) {
+      if (progress >= positionTrainingRoundsNeeded(posTarget)) {
         grantAltPos(p, posTarget);
         delete state.positionTraining[p.id];
         delete state.positionTrainingProgress[p.id];
@@ -3099,21 +3105,24 @@ function renderDipListHtml() {
     .sort((a, b) => ((b.meta.trainingAttendance && b.meta.trainingAttendance.individual) || 0) - ((a.meta.trainingAttendance && a.meta.trainingAttendance.individual) || 0));
   const posTarget = p => (state.positionTraining || {})[p.id];
   // Posições treináveis: qualquer uma menos a própria e as que já sabe jogar
-  // (posto natural ou altPos já aprendido/curado), e sem primeira línea —
-  // pilar/hooker não aceita improviso em lugar nenhum do jogo (mesma regra
-  // do seletor de escalação, ver FRONT_ROW_POS), então também não é algo
-  // que se treina aqui.
+  // (posto natural ou altPos já aprendido/curado) — inclusive primeira
+  // línea (pilar/hooker), só que essa exige bem mais tempo de treino (ver
+  // positionTrainingRoundsNeeded/FRONT_ROW_TRAINING_ROUNDS_NEEDED). Até
+  // terminar o treino o jogador continua sem poder ser escalado ali (ver
+  // FRONT_ROW_POS no seletor de escalação — sem improviso ANTES de
+  // aprender de verdade).
   const trainablePositions = p => {
     const known = new Set([p.posId, ...(p.meta.altPos || [])]);
-    return Object.keys(SKILL_PROFILES).filter(posId => !FRONT_ROW_POS.has(posId) && !known.has(posId));
+    return Object.keys(SKILL_PROFILES).filter(posId => !known.has(posId));
   };
   const rowHtml = p => {
     const days = trainingIntensityCap(p, p.condition, 'individual');
     const indAtt = (p.meta.trainingAttendance && p.meta.trainingAttendance.individual) || 0;
     const target = posTarget(p);
-    const progress = Math.min(POSITION_TRAINING_ROUNDS_NEEDED, Math.floor((state.positionTrainingProgress || {})[p.id] || 0));
+    const roundsNeeded = target ? positionTrainingRoundsNeeded(target) : POSITION_TRAINING_ROUNDS_NEEDED;
+    const progress = Math.min(roundsNeeded, Math.floor((state.positionTrainingProgress || {})[p.id] || 0));
     const capOrProgress = target
-      ? `<span class="muted dipListCap">${t('posTrainingProgress', {pos: POS_LABEL[target], current: progress, total: POSITION_TRAINING_ROUNDS_NEEDED})}</span>`
+      ? `<span class="muted dipListCap">${t('posTrainingProgress', {pos: POS_LABEL[target], current: progress, total: roundsNeeded})}</span>`
       : `<span class="muted dipListCap">${t('dipDaysCap', {days, max: MAX_INTENSIVE_DAYS_PER_WEEK})}</span>`;
     return `
       <div class="dipListRow">
