@@ -42,6 +42,35 @@ natural ou treinado (ver "Treino de nova posição" abaixo). Sem especialista
 disponível, o clube convoca um juvenil de 18 anos de urgência
 (`emergencyYouthPlayer`).
 
+## Comissão técnica (staff)
+
+Cada membro do staff (`STAFF` em `realSquads.js`) tem `role`/`name`/`note`
+como sempre, e opcionalmente `skills` — 0 a 99, mesma escala dos jogadores,
+schema em `STAFF_SKILL_LABELS`: `youthDevelopment` (trabalho com a base),
+`backsCoaching`, `forwardsCoaching`, `kickingCoaching`, `communication`,
+`patience`, `didactics`. Nem todo mundo no staff tem `skills` — a maioria
+continua só com texto (`role`/`note`), igual antes.
+
+Exemplo: **Figu Super** (Preparador Técnico do Curda) — `youthDevelopment:
+88, backsCoaching: 85, kickingCoaching: 82, communication: 84, patience: 90,
+didactics: 87`, refletindo que lida muito bem com jovens/infantis, é ótimo
+treinador de backs e de chute, com boa comunicação, paciência e didática.
+
+`specialtyStaffBonus(teamId, specialtyKey)` escala `getStaffQuality(teamId)`
+por 0,7x a 1,3x conforme a média de skill de quem no staff tem aquela
+especialidade — sem ninguém cadastrado numa especialidade, cai pro
+`getStaffQuality` geral do time (sem bônus nem malus extra). Efeitos reais:
+
+- `trainingQualityFor` (app.js) escolhe, pra cada skill sendo treinada, o
+  especialista certo: `kickingCoaching` pra `kicking`/`dropGoal`,
+  `backsCoaching`/`forwardsCoaching` conforme o grupo do jogador (ou da
+  posição-alvo, no treino de nova posição), senão `getStaffQuality` genérico.
+  Usado no DIP, no treino de nova posição e no treino geral de foco livre.
+- `generateYouthPlayer` (realSquads.js) soma um pequeno bônus ao nível bruto
+  dos novos garotos de M14 gerados a cada ciclo da academia, proporcional à
+  diferença entre `specialtyStaffBonus(..., 'youthDevelopment')` e o
+  `getStaffQuality` genérico do time.
+
 ## Treino semanal
 
 Executado uma vez por rodada finalizada (`tickTraining`, chamado em

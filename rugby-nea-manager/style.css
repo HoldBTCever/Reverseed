@@ -469,6 +469,8 @@ canvas#pitch {
   .dipListRow { grid-template-columns: 1fr; text-align: left; }
 }
 
+.staffSkillsRow { font-size: 11px; margin-top: 2px; }
+
 .dipSelect, .posTrainingSelect {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 5px; font-size: 12px; max-width: 220px;

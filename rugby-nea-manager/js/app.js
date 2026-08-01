@@ -4,7 +4,7 @@ import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_PO
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
 import {PARAGUAYO_FIXTURE} from './seedParaguayo.js';
-import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, YOUTH_CATEGORY_TOTAL_SIZE, createInitialYouthAcademy, ensureCuratedYouthPlayers, advanceYouthAcademy, effectiveOverallAt} from './realSquads.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, specialtyStaffBonus, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, YOUTH_CATEGORY_TOTAL_SIZE, createInitialYouthAcademy, ensureCuratedYouthPlayers, advanceYouthAcademy, effectiveOverallAt, STAFF_SKILL_LABELS} from './realSquads.js';
 
 // ---- Seleção Paraguay (Los Yacarés) ---------------------------------------
 // Time "virtual" pra amistosos e torneios aleatórios: não disputa nenhuma
@@ -1607,6 +1607,19 @@ function tickMotivationDrift(playedIds) {
 // (sem desgaste, mas também sem chance de evoluir naquela rodada). A
 // qualidade da comissão técnica (getStaffQuality) acelera tudo isso. Só se
 // aplica ao elenco real do clube gerenciado — mesma restrição de tickInjuries.
+// Qualidade de treino efetiva pra uma skill específica: se for chute
+// (kicking/dropGoal), usa o especialista de chute do staff; senão, usa o
+// especialista de backs ou de forwards conforme o GRUPO do jogador (não a
+// posição exata) — ver specialtyStaffBonus/STAFF_SKILL_LABELS em
+// realSquads.js. Cai pro getStaffQuality geral do time quando ninguém no
+// staff tem aquela especialidade cadastrada (a maioria não tem).
+function trainingQualityFor(teamId, group, skillKey) {
+  if (skillKey === 'kicking' || skillKey === 'dropGoal') return specialtyStaffBonus(teamId, 'kickingCoaching');
+  if (group === 'back') return specialtyStaffBonus(teamId, 'backsCoaching');
+  if (group === 'forward') return specialtyStaffBonus(teamId, 'forwardsCoaching');
+  return getStaffQuality(teamId);
+}
+
 function tickTraining() {
   const roster = getRealRoster(state.myTeamId);
   if (!roster) return;
@@ -1637,7 +1650,9 @@ function tickTraining() {
       const frac = days / MAX_INTENSIVE_DAYS_PER_WEEK;
       const profile = SKILL_PROFILES[posTarget];
       const keyPool = Object.keys(profile).filter(k => profile[k] >= 1.0);
-      growSkill(p.id, p.skills, weightedRandomSkill(posTarget, keyPool), 2 * quality * frac);
+      const posSkillKey = weightedRandomSkill(posTarget, keyPool);
+      const posQuality = trainingQualityFor(state.myTeamId, POS_GROUP[posTarget], posSkillKey);
+      growSkill(p.id, p.skills, posSkillKey, 2 * posQuality * frac);
       fatigue = (10 + Math.random() * 8) * frac;
       const progress = (state.positionTrainingProgress[p.id] || 0) + frac;
       if (progress >= positionTrainingRoundsNeeded(posTarget)) {
@@ -1652,7 +1667,8 @@ function tickTraining() {
       fatigue = 1 + Math.random() * 2; // sem rendimento essa semana (frequência/físico baixos), mas mantém o alvo
     } else if (dipKey && days > 0) {
       const frac = days / MAX_INTENSIVE_DAYS_PER_WEEK;
-      growSkill(p.id, p.skills, dipKey, 2 * quality * frac);
+      const dipQuality = trainingQualityFor(state.myTeamId, p.group, dipKey);
+      growSkill(p.id, p.skills, dipKey, 2 * dipQuality * frac);
       fatigue = (10 + Math.random() * 8) * frac;
     } else {
       const freq = (p.meta.trainingAttendance && p.meta.trainingAttendance.geral) || 0;
@@ -1661,8 +1677,14 @@ function tickTraining() {
         fatigue = 1 + Math.random() * 2; // faltou o treino geral: quase sem desgaste, mas também sem evolução
       } else {
         fatigue = 3 + Math.random() * 5;
+        // A CHANCE de evoluir essa semana usa a qualidade geral do time (não
+        // dá pra saber de antemão se vai sair uma skill de chute antes de
+        // sortear); a MAGNITUDE do ganho, sim, já reflete o especialista
+        // certo pra skill sorteada.
         if (Math.random() < 0.3 * quality) {
-          growSkill(p.id, p.skills, weightedRandomSkill(p.posId, focusPool), Math.max(1, Math.round(quality)));
+          const freeSkillKey = weightedRandomSkill(p.posId, focusPool);
+          const freeQuality = trainingQualityFor(state.myTeamId, p.group, freeSkillKey);
+          growSkill(p.id, p.skills, freeSkillKey, Math.max(1, Math.round(freeQuality)));
         }
       }
     }
@@ -2381,6 +2403,10 @@ const ABOUT_HTML_PT = `
     <p>Jogador escalado fora da posição natural (posição alternativa) joga com um desconto de ~4% no overall efetivo. Primeira línea (pilar/hooker) é a única exceção real: nunca aceita improviso — só entra ali quem é especialista de verdade (natural ou treinado, ver abaixo). Sem especialista disponível, o clube convoca um juvenil de 18 anos de urgência.</p>
   </div>
   <div class="card">
+    <h3>Comissão técnica</h3>
+    <p>Além do papel/função de cada um, alguns membros do staff têm skills próprias (0-99, como as dos jogadores): trabalho com a base, treino de backs, treino de forwards, treino de chute, comunicação, paciência e didática. Ex.: o preparador técnico Figu Super lida muito bem com jovens/infantis, é ótimo treinador de backs e de chute, com boa comunicação, paciência e didática — isso acelera de verdade o treino de backs, de chute e o nível dos novos garotos que entram na base, não é só um texto de sabor.</p>
+  </div>
+  <div class="card">
     <h3>Treino semanal</h3>
     <ul>
       <li><b>Foco de clube (seg/ter/qui):</b> escolha um tipo de treino por dia (Duelo, Tocata, Contato, Formação, Touch, Pique, Chute a gol, Quebra de linha, Liderança, Recuperação) — cada tipo evolui um grupo de skills relacionadas em todo o elenco.</li>
@@ -2443,6 +2469,10 @@ const ABOUT_HTML_ES = `
     <h3>Atributos y posiciones</h3>
     <p>Cada jugador tiene 22 skills (técnicas, mentales y físicas), de 0 a 99. Cada posición tiene un "perfil" de pesos (0 a 1,3) que dice qué skills la definen — por ejemplo, pilar pesa fuerte en Scrum/Fuerza/Tackle, apertura pesa fuerte en Pateo/Drop Goal/Visión/Comunicación. El overall de un jugador en una posición es el promedio de esas skills ponderado por el perfil de esa posición.</p>
     <p>Jugador alineado fuera de su posición natural (posición alternativa) juega con un descuento de ~4% en el overall efectivo. Primera línea (pilar/hooker) es la única excepción real: nunca acepta improvisación — solo entra ahí quien es especialista de verdad (natural o entrenado, ver abajo). Sin especialista disponible, el club convoca de urgencia a un juvenil de 18 años.</p>
+  </div>
+  <div class="card">
+    <h3>Comisión técnica</h3>
+    <p>Además del rol/función de cada uno, algunos miembros del staff tienen skills propias (0-99, como las de los jugadores): trabajo con la base, entrenamiento de backs, entrenamiento de forwards, entrenamiento de pateo, comunicación, paciencia y didáctica. Ej.: el preparador técnico Figu Super lidia muy bien con jóvenes/niños, es un excelente entrenador de backs y de pateo, con buena comunicación, paciencia y didáctica — eso acelera de verdad el entrenamiento de backs, de pateo y el nivel de los nuevos chicos que entran a la base, no es solo un texto de sabor.</p>
   </div>
   <div class="card">
     <h3>Entrenamiento semanal</h3>
@@ -3172,12 +3202,17 @@ function renderRealSquad() {
     </tr>
   `;
   const staff = getStaff(state.myTeamId);
+  const staffSkillsLine = s => {
+    if (!s.skills) return '';
+    const parts = Object.entries(s.skills).map(([k, v]) => `${STAFF_SKILL_LABELS[k] || k} ${v}`);
+    return `<div class="muted staffSkillsRow">${parts.join(' · ')}</div>`;
+  };
   const staffHtml = staff ? `
     <div class="card">
       <h3>${t('comissaoTecnica')}</h3>
       <table>
         <tbody>
-          ${staff.map(s => `<tr><td class="teamCol">${s.role}</td><td class="teamCol"><b>${s.name}</b>${s.note ? ` <span class="muted">— ${s.note}</span>` : ''}</td></tr>`).join('')}
+          ${staff.map(s => `<tr><td class="teamCol">${s.role}</td><td class="teamCol"><b>${s.name}</b>${s.note ? ` <span class="muted">— ${s.note}</span>` : ''}${staffSkillsLine(s)}</td></tr>`).join('')}
         </tbody>
       </table>
     </div>
@@ -3495,6 +3530,7 @@ function formationDataFor(teamId, options) {
 // elencos reais (times procedurais só têm os 15 jogadores gerados, sem banco).
 
 const POS_LABEL = Object.fromEntries(POSITIONS.map(p => [p.id, p.label]));
+const POS_GROUP = Object.fromEntries(POSITIONS.map(p => [p.id, p.group]));
 const FRONT_ROW_POS = new Set(['PI', 'HK']);
 
 // Verdadeiro se o jogador pode ocupar essa posição: a dele mesmo, ou uma

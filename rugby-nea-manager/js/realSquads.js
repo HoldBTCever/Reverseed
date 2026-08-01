@@ -638,10 +638,32 @@ const REAL_SQUADS = {
   'BUE-CHA': CHAMPAGNAT_ROSTER,
 };
 
+// Skills de comissão técnica (0-99, mesma escala dos jogadores) — campo
+// opcional em cada membro do staff, igual `note` já era (a maioria continua
+// só com role/nome, sem números). Quando presentes, alimentam bônus de
+// treino por especialidade (ver specialtyStaffBonus mais abaixo e o uso em
+// tickTraining/tickYouthAcademy em app.js) em vez do multiplicador único e
+// genérico de STAFF_QUALITY.
+export const STAFF_SKILL_LABELS = {
+  youthDevelopment: 'Trabalho com a base',
+  backsCoaching: 'Treino de backs',
+  forwardsCoaching: 'Treino de forwards',
+  kickingCoaching: 'Treino de chute',
+  communication: 'Comunicação',
+  patience: 'Paciência',
+  didactics: 'Didática',
+};
+
 const CURDA_STAFF = [
   {role: 'Presidente do Clube', name: 'Tío Nacho'},
   {role: 'Treinador Principal (Head Coach)', name: 'Lito Molina'},
   {role: 'Treinador Geral', name: 'Alexis Cibils'},
+  {
+    role: 'Preparador Técnico',
+    name: 'Figu Super',
+    skills: {youthDevelopment: 88, backsCoaching: 85, kickingCoaching: 82, communication: 84, patience: 90, didactics: 87},
+    note: 'Lida muito bem com jovens e infantis, ótimo treinador de backs e de chute — comunicação, paciência e didática acima da média',
+  },
   {role: 'Preparador Físico', name: 'Osorio'},
   {role: 'Nutricionista', name: 'Cibils'},
   {role: 'Fisioterapeuta', name: 'Juan Carmona'},
@@ -723,6 +745,22 @@ export function getStaffQuality(teamId) {
   return STAFF_QUALITY[teamId] || 1;
 }
 
+// Bônus de treino por ESPECIALIDADE do staff (ver STAFF_SKILL_LABELS) — em
+// vez do multiplicador único e genérico de getStaffQuality, olha só pra
+// quem no staff tem aquela especialidade definida (ex.: 'backsCoaching')
+// e escala getStaffQuality por ela: 0,7x (skill baixa) a 1,3x (skill alta,
+// 99). Sem ninguém com aquela especialidade cadastrada, cai pro
+// getStaffQuality geral do time, sem bônus nem malus extra — a maioria do
+// staff continua sem `skills`, só role/note, e isso não deve puxar nada
+// pra baixo.
+export function specialtyStaffBonus(teamId, specialtyKey) {
+  const staff = STAFF[teamId] || [];
+  const withSkill = staff.filter(s => s.skills && s.skills[specialtyKey] != null);
+  if (!withSkill.length) return getStaffQuality(teamId);
+  const avg = withSkill.reduce((sum, s) => sum + s.skills[specialtyKey], 0) / withSkill.length;
+  return getStaffQuality(teamId) * (0.7 + (avg / 99) * 0.6);
+}
+
 // Clubes que disputam duas ligas ao mesmo tempo (mesmo elenco, calendários
 // independentes) — ex.: Curda e San José jogam o NEA argentino e o
 // campeonato paraguaio simultaneamente, por isso plantéis tão grandes.
@@ -785,7 +823,13 @@ function generateYouthPlayer(category, usedNames) {
   const posIds = Object.keys(POS_INFO);
   const posId = posIds[Math.floor(Math.random() * posIds.length)];
   const [min, max] = YOUTH_BASE_RANGE[category];
-  const base = min + Math.floor(Math.random() * (max - min + 1));
+  // Um preparador de verdade bom com a base (ver STAFF_SKILL_LABELS.
+  // youthDevelopment, ex.: Figu Super) sobe um pouco o nível bruto de quem
+  // entra na academia — a diferença entre o bônus DAQUELE especialista e o
+  // bônus genérico do time (sem ninguém marcado nessa especialidade,
+  // specialtyStaffBonus cai pro mesmo valor de getStaffQuality e isso dá 0).
+  const youthBonus = Math.round((specialtyStaffBonus('ARG-CUR', 'youthDevelopment') - getStaffQuality('ARG-CUR')) * 6);
+  const base = min + Math.floor(Math.random() * (max - min + 1)) + youthBonus;
   const name = randomName(Math.random, usedNames);
   const potentialRoll = Math.random();
   const potential = potentialRoll > 0.88 ? YOUTH_POTENTIALS[3] : potentialRoll > 0.6 ? YOUTH_POTENTIALS[2] : potentialRoll > 0.25 ? YOUTH_POTENTIALS[1] : YOUTH_POTENTIALS[0];
