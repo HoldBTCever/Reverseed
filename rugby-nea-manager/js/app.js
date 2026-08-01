@@ -1,5 +1,5 @@
 import {LEAGUES, TEAMS, generateSquad, teamOverall, leagueOfTeam, SKILL_LABELS, SKILL_CATEGORIES, SKILL_PROFILES, TRAITS, POSITIONS, teamIdentity, TRAINING_TYPES, ATTENDANCE_CATEGORIES} from './data.js';
-import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, POD_FORMATIONS, WEATHER_TYPES, zoneForPos, defaultGamePlan, pickLineoutUnit, rollWeather} from './engine.js';
+import {simulateMatch, TACTICS, ZONE_KEYS, ZONE_STYLES, PLAY_SYSTEMS, PLAY_CODES, POD_FORMATIONS, WEATHER_TYPES, zoneForPos, defaultGamePlan, pickLineoutUnit, rollWeather, inMatchFatigueFactor} from './engine.js';
 import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_POSITIONS} from './render.js';
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
@@ -5146,6 +5146,19 @@ function renderLive() {
   });
 
   let tickIndex = 0;
+  // Condição exibida NO PAINEL DE SUBSTITUIÇÕES, ao vivo: a condição de
+  // pré-partida (p.condition) é fixa a partida inteira — mostrá-la sem
+  // ajuste enquanto o jogo já está rolando faz parecer que ninguém cansa
+  // (sempre 100% mesmo aos 80'), o que é impossível. Aplica a mesma curva
+  // de cansaço do motor (inMatchFatigueFactor — só entra a partir do
+  // intervalo, tick 20/minuto 40) individualizada pela resistência do
+  // próprio jogador, sem alterar p.condition em si (que segue sendo usado
+  // pra decidir o desgaste real de pós-partida em declineAfterMatch).
+  const liveConditionOf = p => {
+    const preMatch = p.condition != null ? p.condition : 100;
+    const factor = inMatchFatigueFactor(tickIndex, p.skills.stamina);
+    return Math.round(Math.max(15, preMatch * factor));
+  };
   let playing = true;
   let speed = 1;
   // Cada tick representa 2 minutos de jogo — 650ms fazia a bola "teleportar"
@@ -5506,6 +5519,9 @@ function renderLive() {
 
     const availableBench = myBench.filter(p => !subbedOffIds.has(p.id) && !mySquad.some(m => m.id === p.id));
 
+    // Banco ainda não entrou em campo — continua com a condição de
+    // pré-partida normal (fresco), sem a curva de cansaço ao vivo (essa só
+    // se aplica a quem já está desgastando em campo, ver onFieldRows).
     const benchRow = (p, posId) => `
       <button type="button" class="lineupPickBtn" data-in="${p.id}">
         <span>${escapeHtmlAttr(p.name)}${p.posId !== posId ? ' ⇄' : ''}</span>
@@ -5533,7 +5549,7 @@ function renderLive() {
     const onFieldRows = mySquad.map(p => `
       <button type="button" class="lineupPickBtn ${subOutSelected === p.id ? 'selected' : ''}" data-out="${p.id}">
         <span>#${p.number} ${escapeHtmlAttr(p.name)}</span>
-        <span class="muted">${p.position} · ${Math.round(p.condition)}%</span>
+        <span class="muted">${p.position} · ${liveConditionOf(p)}%</span>
       </button>
       ${subOutSelected === p.id ? pickerHtmlFor(p) : ''}
     `).join('');

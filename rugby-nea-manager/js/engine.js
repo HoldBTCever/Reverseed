@@ -361,7 +361,7 @@ function kickEffective(player, tick, weatherKickMod = 1) {
 // joga em plena força; a partir daí perde intensidade progressivamente, mais
 // ou menos conforme a resistência média do time (staminaAvg). Times com pouca
 // resistência caem bem mais aos 70-80' do que aos 45-50'.
-function inMatchFatigueFactor(tick, staminaAvg) {
+export function inMatchFatigueFactor(tick, staminaAvg) {
   if (tick <= 20) return 1;
   const fadeProgress = (tick - 20) / 20; // 0 no intervalo -> 1 aos 80'
   const maxFade = 0.28 * (1 - staminaAvg / 130);
