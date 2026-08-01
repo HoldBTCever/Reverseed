@@ -702,10 +702,91 @@ const CURDA_STAFF = [
 ];
 
 const CURNE_STAFF = [
-  {role: 'Treinador Principal (Head Coach)', name: 'Darío Meza'},
+  {
+    role: 'Treinador Principal (Head Coach)',
+    name: 'Darío Meza',
+    skills: {forwardsCoaching: 80, communication: 78},
+    note: 'Bom treinador de forwards, com boa comunicação — comissão regional sólida, mas sem o nível de referência do Curda',
+  },
   {role: 'Preparador Físico', name: 'Coco Villagra'},
   {role: 'Fisioterapeuta', name: 'Ramona Sena'},
   {role: 'Auxiliar Técnico', name: 'Beto Franco', note: 'assume o time B quando NEA e Interior caem no mesmo dia em locais diferentes'},
+];
+
+// San José: o outro clube grande e dual-competição do Paraguaio (disputa NEA
+// argentino + campeonato paraguaio, igual o Curda), com comissão técnica
+// fictícia (não há fonte pública confiável pra staff real do clube) mas do
+// mesmo porte/tamanho do Curda — um rival de verdade, não um "time B".
+const SANJOSE_STAFF = [
+  {role: 'Presidente do Clube', name: 'Rubén Ovelar'},
+  {
+    role: 'Treinador Principal (Head Coach)',
+    name: 'Marcelo Achinelli',
+    skills: {forwardsCoaching: 90, setPieceCoaching: 88, didactics: 84},
+    note: 'Excelente treinador de forwards e de estruturas fixas — identidade forte de pack, muito exigente e didático',
+  },
+  {
+    role: 'Treinador Geral',
+    name: 'Nicolás Bogado',
+    skills: {backsCoaching: 87, communication: 85},
+    note: 'Muito bom treinador de backs, ótima comunicação com o plantel',
+  },
+  {
+    role: 'Preparador Técnico',
+    name: 'Hugo Servín',
+    skills: {kickingCoaching: 86, patience: 88},
+    note: 'Referência em chute a gol do clube, muito paciente com os mais jovens',
+  },
+  {role: 'Preparador Físico', name: 'Diego Cardozo', skills: {physicalConditioning: 85}},
+  {
+    role: 'Nutricionista',
+    name: 'Lourdes Aquino',
+    skills: {sportsNutrition: 84, communication: 75},
+    note: 'Boa nutricionista esportiva, comunicação decente com o grupo',
+  },
+  {role: 'Fisioterapeuta', name: 'Marcos Benítez', skills: {physiotherapy: 86}},
+  {role: 'Auxiliar Técnico', name: 'Walter Duarte'},
+];
+
+// Duendes RC: clube da NEA de porte médio, uma só competição — staff menor
+// que Curda/San José e sem nutricionista dedicado.
+const DUENDES_STAFF = [
+  {
+    role: 'Treinador Principal (Head Coach)',
+    name: 'Ezequiel Portillo',
+    skills: {forwardsCoaching: 78, didactics: 76},
+    note: 'Bom treinador de forwards, didático com o grupo',
+  },
+  {role: 'Preparador Físico', name: 'Gastón Ríos', skills: {physicalConditioning: 74}},
+  {role: 'Fisioterapeuta', name: 'Norma Aguirre', skills: {physiotherapy: 77}},
+  {role: 'Auxiliar Técnico', name: 'Bruno Pellegrini'},
+];
+
+// Clubes menores (só um jogador real conhecido cada, resto do plantel
+// gerado — ver buildPartialRealRoster) têm comissão técnica bem mais
+// enxuta: a maioria só tem o treinador principal, sem nutricionista nem
+// fisioterapeuta dedicados, e sem skills numéricas (não são especialistas
+// de destaque, só cumprem a função). Nomes fictícios.
+const CRISTO_REY_STAFF = [
+  {role: 'Treinador Principal (Head Coach)', name: 'Fabián Ayala'},
+  {role: 'Preparador Físico', name: 'Ramón Cabañas'},
+];
+const SANTA_CLARA_STAFF = [
+  {role: 'Treinador Principal (Head Coach)', name: 'Derlis Zárate'},
+];
+const BELGRANO_ATH_STAFF = [
+  {role: 'Treinador Principal (Head Coach)', name: 'Tomás Iriarte'},
+  {role: 'Preparador Físico', name: 'Lucas Ferrando'},
+];
+const SANTA_FE_STAFF = [
+  {role: 'Treinador Principal (Head Coach)', name: 'Nahuel Coronel'},
+];
+const CAE_STAFF = [
+  {role: 'Treinador Principal (Head Coach)', name: 'Ariel Bracco'},
+];
+const CHAMPAGNAT_STAFF = [
+  {role: 'Treinador Principal (Head Coach)', name: 'Ignacio Sarasola'},
+  {role: 'Preparador Físico', name: 'Matías Ledesma'},
 ];
 
 // Comissão técnica real da seleção paraguaia (post "STAFF 2026" do
@@ -729,20 +810,42 @@ const SELECAO_STAFF = [
 const STAFF = {
   'ARG-CUR': CURDA_STAFF,
   'PAR-CUR': CURDA_STAFF,
+  'ARG-SNJ': SANJOSE_STAFF,
+  'PAR-SNJ': SANJOSE_STAFF,
+  'INT-DUE': DUENDES_STAFF,
   'ARG-CNE': CURNE_STAFF,
   'INT-CNE': CURNE_STAFF,
+  'PAR-CRI': CRISTO_REY_STAFF,
+  'PAR-STC': SANTA_CLARA_STAFF,
+  'BUE-BEL': BELGRANO_ATH_STAFF,
+  'INT-SFE': SANTA_FE_STAFF,
+  'INT-CAE': CAE_STAFF,
+  'BUE-CHA': CHAMPAGNAT_STAFF,
   'SEL-PAR': SELECAO_STAFF,
 };
 
 // Qualidade da comissão técnica: multiplica o ritmo de evolução dos
-// atributos no treino (ver tickTraining em app.js). O Curda tem comissão
-// toda avaliada como excelente, então evolui mais rápido; a do Curne é boa,
-// mas não no mesmo nível.
+// atributos no treino (ver tickTraining em app.js). Escalada pelo tamanho/
+// relevância de cada clube: Curda e San José são os dois grandes clubes
+// dual-competição do Paraguaio (comissão de ponta); Curne e Duendes são
+// clubes médios de uma só competição (comissão boa, mas não de ponta); os
+// clubes menores (só um jogador real conhecido, resto do plantel gerado —
+// ver buildPartialRealRoster) têm comissão enxuta e fica abaixo de 1 —
+// treinam mais devagar que a média, sem staff dedicado pra cada área.
 const STAFF_QUALITY = {
   'ARG-CUR': 1.5,
   'PAR-CUR': 1.5,
+  'ARG-SNJ': 1.4,
+  'PAR-SNJ': 1.4,
   'ARG-CNE': 1.2,
   'INT-CNE': 1.2,
+  'INT-DUE': 1.15,
+  'BUE-BEL': 1.0,
+  'BUE-CHA': 1.0,
+  'PAR-CRI': 0.9,
+  'INT-SFE': 0.9,
+  'PAR-STC': 0.85,
+  'INT-CAE': 0.85,
 };
 
 // Jogadores captados de clubes menores do Paraguaio que aceitaram o convite

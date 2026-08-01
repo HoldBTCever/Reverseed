@@ -120,6 +120,33 @@ melhor) — sem ninguém cadastrado numa especialidade, cai pro
   do treino de grupo de line-out (evolução das skills de lançamento/salto/
   força e do entrosamento entre lançadores, saltadores e levantadores).
 
+Todo clube com plantel real/curado (`REAL_SQUADS` em `realSquads.js`) tem
+sua própria comissão em `STAFF`, escalada pelo porte do clube — tamanho da
+comissão E `STAFF_QUALITY` (usado como fallback quando ninguém tem a
+especialidade em jogo, ver `getStaffQuality`):
+
+- **Grandes (Curda, San José)** — `STAFF_QUALITY` 1.5/1.4, comissão
+  completa (8 pessoas: presidente, head coach, treinador geral, preparador
+  técnico, preparador físico, nutricionista, fisioterapeuta, auxiliar),
+  vários com `skills` numéricas. San José é fictício (não há fonte pública
+  confiável pra staff real do clube), mas do mesmo porte competitivo do
+  Curda.
+- **Médios (Curne, Duendes RC)** — `STAFF_QUALITY` 1.2/1.15, staff menor
+  (4 pessoas), sem nutricionista dedicado, só o head coach com `skills`.
+- **Menores** (Cristo Rey, Santa Clara, Belgrano Athletic, Santa Fe RC,
+  Club Atlético Estudiantes, Champagnat — só um jogador real conhecido
+  cada, resto do plantel gerado via `buildPartialRealRoster`) —
+  `STAFF_QUALITY` entre 0,85 e 1,0, comissão de 1-2 pessoas (só o head
+  coach, às vezes com um preparador físico), sem fisioterapeuta nem
+  nutricionista, sem `skills` numéricas (nomes fictícios, sem
+  especialização de destaque).
+
+Times sem plantel real (a grande maioria — gerados proceduralmente via
+`generateSquad`) continuam sem entrada em `STAFF`/`STAFF_QUALITY`:
+`getStaff` retorna `null` (sem tabela de comissão na tela de Elenco) e
+`getStaffQuality`/`specialtyStaffBonus` caem no fallback `1` (nem bônus nem
+malus).
+
 ## Treino semanal
 
 Executado uma vez por rodada finalizada (`tickTraining`, chamado em
