@@ -55,9 +55,11 @@ staff tem `skills` — a maioria continua só com texto (`role`/`note`), igual
 antes.
 
 Exemplos:
-- **Lito Molina** (Head Coach do Curda) — `setPieceCoaching: 94, didactics:
-  88`, excepcional nas estruturas fixas do jogo (scrum, ruck e line-out) e
-  gosta que o time realmente aprenda tática e técnica.
+- **Lito Molina** (Head Coach do Curda) — `setPieceCoaching: 98, didactics:
+  91`, referência de toda a região do Nordeste Argentino (NEA) — um dos
+  melhores, senão o melhor, especialista da região nas estruturas fixas do
+  jogo (scrum, ruck e line-out) — e gosta que o time realmente aprenda
+  tática e técnica.
 - **Alexis Cibils** (Treinador Geral do Curda) — `physicalConditioning: 89,
   communication: 82, didactics: 85`, muito bom em preparação física,
   organização de treinos e controle de carga da academia.
@@ -71,6 +73,13 @@ Exemplos:
 - **Juan Carmona** (Fisioterapeuta do Curda) — `physiotherapy: 93,
   physicalConditioning: 80`, excelente em fisioterapia e muito bom na
   análise de condicionamento físico dos jogadores.
+- **Sebas Bereta** (Auxiliar Técnico do Curda) — `setPieceCoaching: 83`, de
+  bom a ótimo na mesma especialidade de Lito Molina (bem abaixo do nível de
+  referência regional dele, mas sustenta o time B quando as duas
+  competições caem no mesmo dia em locais diferentes). Como
+  `specialtyStaffBonus` faz a MÉDIA de quem tem cada especialidade
+  cadastrada, o `setPieceCoaching` efetivo do Curda hoje é a média entre
+  Lito Molina e Bereta, não só o valor do Lito isoladamente.
 
 `specialtyStaffBonus(teamId, specialtyKey)` escala `getStaffQuality(teamId)`
 por 0,7x a 1,3x conforme a média de skill de quem no staff tem aquela

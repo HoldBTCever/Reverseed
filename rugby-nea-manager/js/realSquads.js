@@ -663,8 +663,8 @@ const CURDA_STAFF = [
   {
     role: 'Treinador Principal (Head Coach)',
     name: 'Lito Molina',
-    skills: {setPieceCoaching: 94, didactics: 88},
-    note: 'Excepcional nas estruturas fixas do jogo (scrum, ruck e line-out) — gosta que o time realmente aprenda a tática e a técnica, não só decore jogadas',
+    skills: {setPieceCoaching: 98, didactics: 91},
+    note: 'Referência de toda a região do Nordeste Argentino (NEA) na comissão técnica — um dos melhores, senão o melhor, especialista da região nas estruturas fixas do jogo (scrum, ruck e line-out); gosta que o time realmente aprenda a tática e a técnica, não só decore jogadas',
   },
   {
     role: 'Treinador Geral',
@@ -691,7 +691,12 @@ const CURDA_STAFF = [
     skills: {physiotherapy: 93, physicalConditioning: 80},
     note: 'Excelente em fisioterapia, também muito bom na análise de condicionamento físico dos jogadores',
   },
-  {role: 'Auxiliar Técnico', name: 'Sebas Bereta', note: 'assume o time B quando NEA e Paraguaio caem no mesmo dia em locais diferentes'},
+  {
+    role: 'Auxiliar Técnico',
+    name: 'Sebas Bereta',
+    skills: {setPieceCoaching: 83},
+    note: 'De bom a ótimo nas estruturas fixas do jogo — sustenta bem o nível quando assume o time B, nos dias em que NEA e Paraguaio caem no mesmo dia em locais diferentes',
+  },
   {role: 'Treinador das Categorias de Base', name: 'Dante Legui', note: 'comanda as categorias M18, M16, M15 e M14 do clube'},
   {role: 'Auxiliar', name: 'Facundo Rafael Navas'},
 ];
