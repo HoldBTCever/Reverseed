@@ -147,6 +147,10 @@ const I18N = {
     noneClubTraining: 'Ninguno (solo entrenamiento de club)',
     dipHelp: 'Entrenamiento individual intensivo (DIP): mejora garantizada en el atributo elegido, más rápido que el entrenamiento de club, a costa de mucho más desgaste físico. Rinde según la frecuencia de entreno del jugador — de 0 (frecuencia 15 o menos) hasta 5 veces por semana (frecuencia 20).',
     dipDaysCap: 'Esta semana rinde {days}/{max} veces (frecuencia de entreno y físico actuales).',
+    posTrainingNone: 'Sin nueva posición',
+    posTrainingLabel: 'Entrenar nueva posición',
+    posTrainingProgress: '{pos}: semana {current}/{total}',
+    posTrainingLearnedAlert: '{list} completó el entrenamiento y ahora también puede jugar en una nueva posición.',
     assiduidadeTitle: 'Asiduidad',
     treinoIndisponivel: 'Este club no tiene plantel curado, así que no hay entrenamiento individual para gestionar.',
     trainingFocusTitle: 'Foco de entrenamiento de la semana',
@@ -230,6 +234,7 @@ const I18N = {
     captacaoConvidar: 'Invitar',
     captacaoAceitou: '¡{name} aceptó la invitación y se sumó al Curda!',
     captacaoRecusou: '{name} rechazó la invitación — prefirió seguir en el {club}.',
+    captacaoRecusouEstrangeiro: '{name} rechazó la invitación — decidió no seguir con el rugby por ahora.',
     baseTitle: 'Categorías de base (Dante Legui)',
     baseHelp: 'M14, M15, M16 y M18: cada tanto toda la base sube una categoría — quien estaba en M18 se gradúa y se suma directo al plantel principal. Cada categoría tiene al menos 23 jugadores; acá se muestran solo los más destacados.',
     baseFormados: '¡Se graduaron de las categorías de base y se sumaron al plantel principal: {names}!',
@@ -403,6 +408,10 @@ const I18N = {
     noneClubTraining: 'Nenhum (só treino de clube)',
     dipHelp: 'Treino individual intensivo (DIP): evolui garantido no atributo escolhido, mais rápido que o treino de clube, à custa de bem mais desgaste físico. Rende conforme a frequência de treino do jogador — de 0 (frequência 15 ou menos) até 5x por semana (frequência 20).',
     dipDaysCap: 'Essa semana rende {days}/{max} vezes (frequência de treino e físico atuais).',
+    posTrainingNone: 'Sem nova posição',
+    posTrainingLabel: 'Treinar nova posição',
+    posTrainingProgress: '{pos}: semana {current}/{total}',
+    posTrainingLearnedAlert: '{list} terminou o treinamento e agora também pode jogar numa posição nova.',
     assiduidadeTitle: 'Assiduidade',
     treinoIndisponivel: 'Esse clube não tem plantel curado, então não tem treino individual pra gerenciar.',
     trainingFocusTitle: 'Foco de treino da semana',
@@ -486,6 +495,7 @@ const I18N = {
     captacaoConvidar: 'Convidar',
     captacaoAceitou: '{name} aceitou o convite e se juntou ao Curda!',
     captacaoRecusou: '{name} recusou o convite — preferiu continuar no {club}.',
+    captacaoRecusouEstrangeiro: '{name} recusou o convite — decidiu não seguir com o rugby por enquanto.',
     baseTitle: 'Categorias de base (Dante Legui)',
     baseHelp: 'M14, M15, M16 e M18: de vez em quando toda a base sobe uma categoria — quem estava na M18 se forma e vai direto pro plantel principal. Cada categoria tem pelo menos 23 jogadores; aqui mostramos só os mais destacados.',
     baseFormados: 'Se formaram nas categorias de base e se juntaram ao plantel principal: {names}!',
@@ -1080,6 +1090,8 @@ function newGame(myTeamId) {
     lineupPresets: {}, // {[teamId]: {A: [15 playerIds ou null], B: [...]}} — escalações salvas (Time A / Time B)
     skillGrowth: {}, // {[playerId]: {skillKey: novoValorAbsoluto}} — evolução de atributos por treino (ver tickTraining)
     dipTraining: {}, // {[playerId]: skillKey} — foco de treino individual intensivo (DIP) escolhido pelo manager
+    positionTraining: {}, // {[playerId]: posId} — jogador treinando pra uma posição nova (substitui o DIP normal, ver tickTraining)
+    positionTrainingProgress: {}, // {[playerId]: semanasRendidas} — progresso fracionário até POSITION_TRAINING_ROUNDS_NEEDED
     trainingFocus: {seg: null, ter: null, qui: null}, // tipo de treino (ver TRAINING_TYPES) escolhido pelo técnico pra cada dia, ou null = automático
     chemistry: {}, // {"idA|idB": 0-100} — entrosamento entre pares de jogadores, cresce jogando junto ou treinando em grupo (ver bumpChemistry)
     trainingGroups: {lineout: {throwerIds: [], jumperIds: [], lifterIds: [], active: false}}, // grupos de treino conjunto — listas, não vaga única (ver tickGroupTraining)
@@ -1501,6 +1513,31 @@ function trainingIntensityCap(player, currentCondition, category = 'individual')
   return days;
 }
 
+// Treino pra nova posição: substitui o DIP normal (mesmo slot de treino
+// intensivo, ver tickTraining) por evolução focada só nas skills que
+// DEFINEM a posição alvo (peso >= 1.0 no SKILL_PROFILES) — em vez do
+// manager escolher um atributo solto, escolhe a posição e o jogador foca
+// tudo nela. Depois de POSITION_TRAINING_ROUNDS_NEEDED semanas rendendo
+// (mesma fração de rendimento do DIP, por frequência/físico — ver
+// trainingIntensityCap), o jogador "aprende" a posição de vez (vira
+// posição alternativa permanente, ver grantAltPos). Primeira línea
+// (pilar/hooker) fica de fora: mesma regra de "sem improviso" já aplicada
+// no seletor de escalação (ver FRONT_ROW_POS), scrum não é algo que se
+// aprende em algumas semanas de treino.
+const POSITION_TRAINING_ROUNDS_NEEDED = 10;
+
+// Concede uma posição alternativa nova a um jogador (aprendida por treino,
+// ver tickTraining), sem mutar o elenco estático — grava em
+// state.playerOverrides (o mesmo mecanismo já usado pras lesões dinâmicas),
+// que é aplicado a cada leitura do elenco via applyOverrides/canPlay.
+function grantAltPos(player, posId) {
+  const baseAltPos = (player.meta.altPos || []);
+  const existing = state.playerOverrides[player.id] || {};
+  const currentAltPos = existing.altPos || baseAltPos;
+  if (currentAltPos.includes(posId)) return;
+  state.playerOverrides[player.id] = {...existing, altPos: [...currentAltPos, posId]};
+}
+
 // Treino do clube: segunda, terça e quinta, uma vez por rodada finalizada.
 // Fadiga leve pra todo mundo (registrada como mais uma queda de condição,
 // que se recupera igual à fadiga de partida) e chance de evolução gradual
@@ -1525,17 +1562,38 @@ function tickTraining() {
   // cai pro sorteio livre de sempre (ver weightedRandomSkill).
   const focusTypes = Object.values(state.trainingFocus || {}).filter(k => typeof k === 'string' && TRAINING_TYPES[k]);
   const focusPool = [...new Set(focusTypes.flatMap(k => TRAINING_TYPES[k].skills))];
+  state.positionTraining = state.positionTraining || {};
+  state.positionTrainingProgress = state.positionTrainingProgress || {};
+  const learned = [];
   roster.forEach(p => {
     const override = state.playerOverrides[p.id];
     const injuryWeeks = override && override.injuryWeeks != null ? override.injuryWeeks : p.meta.injuryWeeks;
     if (injuryWeeks) return; // lesionado não treina
 
     const current = currentConditionOf(p);
+    const posTarget = state.positionTraining[p.id];
     const dipKey = state.dipTraining[p.id];
-    const dipDays = dipKey ? trainingIntensityCap(p, current, 'individual') : 0;
+    const days = (posTarget || dipKey) ? trainingIntensityCap(p, current, 'individual') : 0;
     let fatigue;
-    if (dipDays > 0) {
-      const frac = dipDays / MAX_INTENSIVE_DAYS_PER_WEEK;
+    if (posTarget && days > 0) {
+      const frac = days / MAX_INTENSIVE_DAYS_PER_WEEK;
+      const profile = SKILL_PROFILES[posTarget];
+      const keyPool = Object.keys(profile).filter(k => profile[k] >= 1.0);
+      growSkill(p.id, p.skills, weightedRandomSkill(posTarget, keyPool), 2 * quality * frac);
+      fatigue = (10 + Math.random() * 8) * frac;
+      const progress = (state.positionTrainingProgress[p.id] || 0) + frac;
+      if (progress >= POSITION_TRAINING_ROUNDS_NEEDED) {
+        grantAltPos(p, posTarget);
+        delete state.positionTraining[p.id];
+        delete state.positionTrainingProgress[p.id];
+        learned.push(`${p.name} (${POS_LABEL[posTarget]})`);
+      } else {
+        state.positionTrainingProgress[p.id] = progress;
+      }
+    } else if (posTarget) {
+      fatigue = 1 + Math.random() * 2; // sem rendimento essa semana (frequência/físico baixos), mas mantém o alvo
+    } else if (dipKey && days > 0) {
+      const frac = days / MAX_INTENSIVE_DAYS_PER_WEEK;
       growSkill(p.id, p.skills, dipKey, 2 * quality * frac);
       fatigue = (10 + Math.random() * 8) * frac;
     } else {
@@ -1552,6 +1610,7 @@ function tickTraining() {
     }
     state.playerCondition[p.id] = {condition: Math.max(15, current - fatigue), atDay: currentCalendarDay()};
   });
+  return learned;
 }
 
 // Papel de cada lista do grupo de line-out -> skill que evolui em quem tá
@@ -1760,20 +1819,115 @@ function inviteProspect(prospectId) {
   const acceptChance = Math.max(0.35, Math.min(0.85, 0.55 + (determination - 65) * 0.006));
   const accepted = Math.random() < acceptChance;
   state.scoutingProspects = prospects.filter(p => p.id !== prospectId);
+  const isForeignArrival = !!prospect.meta.nationality;
   if (accepted) {
     state.recruitedPlayers = state.recruitedPlayers || [];
     state.recruitedPlayers.push({
       ...prospect,
-      meta: {...prospect.meta, note: `Contratado do ${prospect.meta.scoutedFrom}; ${prospect.meta.note}`},
+      meta: isForeignArrival ? prospect.meta : {...prospect.meta, note: `Contratado do ${prospect.meta.scoutedFrom}; ${prospect.meta.note}`},
     });
     setRecruitedPlayers(state.recruitedPlayers);
     saveState();
     alert(t('captacaoAceitou', {name: prospect.name}));
   } else {
     saveState();
-    alert(t('captacaoRecusou', {name: prospect.name, club: prospect.meta.scoutedFrom}));
+    if (isForeignArrival) {
+      alert(t('captacaoRecusouEstrangeiro', {name: prospect.name}));
+    } else {
+      alert(t('captacaoRecusou', {name: prospect.name, club: prospect.meta.scoutedFrom}));
+    }
   }
   renderRealSquad();
+}
+
+// ---- Recém-chegados estrangeiros a Assunção (tentando rugby pela primeira
+// vez) ------------------------------------------------------------------
+// Raramente um novo morador estrangeiro de Assunción decide tentar rugby, e
+// na maioria das vezes procura o Curda primeiro (clube mais tradicional/
+// visível da cidade) — mais argentinos e uruguaios (países vizinhos com
+// forte cultura de rugby), poucos brasileiros (pouco conhecimento do
+// esporte por lá), e raríssimos europeus/neozelandeses (mais aptos, mas bem
+// mais raro alguém de tão longe se estabelecer em Assunción). skillMult
+// reflete essa bagagem esportiva: bem abaixo de 1 pra quem nunca viu uma
+// bola oval, bem acima de 1 pra quem já cresceu com o esporte na cultura.
+const FOREIGN_ARRIVAL_NATIONALITIES = [
+  {country: 'Argentina', weight: 34, skillMult: [0.9, 1.1]},
+  {country: 'Uruguai', weight: 27, skillMult: [0.85, 1.05]},
+  {country: 'Brasil', weight: 18, skillMult: [0.5, 0.7]},
+  {country: 'Europa', weight: 13, skillMult: [1.0, 1.2]},
+  {country: 'Nova Zelândia', weight: 8, skillMult: [1.25, 1.55]},
+];
+
+function pickForeignNationality() {
+  const total = FOREIGN_ARRIVAL_NATIONALITIES.reduce((s, n) => s + n.weight, 0);
+  let roll = Math.random() * total;
+  for (const n of FOREIGN_ARRIVAL_NATIONALITIES) {
+    roll -= n.weight;
+    if (roll <= 0) return n;
+  }
+  return FOREIGN_ARRIVAL_NATIONALITIES[FOREIGN_ARRIVAL_NATIONALITIES.length - 1];
+}
+
+// Gera um recém-chegado tentando rugby pela primeira vez: nível bruto de
+// novato (base baixa-mediana, sem clube anterior), escalado pela bagagem
+// esportiva do país de origem (ver FOREIGN_ARRIVAL_NATIONALITIES) e com as
+// skills geradas na mesma fórmula ponderada por posição de sempre (ver
+// SKILL_PROFILES/mkPlayer em realSquads.js), pra que a posição sorteada já
+// nasça com as skills que a definem mais desenvolvidas que o resto.
+function generateForeignProspect() {
+  const nat = pickForeignNationality();
+  const posIds = Object.keys(SKILL_PROFILES);
+  const posId = posIds[Math.floor(Math.random() * posIds.length)];
+  const profile = SKILL_PROFILES[posId];
+  const rawBase = 38 + Math.random() * 20; // 38-58: recém-chegado sem clube anterior
+  const mult = nat.skillMult[0] + Math.random() * (nat.skillMult[1] - nat.skillMult[0]);
+  const base = rawBase * mult;
+  const skills = {};
+  SKILL_KEYS.forEach(k => {
+    const scaled = base * (0.55 + profile[k] * 0.45);
+    const variance = Math.random() * 16 - 8;
+    skills[k] = Math.max(25, Math.min(99, Math.round(scaled + variance)));
+  });
+  const weightSum = SKILL_KEYS.reduce((s, k) => s + profile[k], 0);
+  const rating = Math.round(SKILL_KEYS.reduce((s, k) => s + skills[k] * profile[k], 0) / weightSum);
+  // Nome/biometria/traits vêm de um jogador procedural qualquer (bancos de
+  // nome são genéricos rioplatenses pra todo mundo no jogo, ver randomName
+  // em data.js) — só a posição, skills, overall e nacionalidade são
+  // substituídos pelos deste recém-chegado.
+  const sourceTeam = teamById[SMALL_PARAGUAY_TEAM_IDS[Math.floor(Math.random() * SMALL_PARAGUAY_TEAM_IDS.length)]];
+  const nameSquad = generateSquad(sourceTeam);
+  const namePlayer = nameSquad[Math.floor(Math.random() * nameSquad.length)];
+  return {
+    ...namePlayer,
+    id: `foreign-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    posId,
+    position: POS_LABEL[posId],
+    group: POSITIONS.find(p => p.id === posId).group,
+    skills,
+    rating,
+    meta: {
+      ...namePlayer.meta,
+      age: 'jovem',
+      nationality: nat.country,
+      yearsInParaguay: 0,
+      note: `Novo morador de Assunção, vindo de/da ${nat.country}, decidiu tentar rugby`,
+      scoutedFrom: `Recém-chegado — ${nat.country}`,
+    },
+  };
+}
+
+// A cada rodada finalizada, chance rara de aparecer um recém-chegado
+// estrangeiro decidindo tentar rugby (ver generateForeignProspect) — entra
+// na mesma fila de captação (state.scoutingProspects) e usa o mesmo fluxo
+// de convite/aceite (inviteProspect), só que com a origem "recém-chegado"
+// em vez de clube menor do Paraguaio.
+function tickForeignArrival() {
+  if (state.myTeamId !== 'ARG-CUR' && state.myTeamId !== 'PAR-CUR') return;
+  state.scoutingProspects = state.scoutingProspects || [];
+  if (state.scoutingProspects.length >= 3) return;
+  if (Math.random() < 0.08) {
+    state.scoutingProspects.push(generateForeignProspect());
+  }
 }
 
 function renderScoutingHtml() {
@@ -2943,18 +3097,37 @@ function renderDipListHtml() {
     .filter(p => !p.meta.injuryWeeks)
     .map(p => ({...p, condition: currentConditionOf(p)}))
     .sort((a, b) => ((b.meta.trainingAttendance && b.meta.trainingAttendance.individual) || 0) - ((a.meta.trainingAttendance && a.meta.trainingAttendance.individual) || 0));
+  const posTarget = p => (state.positionTraining || {})[p.id];
+  // Posições treináveis: qualquer uma menos a própria e as que já sabe jogar
+  // (posto natural ou altPos já aprendido/curado), e sem primeira línea —
+  // pilar/hooker não aceita improviso em lugar nenhum do jogo (mesma regra
+  // do seletor de escalação, ver FRONT_ROW_POS), então também não é algo
+  // que se treina aqui.
+  const trainablePositions = p => {
+    const known = new Set([p.posId, ...(p.meta.altPos || [])]);
+    return Object.keys(SKILL_PROFILES).filter(posId => !FRONT_ROW_POS.has(posId) && !known.has(posId));
+  };
   const rowHtml = p => {
     const days = trainingIntensityCap(p, p.condition, 'individual');
     const indAtt = (p.meta.trainingAttendance && p.meta.trainingAttendance.individual) || 0;
+    const target = posTarget(p);
+    const progress = Math.min(POSITION_TRAINING_ROUNDS_NEEDED, Math.floor((state.positionTrainingProgress || {})[p.id] || 0));
+    const capOrProgress = target
+      ? `<span class="muted dipListCap">${t('posTrainingProgress', {pos: POS_LABEL[target], current: progress, total: POSITION_TRAINING_ROUNDS_NEEDED})}</span>`
+      : `<span class="muted dipListCap">${t('dipDaysCap', {days, max: MAX_INTENSIVE_DAYS_PER_WEEK})}</span>`;
     return `
       <div class="dipListRow">
         <span class="dipListName">${escapeHtmlAttr(p.name)}</span>
         <span class="muted dipListMeta" title="${escapeHtmlAttr(attendanceLabel('individual'))}">${ATTENDANCE_SHORT.individual} ${indAtt} · ${Math.round(p.condition)}%</span>
-        <select class="dipSelect" data-player="${p.id}">
+        <select class="dipSelect" data-player="${p.id}" ${target ? 'disabled' : ''}>
           <option value="">${t('noneClubTraining')}</option>
           ${SKILL_KEYS.map(k => `<option value="${k}" ${state.dipTraining[p.id] === k ? 'selected' : ''}>${skillLabel(k)}</option>`).join('')}
         </select>
-        <span class="muted dipListCap">${t('dipDaysCap', {days, max: MAX_INTENSIVE_DAYS_PER_WEEK})}</span>
+        <select class="posTrainingSelect" data-player="${p.id}">
+          <option value="">${t('posTrainingNone')}</option>
+          ${trainablePositions(p).map(posId => `<option value="${posId}" ${target === posId ? 'selected' : ''}>${POS_LABEL[posId]}</option>`).join('')}
+        </select>
+        ${capOrProgress}
       </div>
     `;
   };
@@ -3025,6 +3198,27 @@ function renderTraining() {
       if (sel.value) state.dipTraining[pid] = sel.value;
       else delete state.dipTraining[pid];
       saveState();
+    });
+  });
+
+  Array.from(document.querySelectorAll('.posTrainingSelect')).forEach(sel => {
+    sel.addEventListener('change', () => {
+      const pid = sel.dataset.player;
+      state.positionTraining = state.positionTraining || {};
+      state.positionTrainingProgress = state.positionTrainingProgress || {};
+      if (sel.value) {
+        // Treinar posição nova substitui o DIP normal — o jogador foca tudo
+        // nas skills que definem a posição alvo (ver tickTraining), em vez
+        // de escolher um atributo solto.
+        state.positionTraining[pid] = sel.value;
+        state.positionTrainingProgress[pid] = 0;
+        delete state.dipTraining[pid];
+      } else {
+        delete state.positionTraining[pid];
+        delete state.positionTrainingProgress[pid];
+      }
+      saveState();
+      renderTraining();
     });
   });
 }
@@ -5256,12 +5450,16 @@ function finalizeRound() {
   // jogadores têm pra recuperar a energia até a próxima rodada.
   state.calendarDay += 7;
   tickInjuries();
-  tickTraining();
+  const learnedPositions = tickTraining();
   tickGroupTraining();
   tickAttendanceExtras();
   tickScouting();
+  tickForeignArrival();
   tickYouthAcademy();
   tickSelecaoAuto();
+  if (learnedPositions && learnedPositions.length) {
+    alert(t('posTrainingLearnedAlert', {list: learnedPositions.join(', ')}));
+  }
   if (pendingMyXV && pendingMyXV.length) {
     const venue = myMatch ? venueOf(myMatch, c.teamId) : 'home';
     // Condição/lesão por fadiga só existem pra elencos reais (curados): times

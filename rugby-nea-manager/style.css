@@ -459,7 +459,7 @@ canvas#pitch {
    por jogador em vez de expandir cada linha do plantel. */
 .dipList { display: flex; flex-direction: column; gap: 6px; }
 .dipListRow {
-  display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 10px;
+  display: grid; grid-template-columns: 1fr auto auto auto auto; align-items: center; gap: 10px;
   padding: 6px 8px; border-radius: 6px; background: var(--panel-2);
 }
 .dipListName { font-size: 13px; font-weight: 600; }
@@ -469,10 +469,11 @@ canvas#pitch {
   .dipListRow { grid-template-columns: 1fr; text-align: left; }
 }
 
-.dipSelect {
+.dipSelect, .posTrainingSelect {
   background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 5px; font-size: 12px; max-width: 220px;
 }
+.dipSelect:disabled { opacity: 0.5; }
 
 /* Tela de Tática: plano de jogo por zona (imagem do campo) + pilares + PDFs */
 .tacticalFieldOuter {
