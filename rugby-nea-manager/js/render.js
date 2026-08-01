@@ -42,13 +42,19 @@ const LOOSE_DEPTH = {attack: 13, defense: 11};
 
 // Sequência de try: quando a linha de três-quartos avança até a try-line
 // (ver startTrySequence), cada camisa entra com um atraso diferente (9 sai
-// primeiro, a ponta chega por último) mas SEM sair da própria faixa — nada
-// de leque/diagonal, cada jogador corre reto na largura onde já joga
-// normalmente (mesmo dot.y do resto da animação). Só a BOLA se move de
-// faixa em faixa, passando de mão em mão pela cadeia normal 9→10→12→13→
-// ponta, terminando na faixa fixa do ponta que marca (ver
+// primeiro, a ponta chega por último) mas SEM sair da própria faixa lateral
+// (dot.y) — nada de leque/convergência pro escanteio. O ataque mantém a
+// profundidade DIAGONAL real do rugby (attackDepth, a mesma usada fora da
+// sequência de try): quem joga mais afastado do ponto de contato também
+// joga mais fundo, recebendo a bola correndo por trás, não parado numa
+// linha reta. A defesa fica achatada (TRY_DEFENSE_FLAT_DEPTH, praticamente
+// a mesma profundidade pra todos), sempre à FRENTE do ataque (mais perto
+// da própria try-line), recuando junto até ser superada no try. Só a BOLA
+// se move de faixa em faixa, passando de mão em mão pela cadeia normal
+// 9→10→12→13→ponta, terminando na faixa fixa do ponta que marca (ver
 // ballLateralForTrySequence).
 const TRY_SWEEP_DELAY = {9: 0, 10: 0.06, 12: 0.14, 13: 0.22, 15: 0.3, 11: 0.38, 14: 0.38};
+const TRY_DEFENSE_FLAT_DEPTH = 12;
 
 // Cadeia de passe normal até o try: cada elo é {t: quando a bola chega ali
 // (mesma escala 0-1 de seqProgress), y: a faixa FIXA daquele posto (mesmo
@@ -549,16 +555,28 @@ export class MatchRenderer {
       let px;
       let wideY = dot.y;
 
-      if (inTrySeq && dot.team === trySeq.team && !isForward) {
-        // Linha de três-quartos do time que marcou avança até a try-line,
-        // cada camisa com seu atraso (ver TRY_SWEEP_DELAY) mas na SUA
-        // PRÓPRIA faixa (dot.y) — sem leque nem diagonal, cada jogador corre
-        // reto, igual joga o resto da partida. Só a bola muda de faixa (ver
-        // ballLateralForTrySequence), como um passe normal de mão em mão.
-        const delay = TRY_SWEEP_DELAY[dot.num] ?? 0.3;
-        const localT = Math.max(0, Math.min(1, (seqProgress - delay) / (1 - delay)));
-        const posNow = trySeq.startPos + (trySeq.endPos - trySeq.startPos) * localT;
-        px = this.posToX(posNow) + bob * 0.5;
+      if (inTrySeq && !isForward) {
+        // Jogada de fases até o try: a linha inteira avança junto com o
+        // mesmo ponto de referência (sweepX, entre startPos e endPos), cada
+        // jogador na SUA PRÓPRIA faixa (dot.y) — sem leque nem convergência
+        // pro escanteio. O ataque mantém a profundidade diagonal real do
+        // jogo (attackDepth — mesma usada fora da sequência de try: quem
+        // joga mais afastado do ponto de contato também joga mais fundo,
+        // pra receber a bola correndo, não parado numa linha reta), com
+        // quem ainda não recebeu a bola (ver TRY_SWEEP_DELAY/
+        // ballLateralForTrySequence) um pouco mais recuado até chegar sua
+        // vez. A defesa fica achatada (profundidade quase igual pra todos),
+        // sempre à FRENTE do ataque — mais perto da própria try-line —
+        // recuando junto conforme a jogada avança, até ser superada no try.
+        const sweepPosNow = trySeq.startPos + (trySeq.endPos - trySeq.startPos) * seqProgress;
+        const sweepX = this.posToX(sweepPosNow);
+        if (dot.team === trySeq.team) {
+          const delay = TRY_SWEEP_DELAY[dot.num] ?? 0.3;
+          const waiting = Math.max(0, Math.min(1, (delay - seqProgress) / Math.max(delay, 0.01)));
+          px = sweepX - dirSign * (dot.attackDepth + waiting * 10) + bob * 0.5;
+        } else {
+          px = sweepX + dirSign * TRY_DEFENSE_FLAT_DEPTH + bob * 0.5;
+        }
         wideY = dot.y;
       } else if (matchPhase === 'scrum') {
         ({px, wideY} = this.scrumLayout(dot, x));
