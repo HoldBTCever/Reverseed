@@ -5151,12 +5151,17 @@ function renderLive() {
   // ajuste enquanto o jogo já está rolando faz parecer que ninguém cansa
   // (sempre 100% mesmo aos 80'), o que é impossível. Aplica a mesma curva
   // de cansaço do motor (inMatchFatigueFactor — só entra a partir do
-  // intervalo, tick 20/minuto 40) individualizada pela resistência do
-  // próprio jogador, sem alterar p.condition em si (que segue sendo usado
-  // pra decidir o desgaste real de pós-partida em declineAfterMatch).
+  // intervalo, tick 20/minuto 40), mas alimentada por uma resistência
+  // FÍSICA composta, não só resistência crua: resistência (stamina) pesa
+  // mais, por ser sobre os 80 minutos inteiros, com uma contribuição menor
+  // de recuperação entre fases (recovery) e de resistência mental ao
+  // cansaço (determination) — mesmas skills físicas já usadas em
+  // declineAfterMatch/recoveryPerWeek. Não altera p.condition em si (que
+  // segue sendo usado pra decidir o desgaste real de pós-partida).
+  const physicalResistanceOf = p => p.skills.stamina * 0.6 + p.skills.recovery * 0.25 + p.skills.determination * 0.15;
   const liveConditionOf = p => {
     const preMatch = p.condition != null ? p.condition : 100;
-    const factor = inMatchFatigueFactor(tickIndex, p.skills.stamina);
+    const factor = inMatchFatigueFactor(tickIndex, physicalResistanceOf(p));
     return Math.round(Math.max(15, preMatch * factor));
   };
   let playing = true;

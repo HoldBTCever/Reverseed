@@ -40,13 +40,42 @@ const ROLE_TEMPLATE = [
 const TIGHT_DEPTH = {attack: 8, defense: 8};
 const LOOSE_DEPTH = {attack: 13, defense: 11};
 
-// Sequência de try: quando a linha de três-quartos varre o campo até o
-// escanteio (ver startTrySequence), cada camisa da linha entra com um
-// atraso diferente (9 sai primeiro, a ponta chega por último pra terminar
-// a jogada) e abre pra um afastamento lateral diferente, formando o leque
-// clássico de uma jogada de linha em fases até o try.
+// Sequência de try: quando a linha de três-quartos avança até a try-line
+// (ver startTrySequence), cada camisa entra com um atraso diferente (9 sai
+// primeiro, a ponta chega por último) mas SEM sair da própria faixa — nada
+// de leque/diagonal, cada jogador corre reto na largura onde já joga
+// normalmente (mesmo dot.y do resto da animação). Só a BOLA se move de
+// faixa em faixa, passando de mão em mão pela cadeia normal 9→10→12→13→
+// ponta, terminando na faixa fixa do ponta que marca (ver
+// ballLateralForTrySequence).
 const TRY_SWEEP_DELAY = {9: 0, 10: 0.06, 12: 0.14, 13: 0.22, 15: 0.3, 11: 0.38, 14: 0.38};
-const TRY_SWEEP_WIDE = {9: 0.22, 10: 0.38, 12: 0.52, 13: 0.66, 15: 0.48, 11: 0.85, 14: 0.85};
+
+// Cadeia de passe normal até o try: cada elo é {t: quando a bola chega ali
+// (mesma escala 0-1 de seqProgress), y: a faixa FIXA daquele posto (mesmo
+// dot.y usado no resto do jogo)} — a bola interpola linearmente entre elos
+// consecutivos, como se estivesse realmente passando de mão em mão. O
+// último elo depende do lado sorteado (ver startTrySequence): ponta
+// esquerda (11) ou direita (14), cada um na sua faixa de sempre.
+const TRY_PASS_CHAIN_Y = {9: 0.05, 10: 0.16, 12: 0.30, 13: 0.45, 11: -0.90, 14: 0.90};
+function ballLateralForTrySequence(seqProgress, side) {
+  const wingNum = side < 0 ? 11 : 14;
+  const chain = [
+    {t: 0, y: TRY_PASS_CHAIN_Y[9]},
+    {t: TRY_SWEEP_DELAY[10], y: TRY_PASS_CHAIN_Y[10]},
+    {t: TRY_SWEEP_DELAY[12], y: TRY_PASS_CHAIN_Y[12]},
+    {t: TRY_SWEEP_DELAY[13], y: TRY_PASS_CHAIN_Y[13]},
+    {t: TRY_SWEEP_DELAY[wingNum], y: TRY_PASS_CHAIN_Y[wingNum]},
+    {t: 1, y: TRY_PASS_CHAIN_Y[wingNum]},
+  ];
+  for (let i = 0; i < chain.length - 1; i++) {
+    if (seqProgress >= chain[i].t && seqProgress <= chain[i + 1].t) {
+      const span = chain[i + 1].t - chain[i].t;
+      const localT = span > 0 ? (seqProgress - chain[i].t) / span : 1;
+      return chain[i].y + (chain[i + 1].y - chain[i].y) * localT;
+    }
+  }
+  return TRY_PASS_CHAIN_Y[wingNum];
+}
 
 // Formato de cunha de um pack real de scrum (profundidade a partir da bola
 // e afastamento lateral por número de camisa): 1ª linha (1/2/3) colada e
@@ -98,10 +127,11 @@ export class MatchRenderer {
   }
 
   // Dispara a animação de try: a linha de três-quartos do time que marcou
-  // varre o campo em fases até o escanteio, em vez da bola só aparecer
-  // presa no meio de campo (ver TRY_SWEEP_DELAY/TRY_SWEEP_WIDE e o uso de
-  // trySequence dentro de draw()). O lado do escanteio é sorteado a cada
-  // try, pra não repetir sempre a mesma pontinha.
+  // avança em fases até a try-line, cada um na sua faixa normal, em vez da
+  // bola só aparecer presa no meio de campo (ver TRY_SWEEP_DELAY/
+  // ballLateralForTrySequence e o uso de trySequence dentro de draw()). O
+  // lado por onde termina a jogada (ponta esquerda ou direita) é sorteado a
+  // cada try, pra não repetir sempre o mesmo final.
   startTrySequence(team) {
     const side = Math.random() < 0.5 ? -1 : 1;
     const startPos = team === 'A' ? 74 : 26;
@@ -520,14 +550,16 @@ export class MatchRenderer {
       let wideY = dot.y;
 
       if (inTrySeq && dot.team === trySeq.team && !isForward) {
-        // Linha de três-quartos do time que marcou varre o campo até o
-        // escanteio, cada camisa com seu atraso e abertura (ver
-        // TRY_SWEEP_DELAY/TRY_SWEEP_WIDE) — a jogada de fases da referência.
+        // Linha de três-quartos do time que marcou avança até a try-line,
+        // cada camisa com seu atraso (ver TRY_SWEEP_DELAY) mas na SUA
+        // PRÓPRIA faixa (dot.y) — sem leque nem diagonal, cada jogador corre
+        // reto, igual joga o resto da partida. Só a bola muda de faixa (ver
+        // ballLateralForTrySequence), como um passe normal de mão em mão.
         const delay = TRY_SWEEP_DELAY[dot.num] ?? 0.3;
         const localT = Math.max(0, Math.min(1, (seqProgress - delay) / (1 - delay)));
         const posNow = trySeq.startPos + (trySeq.endPos - trySeq.startPos) * localT;
         px = this.posToX(posNow) + bob * 0.5;
-        wideY = trySeq.side * (TRY_SWEEP_WIDE[dot.num] ?? 0.5) * localT;
+        wideY = dot.y;
       } else if (matchPhase === 'scrum') {
         ({px, wideY} = this.scrumLayout(dot, x));
       } else if (matchPhase === 'lineout') {
@@ -592,12 +624,14 @@ export class MatchRenderer {
     let ballScale = 1;
     let ballX = x;
     if (inTrySeq) {
-      // A bola acompanha o progresso geral da jogada (não o atraso de
-      // nenhuma camisa em particular), chegando ao escanteio junto com quem
-      // termina a jogada — com um leve "estufar" no instante do try.
+      // A bola acompanha o progresso geral da jogada em direção à try-line
+      // (não o atraso de nenhuma camisa em particular) e, na largura, passa
+      // de faixa em faixa pela cadeia normal de passe (9→10→12→13→ponta —
+      // ver ballLateralForTrySequence), terminando na faixa fixa de quem
+      // marca — com um leve "estufar" no instante do try.
       const posNow = trySeq.startPos + (trySeq.endPos - trySeq.startPos) * seqProgress;
       ballX = this.posToX(posNow);
-      ballWideY = trySeq.side * 0.85 * seqProgress;
+      ballWideY = ballLateralForTrySequence(seqProgress, trySeq.side);
       ballBobY = Math.sin(this.jitterSeed * 2) * 1;
       ballScale = 1 + seqProgress * 0.2;
     } else if (matchPhase === 'lineout') {
