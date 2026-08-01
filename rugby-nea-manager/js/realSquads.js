@@ -274,7 +274,7 @@ const CURDA_ROSTER_RAW = [
   {...mkPlayer('Martín Ayala', 'PI', 58, {}, {birthDate: '2000-12-13', note: 'por vezes usado no time intermédio'}, 68), weightKg: 130},
   {...mkPlayer('Adolfo Jariton', 'PI', 72, {lineoutThrow: 99, jump: 85, tackle: 82, strength: 88, scrum: 92, stamina: 80}, {birthDate: '2001-12-18', note: 'também joga de hooker', altPos: ['HK']}, 65), weightKg: 120},
   {...mkPlayer('Fernando Gracía', 'PI', 58, {}, {birthDate: '1992-03-16', nickname: 'England', note: 'pilar mediano'}, 62), weightKg: 100},
-  {...mkPlayer('Franco Laterza', 'PI', 60, {lineoutThrow: 55}, {birthDate: '2006-03-21', age: 18, nationalTeam: 'seleção juvenil', note: 'também joga de hooker', altPos: ['HK']}, 60), weightKg: 110},
+  {...mkPlayer('Franco Laterza', 'PI', 60, {lineoutThrow: 88, scrum: 80, tackle: 78, strength: 80, stamina: 78, determination: 80}, {birthDate: '2006-03-21', age: 18, nationalTeam: 'seleção juvenil', note: 'também joga de hooker', altPos: ['HK']}, 60), weightKg: 110},
   {...mkPlayer('Gonzalo Barrios', 'PI', 58, {lineoutThrow: 48}, {birthDate: '2007-08-23', nickname: 'Samurai', age: 18, altPos: ['HK']}, 58), weightKg: 103, heightCm: 180},
   {...mkPlayer('Piacentini', 'PI', 56, {}, {birthDate: '1993-07-14', note: 'pilar mediano'}, 56), weightKg: 130},
   {...mkPlayer('Martín Carvallo', 'PI', 53, {}, {nickname: 'Thanos', age: 31}, 53), weightKg: 116, heightCm: 179},
@@ -282,8 +282,8 @@ const CURDA_ROSTER_RAW = [
 
   // Hookers (ordem: Otaño, Ballasch, Jariton, Centurión, Fabiño, Achon, Laterza, Samurai)
   mkPlayer('Lucas Otaño', 'HK', 80, {}, {birthDate: '2001-11-07', injuryWeeks: 13, injuryLabel: '3 meses', traits: ['injuryProne']}, 82),
-  mkPlayer('Alejo Centurión', 'HK', 68, {lineoutThrow: 90, determination: 85}, {birthDate: '2005-03-14', age: 21, nationalTeam: 'seleção juvenil'}, 66),
-  {...mkPlayer('Fábio Silva', 'HK', 58, {speed: 80, determination: 85, stamina: 70}, {nickname: 'Fabiño', age: 40, note: 'o mais velho do elenco, mais dedicado porém com menor conhecimento; joga também de ponta e de centro por ser rápido', altPos: ['WG', 'CE']}, 58), weightKg: 90, heightCm: 172},
+  mkPlayer('Alejo Centurión', 'HK', 68, {lineoutThrow: 92, scrum: 85, tackle: 82, strength: 84, stamina: 82, determination: 88}, {birthDate: '2005-03-14', age: 21, nationalTeam: 'seleção juvenil'}, 66),
+  {...mkPlayer('Fábio Silva', 'HK', 58, {lineoutThrow: 80, scrum: 72, tackle: 70, strength: 68, speed: 80, determination: 85, stamina: 70}, {nickname: 'Fabiño', age: 40, note: 'o mais velho do elenco, mais dedicado porém com menor conhecimento; joga também de ponta e de centro por ser rápido', altPos: ['WG', 'CE']}, 58), weightKg: 90, heightCm: 172},
 
   // Segunda línea (primários) — Garcete, Javo, Volei, Dr Bro, Bruno Heisecke,
   // Sebas Benítez, Pesoka, Abel, Maxi; os "dois-em-um" com a terceira línea
@@ -314,7 +314,7 @@ const CURDA_ROSTER_RAW = [
   mkPlayer('Jean Paul Clemont', 'AL', 70, {}, {birthDate: '2001-10-31', nickname: 'JP', injuryWeeks: 43, injuryLabel: '10 meses'}, 74),
   mkPlayer('Agustín Vázquez', 'AL', 71, {jump: 60, strength: 62}, {birthDate: '1991-03-19', nickname: 'Prolijo', altPos: ['SL']}, 71),
   mkPlayer('René Villar', 'AL', 68, {jump: 82, strength: 80}, {altPos: ['SL']}, 68),
-  mkPlayer('Elías Achon', 'AL', 76, {tackle: 86, stamina: 88, determination: 88, lineoutThrow: 40, pass: 48, reception: 48, ruck: 60, turnover: 60}, {birthDate: '2004-01-31', note: 'hooker ou 3ª línea, joga mais de 3ª; muito bom nos tackles e muita disposição física', altPos: ['HK']}, 65),
+  mkPlayer('Elías Achon', 'AL', 76, {tackle: 80, stamina: 82, determination: 82, lineoutThrow: 38, scrum: 40, strength: 55, pass: 48, reception: 48, ruck: 60, turnover: 60}, {birthDate: '2004-01-31', note: 'hooker ou 3ª línea, joga mais de 3ª; muito bom nos tackles e muita disposição física, mas ainda o mais cru dos hookers do plantel (pouco lançamento de lineout)', altPos: ['HK']}, 65),
   mkPlayer('Edgard Espinoza', 'AL', 62, {jump: 62, strength: 60}, {birthDate: '1994-06-16', nickname: 'Cani', altPos: ['SL'], injuryWeeks: 9, injuryLabel: '2 meses'}, 62),
   mkPlayer('Joaquín Alzueta', 'AL', 68, {}, {nickname: 'Joaco', age: 20, note: 'joga também de centro', altPos: ['CE']}, 59),
   {...mkPlayer('Vic Torres', 'AL', 61, {determination: 80}, {birthDate: '1997-05-13', age: 29, note: 'joga também de ponta; costuma jogar no time intermédio, mas tem evoluído', altPos: ['WG']}, 56), weightKg: 90, heightCm: 182},
@@ -1014,12 +1014,13 @@ function generateYouthPlayer(category, usedNames) {
 // no carregamento do save (ver chamada em app.js logo após loadState()).
 function curatedM18Players() {
   return [
-    // Nacho Lopes: hooker destaque da M18, excelente determinação e ótimo
-    // lançamento de lineout.
-    mkPlayer('Nacho Lopes', 'HK', 60, {determination: 88, lineoutThrow: 85}, {
+    // Nacho Lopes: hooker da M18, boa determinação e potencial alto, mas
+    // ainda o mais cru dos hookers do clube — o menos pronto entre os
+    // especialistas de primeira línea disponíveis hoje.
+    mkPlayer('Nacho Lopes', 'HK', 30, {determination: 62, lineoutThrow: 46}, {
       age: 'M18',
       potential: 'alto',
-      note: 'Categoria M18 do Curda, sob comando de Dante Legui — ótimo lançamento de lineout e excelente determinação',
+      note: 'Categoria M18 do Curda, sob comando de Dante Legui — boa determinação e potencial alto, mas ainda o hooker mais cru do clube',
       youthCategory: 'M18',
     }),
     // Maxi Doldán: segunda-línea da M18, boa qualidade — já debutou no time
