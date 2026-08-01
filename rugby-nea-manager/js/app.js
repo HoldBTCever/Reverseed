@@ -1092,6 +1092,7 @@ function newGame(myTeamId) {
     dipTraining: {}, // {[playerId]: skillKey} — foco de treino individual intensivo (DIP) escolhido pelo manager
     positionTraining: {}, // {[playerId]: posId} — jogador treinando pra uma posição nova (substitui o DIP normal, ver tickTraining)
     positionTrainingProgress: {}, // {[playerId]: semanasRendidas} — progresso fracionário até POSITION_TRAINING_ROUNDS_NEEDED
+    roundsSinceSelected: {}, // {[playerId]: rodadas seguidas sem entrar em campo} — alimenta tickMotivationDrift
     trainingFocus: {seg: null, ter: null, qui: null}, // tipo de treino (ver TRAINING_TYPES) escolhido pelo técnico pra cada dia, ou null = automático
     chemistry: {}, // {"idA|idB": 0-100} — entrosamento entre pares de jogadores, cresce jogando junto ou treinando em grupo (ver bumpChemistry)
     trainingGroups: {lineout: {throwerIds: [], jumperIds: [], lifterIds: [], active: false}}, // grupos de treino conjunto — listas, não vaga única (ver tickGroupTraining)
@@ -1542,6 +1543,53 @@ function grantAltPos(player, posId) {
   const currentAltPos = existing.altPos || baseAltPos;
   if (currentAltPos.includes(posId)) return;
   state.playerOverrides[player.id] = {...existing, altPos: [...currentAltPos, posId]};
+}
+
+// Motivação: jogador que passa rodadas seguidas sem entrar em campo (ver
+// pendingMyXV em finalizeRound) reage conforme disciplina/determinação —
+// a maioria, com disciplina/determinação mediana pra baixo, vai perdendo
+// frequência de treino geral e de academia aos poucos (fica desanimado,
+// falta mais); uns poucos profissionais de verdade (disciplina e
+// determinação bem altas as duas) fazem o oposto: treinam ainda mais pra
+// forçar a volta ao time. Só reage depois de MOTIVATION_DRIFT_THRESHOLD_ROUNDS
+// rodadas seguidas de fora, e continua se ajustando enquanto durar (ver
+// ATTENDANCE_CATEGORIES em data.js pra escala 8-20).
+const MOTIVATION_DRIFT_THRESHOLD_ROUNDS = 3;
+const MOTIVATION_DRIFT_CATEGORIES = ['geral', 'academia'];
+function tickMotivationDrift(playedIds) {
+  const roster = getRealRoster(state.myTeamId);
+  if (!roster) return;
+  state.roundsSinceSelected = state.roundsSinceSelected || {};
+  roster.forEach(p => {
+    if (p.meta.injuryWeeks) return; // lesionado não conta pro streak — já sabe que não ia jogar mesmo
+    if (playedIds.has(p.id)) {
+      state.roundsSinceSelected[p.id] = 0;
+      return;
+    }
+    const streak = (state.roundsSinceSelected[p.id] || 0) + 1;
+    state.roundsSinceSelected[p.id] = streak;
+    if (streak < MOTIVATION_DRIFT_THRESHOLD_ROUNDS) return;
+
+    // Limiares calibrados na distribuição real do elenco curado (não em
+    // valores "redondos" abstratos): disciplina/determinação são skills de
+    // peso baixo no perfil da maioria das posições, então a recalibração do
+    // elenco (ver SPREAD_FACTOR em realSquads.js) empurra a maior parte do
+    // plantel bem pra baixo nelas — só uns 8% do elenco real do Curda passa
+    // de 60 nessas duas juntas, e a maioria fica abaixo de 45.
+    const moraleScore = ((p.skills.discipline || 50) + (p.skills.determination || 50)) / 2;
+    let delta = 0;
+    if (moraleScore >= 60) delta = 1; // poucos: ficam mais motivados, treinam mais
+    else if (moraleScore < 45) delta = -1; // maioria: desanima aos poucos
+
+    if (delta === 0) return;
+    const existing = state.playerOverrides[p.id] || {};
+    const current = existing.trainingAttendance || p.meta.trainingAttendance || {};
+    const next = {...current};
+    MOTIVATION_DRIFT_CATEGORIES.forEach(cat => {
+      next[cat] = Math.max(8, Math.min(20, (current[cat] != null ? current[cat] : 14) + delta));
+    });
+    state.playerOverrides[p.id] = {...existing, trainingAttendance: next};
+  });
 }
 
 // Treino do clube: segunda, terça e quinta, uma vez por rodada finalizada.
@@ -5491,7 +5539,9 @@ function finalizeRound() {
       }
       // Quem jogou junto entrosa um pouco mais (ver bumpChemistryForXV) —
       // convocações avulsas não contam, não fazem parte do elenco persistente.
-      bumpChemistryForXV(pendingMyXV.filter(p => !p.meta.emergencyCallUp));
+      const persistentXV = pendingMyXV.filter(p => !p.meta.emergencyCallUp);
+      bumpChemistryForXV(persistentXV);
+      tickMotivationDrift(new Set(persistentXV.map(p => p.id)));
     }
     state.lastMatch[key] = {ids: pendingMyXV.map(p => p.id), roundsElapsed: roundsElapsedAtPlay, progress: progressAtPlay, venue};
   }
