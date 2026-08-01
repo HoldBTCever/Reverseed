@@ -891,13 +891,18 @@ function currentCalendarDay() {
 // Condição física atual do jogador (0-100), recuperada "sob demanda" a partir
 // da condição registrada logo após sua última partida (state.playerCondition)
 // e dos dias corridos desde então (7 dias = 1 rodada da mesma competição).
-// Jogadores com mais resistência/determinação se recuperam mais rápido.
+// Jogadores com mais resistência/determinação se recuperam mais rápido, e um
+// nutricionista especialista (ver STAFF_SKILL_LABELS.sportsNutrition, ex.:
+// Cemilson no Curda) acelera a recuperação de todo o elenco — mesmo cálculo
+// de "excedente sobre o baseline" usado no bônus da base em generateYouthPlayer,
+// então times sem especialista em nutrição não mudam nada.
 function currentConditionOf(player) {
   const rec = state.playerCondition[player.id];
   if (!rec) return 100;
   const elapsedDays = currentCalendarDay() - rec.atDay;
   if (elapsedDays <= 0) return Math.max(0, Math.min(100, rec.condition));
-  const recoveryPerWeek = 14 + player.skills.stamina * 0.14 + player.skills.determination * 0.08;
+  const nutritionBonus = specialtyStaffBonus(state.myTeamId, 'sportsNutrition') - getStaffQuality(state.myTeamId);
+  const recoveryPerWeek = 14 + player.skills.stamina * 0.14 + player.skills.determination * 0.08 + nutritionBonus * 6;
   return Math.min(100, rec.condition + (recoveryPerWeek / 7) * elapsedDays);
 }
 
@@ -1847,8 +1852,11 @@ function tickAttendanceExtras() {
   const quality = getStaffQuality(state.myTeamId);
   tickCategoryTraining(roster, quality, 'academia', ACADEMIA_SKILL_POOL);
   tickCategoryTraining(roster, quality, 'video', VIDEO_SKILL_POOL);
-  tickChurrasco(roster, quality);
-  tickForwardsChurrasco(roster, quality);
+  // Churrasco evolui comunicação (ver applyChurrascoEffect) — quem no staff
+  // tem boa comunicação (ex.: Figu Super, Cemilson) puxa isso pra cima.
+  const churrascoQuality = specialtyStaffBonus(state.myTeamId, 'communication');
+  tickChurrasco(roster, churrascoQuality);
+  tickForwardsChurrasco(roster, churrascoQuality);
 }
 
 // ---- Captação de promessas (clubes menores do Paraguaio) ------------------
@@ -2404,7 +2412,7 @@ const ABOUT_HTML_PT = `
   </div>
   <div class="card">
     <h3>Comissão técnica</h3>
-    <p>Além do papel/função de cada um, alguns membros do staff têm skills próprias (0-99, como as dos jogadores): trabalho com a base, treino de backs, treino de forwards, treino de chute, comunicação, paciência e didática. Ex.: o preparador técnico Figu Super lida muito bem com jovens/infantis, é ótimo treinador de backs e de chute, com boa comunicação, paciência e didática — isso acelera de verdade o treino de backs, de chute e o nível dos novos garotos que entram na base, não é só um texto de sabor.</p>
+    <p>Além do papel/função de cada um, alguns membros do staff têm skills próprias (0-99, como as dos jogadores): trabalho com a base, treino de backs, treino de forwards, treino de chute, nutrição esportiva, comunicação, paciência e didática. Ex.: o preparador técnico Figu Super lida muito bem com jovens/infantis, é ótimo treinador de backs e de chute, com boa comunicação, paciência e didática — isso acelera de verdade o treino de backs, de chute e o nível dos novos garotos que entram na base, não é só um texto de sabor. Já o nutricionista Cemilson é referência em nutrição esportiva e tem boa comunicação com o grupo: isso acelera a recuperação da condição física de todo o elenco entre uma partida e outra, e ajuda a evolução da comunicação nos churrascos do time.</p>
   </div>
   <div class="card">
     <h3>Treino semanal</h3>
@@ -2472,7 +2480,7 @@ const ABOUT_HTML_ES = `
   </div>
   <div class="card">
     <h3>Comisión técnica</h3>
-    <p>Además del rol/función de cada uno, algunos miembros del staff tienen skills propias (0-99, como las de los jugadores): trabajo con la base, entrenamiento de backs, entrenamiento de forwards, entrenamiento de pateo, comunicación, paciencia y didáctica. Ej.: el preparador técnico Figu Super lidia muy bien con jóvenes/niños, es un excelente entrenador de backs y de pateo, con buena comunicación, paciencia y didáctica — eso acelera de verdad el entrenamiento de backs, de pateo y el nivel de los nuevos chicos que entran a la base, no es solo un texto de sabor.</p>
+    <p>Además del rol/función de cada uno, algunos miembros del staff tienen skills propias (0-99, como las de los jugadores): trabajo con la base, entrenamiento de backs, entrenamiento de forwards, entrenamiento de pateo, nutrición deportiva, comunicación, paciencia y didáctica. Ej.: el preparador técnico Figu Super lidia muy bien con jóvenes/niños, es un excelente entrenador de backs y de pateo, con buena comunicación, paciencia y didáctica — eso acelera de verdad el entrenamiento de backs, de pateo y el nivel de los nuevos chicos que entran a la base, no es solo un texto de sabor. El nutricionista Cemilson, en cambio, es referente en nutrición deportiva y tiene buena comunicación con el grupo: eso acelera la recuperación de la condición física de todo el plantel entre un partido y otro, y ayuda a la evolución de la comunicación en los asados del equipo.</p>
   </div>
   <div class="card">
     <h3>Entrenamiento semanal</h3>

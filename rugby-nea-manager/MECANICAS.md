@@ -47,14 +47,19 @@ disponível, o clube convoca um juvenil de 18 anos de urgência
 Cada membro do staff (`STAFF` em `realSquads.js`) tem `role`/`name`/`note`
 como sempre, e opcionalmente `skills` — 0 a 99, mesma escala dos jogadores,
 schema em `STAFF_SKILL_LABELS`: `youthDevelopment` (trabalho com a base),
-`backsCoaching`, `forwardsCoaching`, `kickingCoaching`, `communication`,
-`patience`, `didactics`. Nem todo mundo no staff tem `skills` — a maioria
-continua só com texto (`role`/`note`), igual antes.
+`backsCoaching`, `forwardsCoaching`, `kickingCoaching`, `sportsNutrition`
+(nutrição esportiva), `communication`, `patience`, `didactics`. Nem todo
+mundo no staff tem `skills` — a maioria continua só com texto
+(`role`/`note`), igual antes.
 
-Exemplo: **Figu Super** (Preparador Técnico do Curda) — `youthDevelopment:
-88, backsCoaching: 85, kickingCoaching: 82, communication: 84, patience: 90,
-didactics: 87`, refletindo que lida muito bem com jovens/infantis, é ótimo
-treinador de backs e de chute, com boa comunicação, paciência e didática.
+Exemplos:
+- **Figu Super** (Preparador Técnico do Curda) — `youthDevelopment: 88,
+  backsCoaching: 85, kickingCoaching: 82, communication: 84, patience: 90,
+  didactics: 87`, refletindo que lida muito bem com jovens/infantis, é ótimo
+  treinador de backs e de chute, com boa comunicação, paciência e didática.
+- **Cemilson** (Nutricionista do Curda) — `sportsNutrition: 91,
+  communication: 78`, referência em nutrição esportiva com boa comunicação
+  com o grupo.
 
 `specialtyStaffBonus(teamId, specialtyKey)` escala `getStaffQuality(teamId)`
 por 0,7x a 1,3x conforme a média de skill de quem no staff tem aquela
@@ -70,6 +75,14 @@ especialidade — sem ninguém cadastrado numa especialidade, cai pro
   dos novos garotos de M14 gerados a cada ciclo da academia, proporcional à
   diferença entre `specialtyStaffBonus(..., 'youthDevelopment')` e o
   `getStaffQuality` genérico do time.
+- `currentConditionOf` (app.js) acelera a recuperação semanal de condição
+  física de todo o elenco, proporcional à diferença entre
+  `specialtyStaffBonus(..., 'sportsNutrition')` e o `getStaffQuality`
+  genérico do time (mesmo cálculo do bônus da base acima).
+- `tickAttendanceExtras` (app.js) usa `specialtyStaffBonus(...,
+  'communication')`, em vez do `getStaffQuality` genérico, como qualidade do
+  churrasco semanal e do churrasco dos forwards — que já evoluíam a skill de
+  comunicação dos jogadores que aparecem (ver `applyChurrascoEffect`).
 
 ## Treino semanal
 
