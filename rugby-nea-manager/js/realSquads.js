@@ -781,13 +781,16 @@ export function getStaffQuality(teamId) {
 // 99). Sem ninguém com aquela especialidade cadastrada, cai pro
 // getStaffQuality geral do time, sem bônus nem malus extra — a maioria do
 // staff continua sem `skills`, só role/note, e isso não deve puxar nada
-// pra baixo.
+// pra baixo. Usa o MELHOR (não a média) de quem tem aquela especialidade:
+// um segundo especialista mais fraco na mesma área alivia a carga do
+// principal (menos gente pra ele cobrir sozinho), mas nunca rebaixa o
+// nível — o time treina no padrão do melhor disponível.
 export function specialtyStaffBonus(teamId, specialtyKey) {
   const staff = STAFF[teamId] || [];
   const withSkill = staff.filter(s => s.skills && s.skills[specialtyKey] != null);
   if (!withSkill.length) return getStaffQuality(teamId);
-  const avg = withSkill.reduce((sum, s) => sum + s.skills[specialtyKey], 0) / withSkill.length;
-  return getStaffQuality(teamId) * (0.7 + (avg / 99) * 0.6);
+  const best = Math.max(...withSkill.map(s => s.skills[specialtyKey]));
+  return getStaffQuality(teamId) * (0.7 + (best / 99) * 0.6);
 }
 
 // Clubes que disputam duas ligas ao mesmo tempo (mesmo elenco, calendários

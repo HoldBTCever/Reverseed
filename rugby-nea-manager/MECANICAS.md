@@ -77,13 +77,16 @@ Exemplos:
   bom a ótimo na mesma especialidade de Lito Molina (bem abaixo do nível de
   referência regional dele, mas sustenta o time B quando as duas
   competições caem no mesmo dia em locais diferentes). Como
-  `specialtyStaffBonus` faz a MÉDIA de quem tem cada especialidade
-  cadastrada, o `setPieceCoaching` efetivo do Curda hoje é a média entre
-  Lito Molina e Bereta, não só o valor do Lito isoladamente.
+  `specialtyStaffBonus` usa o MELHOR (não a média) de quem tem cada
+  especialidade cadastrada, o `setPieceCoaching` efetivo do Curda continua
+  no nível do Lito Molina (98) — Bereta não pesa pra baixo, só alivia a
+  carga dele por existir outro especialista competente na mesma área.
 
 `specialtyStaffBonus(teamId, specialtyKey)` escala `getStaffQuality(teamId)`
-por 0,7x a 1,3x conforme a média de skill de quem no staff tem aquela
-especialidade — sem ninguém cadastrado numa especialidade, cai pro
+por 0,7x a 1,3x conforme o MELHOR skill de quem no staff tem aquela
+especialidade (não a média — um segundo especialista mais fraco na mesma
+área nunca rebaixa o padrão do time, só faria diferença se fosse ELE o
+melhor) — sem ninguém cadastrado numa especialidade, cai pro
 `getStaffQuality` geral do time (sem bônus nem malus extra). Efeitos reais:
 
 - `trainingQualityFor` (app.js) escolhe, pra cada skill sendo treinada, o
