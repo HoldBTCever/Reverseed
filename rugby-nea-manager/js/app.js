@@ -210,6 +210,7 @@ const I18N = {
     pdfErroSalvar: 'No se pudo guardar el PDF en este navegador.',
     pdfNaoEncontrado: 'No se encontró el archivo guardado.',
     navSelecao: 'Selección',
+    navSobre: 'Sobre el juego',
     selecaoTitle: 'Selección Paraguay',
     selecaoEscalacao: 'Formación titular',
     selecaoConvocados: 'Convocados',
@@ -471,6 +472,7 @@ const I18N = {
     pdfErroSalvar: 'Não foi possível salvar o PDF neste navegador.',
     pdfNaoEncontrado: 'Arquivo salvo não encontrado.',
     navSelecao: 'Seleção',
+    navSobre: 'Sobre o jogo',
     selecaoTitle: 'Seleção Paraguay',
     selecaoEscalacao: 'Formação titular',
     selecaoConvocados: 'Convocados',
@@ -817,6 +819,7 @@ function applyStaticTranslations() {
   const trainingBtn = mainNav.querySelector('[data-view="training"]');
   const tacticsBtn = mainNav.querySelector('[data-view="tactics"]');
   const selectionBtn = mainNav.querySelector('[data-view="selection"]');
+  const aboutBtn = mainNav.querySelector('[data-view="about"]');
   if (dashboardBtn) dashboardBtn.textContent = t('navPainel');
   if (agendaBtn) agendaBtn.textContent = t('navAgenda');
   if (standingsBtn) standingsBtn.textContent = t('navTabela');
@@ -825,6 +828,7 @@ function applyStaticTranslations() {
   if (trainingBtn) trainingBtn.textContent = t('navTreino');
   if (tacticsBtn) tacticsBtn.textContent = t('navTatica');
   if (selectionBtn) selectionBtn.textContent = t('navSelecao');
+  if (aboutBtn) aboutBtn.textContent = t('navSobre');
   const newGameBtnEl = document.getElementById('newGameBtn');
   newGameBtnEl.textContent = t('newGameBtn');
   newGameBtnEl.title = t('newGameBtnTitle');
@@ -2363,6 +2367,148 @@ function copaArgentinaChampion(copa) {
   return Math.random() < 0.5 ? copa.myTeamId : copa.opponentId;
 }
 
+// ---- Tela "Sobre o jogo": referência de mecânicas pro jogador consultar a
+// qualquer momento — não é i18n chave-por-chave (o texto é longo demais pra
+// isso valer a pena) e sim dois blocos de HTML inteiros, um por idioma,
+// escolhidos por `lang` (mesma variável que já controla o resto da UI).
+// Mesma estrutura de conteúdo do MECANICAS.md no repositório — se atualizar
+// uma mecânica aqui, atualizar lá também (ver comentário no topo daquele
+// arquivo).
+const ABOUT_HTML_PT = `
+  <div class="card">
+    <h3>Atributos e posições</h3>
+    <p>Cada jogador tem 22 skills (técnicas, mentais e físicas), de 0 a 99. Cada posição tem um "perfil" de pesos (0 a 1,3) que diz quais skills a definem — por exemplo, pilar pesa forte em Scrum/Força/Tackle, abertura pesa forte em Chute/Drop Goal/Visão/Comunicação. O overall de um jogador numa posição é a média dessas skills ponderada pelo perfil daquela posição.</p>
+    <p>Jogador escalado fora da posição natural (posição alternativa) joga com um desconto de ~4% no overall efetivo. Primeira línea (pilar/hooker) é a única exceção real: nunca aceita improviso — só entra ali quem é especialista de verdade (natural ou treinado, ver abaixo). Sem especialista disponível, o clube convoca um juvenil de 18 anos de urgência.</p>
+  </div>
+  <div class="card">
+    <h3>Treino semanal</h3>
+    <ul>
+      <li><b>Foco de clube (seg/ter/qui):</b> escolha um tipo de treino por dia (Duelo, Tocata, Contato, Formação, Touch, Pique, Chute a gol, Quebra de linha, Liderança, Recuperação) — cada tipo evolui um grupo de skills relacionadas em todo o elenco.</li>
+      <li><b>Treino individual (DIP):</b> escolha UM atributo por jogador pra evoluir garantido, mais rápido, à custa de mais desgaste físico. Rende conforme a assiduidade do jogador naquela atividade (0 a 5x por semana).</li>
+      <li><b>Treino de nova posição:</b> em vez do DIP normal, o jogador foca só nas skills que definem uma posição nova. Depois de ~10 semanas rendendo (pilar/hooker exige ~3 meses, 13 semanas — scrum de verdade não se aprende rápido), ele aprende a posição de vez e vira alternativa permanente.</li>
+      <li><b>Grupo de line-out:</b> lançador, saltador e levantadores treinam juntos — cada papel evolui a skill certa (lançamento, salto, força) e o grupo ganha entrosamento mais rápido entre si.</li>
+      <li><b>Academia, vídeo, churrasco:</b> academia evolui força/agilidade/resistência; vídeo evolui visão/posicionamento; churrasco evolui comunicação e entrosamento geral do grupo (churrasco dos forwards é só do pack, mais raro).</li>
+      <li>Cada jogador tem assiduidade própria (8 a 20) em 6 atividades independentes — dá pra ser assíduo numa e relapso noutra.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Condição física, fadiga e motivação</h3>
+    <ul>
+      <li>Condição cai depois de cada partida (mais pra quem tem menos resistência) e se recupera com o tempo até a próxima.</li>
+      <li>Jogador desgastado e mal recuperado corre risco de lesão por fadiga — fica fora por semanas.</li>
+      <li><b>Motivação:</b> quem passa 3+ rodadas seguidas sem entrar em campo reage conforme disciplina + determinação — a maioria vai perdendo frequência de treino geral/academia aos poucos; uns poucos profissionais de verdade (as duas skills bem altas) fazem o oposto e treinam ainda mais pra forçar a volta.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Entrosamento (chemistry)</h3>
+    <p>Cresce devagar entre qualquer dupla que joga junto, e mais rápido com treino de grupo dedicado. O entrosamento médio do quarteto de line-out e do pack de scrum dá um bônus pequeno no timing/sucesso dessas duas fases no motor de simulação.</p>
+  </div>
+  <div class="card">
+    <h3>Tática</h3>
+    <ul>
+      <li>Plano de jogo dividido em 4 zonas do campo (vermelha, laranja, verde, dourada/ingoal), cada uma com um estilo (chute, forwards/jogo corrido, equilibrado) e uma formação de pods dos forwards (3-3-2, 1-3-3-1, 3-3-1-1, 2-2-2-2 ou 4-4 — esse último pra pick-and-go perto do ingoal).</li>
+      <li>Pilares táticos gerais (posse, disciplina etc.) ajustáveis por slider.</li>
+      <li>Sistemas de jogo reais (Irlanda, Argentina, Sudáfrica...) mudam a formação visual dos pods na quadra.</li>
+      <li>A IA rival reage taticamente: ajusta antes do jogo pela diferença de força entre os times e no intervalo conforme o placar.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Simulação da partida</h3>
+    <ul>
+      <li>Clima sorteado a cada partida, afeta o aproveitamento de chute a gol.</li>
+      <li>Mandante tem uma pequena vantagem fixa.</li>
+      <li>Moral/sequência de resultados recentes de cada time influencia o desempenho.</li>
+      <li>Eventos possíveis a cada tick: quebra de linha, turnover, erro de manuseio (knock-on), scrum, line-out, cartão amarelo/vermelho, try, conversão, penal, drop goal.</li>
+      <li>Estatísticas do pós-jogo são reais (território, quebras, turnovers, erros, scrums/line-outs ganhos, conversões/penais/drops, cartões) — calculadas evento por evento, não geradas aleatoriamente.</li>
+      <li>Quando um try é marcado, a linha de três-quartos do time que ganhou a jogada varre a quadra até o escanteio — quem ganha um line-out forma uma linha de ataque funda, quem defende fica achatado perto da disputa.</li>
+      <li>A IA rival também faz substituições táticas durante a partida.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Recrutamento e formação de base</h3>
+    <ul>
+      <li><b>Captação de promessas:</b> chance por rodada de surgir um jogador revelado num clube menor do Paraguaio, disponível pra convidar.</li>
+      <li><b>Academia de base (M14 a M18):</b> sobe de categoria com o tempo; quem se forma na M18 entra pro elenco principal.</li>
+      <li><b>Recém-chegados estrangeiros:</b> raramente aparece um novo morador de Assunção decidindo tentar rugby, procurando o Curda primeiro — argentinos e uruguaios mais comuns, brasileiros raros e com pouca bagagem no esporte, europeus e neozelandeses raríssimos mas bem mais aptos.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Multi-competição</h3>
+    <p>Clubes como o Curda disputam duas ligas ao mesmo tempo (NEA argentino + campeonato paraguaio), com o mesmo elenco. Regra de choque de agenda: se as duas competições caírem na mesma data em locais diferentes, o mesmo jogador não pode ser escalado nas duas.</p>
+  </div>
+`;
+
+const ABOUT_HTML_ES = `
+  <div class="card">
+    <h3>Atributos y posiciones</h3>
+    <p>Cada jugador tiene 22 skills (técnicas, mentales y físicas), de 0 a 99. Cada posición tiene un "perfil" de pesos (0 a 1,3) que dice qué skills la definen — por ejemplo, pilar pesa fuerte en Scrum/Fuerza/Tackle, apertura pesa fuerte en Pateo/Drop Goal/Visión/Comunicación. El overall de un jugador en una posición es el promedio de esas skills ponderado por el perfil de esa posición.</p>
+    <p>Jugador alineado fuera de su posición natural (posición alternativa) juega con un descuento de ~4% en el overall efectivo. Primera línea (pilar/hooker) es la única excepción real: nunca acepta improvisación — solo entra ahí quien es especialista de verdad (natural o entrenado, ver abajo). Sin especialista disponible, el club convoca de urgencia a un juvenil de 18 años.</p>
+  </div>
+  <div class="card">
+    <h3>Entrenamiento semanal</h3>
+    <ul>
+      <li><b>Foco de club (lun/mar/jue):</b> elegí un tipo de entrenamiento por día (Duelo, Toque, Contacto, Formación, Touch, Pique, Pateo a los palos, Quiebre de línea, Liderazgo, Recuperación) — cada tipo evoluciona un grupo de skills relacionadas en todo el plantel.</li>
+      <li><b>Entrenamiento individual (DIP):</b> elegí UN atributo por jugador para evolucionar garantizado, más rápido, a costa de más desgaste físico. Rinde según la asiduidad del jugador en esa actividad (0 a 5 veces por semana).</li>
+      <li><b>Entrenamiento de nueva posición:</b> en vez del DIP normal, el jugador enfoca todo en las skills que definen una posición nueva. Después de ~10 semanas rindiendo (pilar/hooker exige ~3 meses, 13 semanas — el scrum de verdad no se aprende rápido), aprende la posición de una vez y se vuelve alternativa permanente.</li>
+      <li><b>Grupo de line-out:</b> lanzador, saltador y levantadores entrenan juntos — cada rol evoluciona la skill correcta (lanzamiento, salto, fuerza) y el grupo gana más rápido entrosamiento entre sí.</li>
+      <li><b>Academia, video, asado:</b> academia evoluciona fuerza/agilidad/resistencia; video evoluciona visión/posicionamiento; asado evoluciona comunicación y entrosamiento general del grupo (asado de forwards es solo del pack, más raro).</li>
+      <li>Cada jugador tiene asiduidad propia (8 a 20) en 6 actividades independientes — puede ser asiduo en una y relajado en otra.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Condición física, fatiga y motivación</h3>
+    <ul>
+      <li>La condición baja después de cada partido (más para quien tiene menos resistencia) y se recupera con el tiempo hasta el próximo.</li>
+      <li>Jugador desgastado y mal recuperado corre riesgo de lesión por fatiga — queda afuera por semanas.</li>
+      <li><b>Motivación:</b> quien pasa 3+ fechas seguidas sin entrar en cancha reacciona según disciplina + determinación — la mayoría va perdiendo asiduidad de entrenamiento general/academia de a poco; unos pocos profesionales de verdad (las dos skills bien altas) hacen lo opuesto y entrenan todavía más para forzar la vuelta.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Entrosamiento (chemistry)</h3>
+    <p>Crece lento entre cualquier dupla que juega junta, y más rápido con entrenamiento de grupo dedicado. El entrosamiento promedio del cuarteto de line-out y del pack de scrum da un bono chico en el timing/éxito de esas dos fases en el motor de simulación.</p>
+  </div>
+  <div class="card">
+    <h3>Táctica</h3>
+    <ul>
+      <li>Plan de juego dividido en 4 zonas de la cancha (roja, naranja, verde, dorada/ingoal), cada una con un estilo (pateo, forwards/juego corrido, equilibrado) y una formación de pods de forwards (3-3-2, 1-3-3-1, 3-3-1-1, 2-2-2-2 o 4-4 — este último para pick-and-go cerca del ingoal).</li>
+      <li>Pilares tácticos generales (posesión, disciplina, etc.) ajustables por control deslizante.</li>
+      <li>Sistemas de juego reales (Irlanda, Argentina, Sudáfrica...) cambian la formación visual de los pods en la cancha.</li>
+      <li>La IA rival reacciona tácticamente: ajusta antes del partido según la diferencia de nivel entre los equipos y en el entretiempo según el marcador.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Simulación del partido</h3>
+    <ul>
+      <li>Clima sorteado en cada partido, afecta el rendimiento del pateo a los palos.</li>
+      <li>El local tiene una pequeña ventaja fija.</li>
+      <li>La moral/racha de resultados recientes de cada equipo influye en el rendimiento.</li>
+      <li>Eventos posibles en cada tick: quiebre de línea, turnover, error de manejo (knock-on), scrum, line-out, tarjeta amarilla/roja, try, conversión, penal, drop goal.</li>
+      <li>Las estadísticas del post-partido son reales (territorio, quiebres, turnovers, errores, scrums/line-outs ganados, conversiones/penales/drops, tarjetas) — calculadas evento por evento, no generadas al azar.</li>
+      <li>Cuando se marca un try, la línea de tres cuartos del equipo que ganó la jugada barre la cancha hasta el escenario — quien gana un line-out forma una línea de ataque profunda, quien defiende queda achatado cerca de la disputa.</li>
+      <li>La IA rival también hace cambios tácticos durante el partido.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Captación y formación de base</h3>
+    <ul>
+      <li><b>Captación de promesas:</b> chance por fecha de que surja un jugador revelado en un club chico del Paraguayo, disponible para invitar.</li>
+      <li><b>Academia de base (M14 a M18):</b> sube de categoría con el tiempo; quien se gradúa de la M18 entra al plantel principal.</li>
+      <li><b>Recién llegados extranjeros:</b> rara vez aparece un nuevo residente de Asunción decidiendo probar el rugby, buscando primero al Curda — argentinos y uruguayos más comunes, brasileños raros y con poco bagaje en el deporte, europeos y neozelandeses rarísimos pero mucho más aptos.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Multi-competición</h3>
+    <p>Clubes como el Curda disputan dos ligas al mismo tiempo (NEA argentino + campeonato paraguayo), con el mismo plantel. Regla de choque de agenda: si las dos competiciones caen en la misma fecha en lugares distintos, el mismo jugador no puede ser alineado en las dos.</p>
+  </div>
+`;
+
+function renderAbout() {
+  content.innerHTML = `
+    <h1>${t('navSobre')}</h1>
+    ${lang === 'pt' ? ABOUT_HTML_PT : ABOUT_HTML_ES}
+  `;
+}
+
 function render() {
   if (!state) {
     renderTeamSelect();
@@ -2390,6 +2536,7 @@ function render() {
   else if (currentView === 'training') renderTraining();
   else if (currentView === 'tactics') renderTactics();
   else if (currentView === 'selection') renderSelection();
+  else if (currentView === 'about') renderAbout();
   else if (currentView === 'matchday') renderMatchday();
   else if (currentView === 'live') renderLive();
   else if (currentView === 'copaLive') renderCopaArgentinaLive();
