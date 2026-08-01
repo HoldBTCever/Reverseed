@@ -4,7 +4,7 @@ import {MatchRenderer, renderFormationHtml, renderBenchSectionHtml, FORMATION_PO
 import {generateFixture, initialStandings, applyResult, sortedStandings, firstKnockoutRound, nextKnockoutRound, knockoutStageName} from './fixtures.js';
 import {NEA_SEED_MATCHES} from './seedNea.js';
 import {PARAGUAYO_FIXTURE} from './seedParaguayo.js';
-import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, specialtyStaffBonus, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, YOUTH_CATEGORY_TOTAL_SIZE, createInitialYouthAcademy, ensureCuratedYouthPlayers, advanceYouthAcademy, effectiveOverallAt, STAFF_SKILL_LABELS} from './realSquads.js';
+import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, specialtyStaffBonus, getFacilityQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, YOUTH_CATEGORY_TOTAL_SIZE, createInitialYouthAcademy, ensureCuratedYouthPlayers, advanceYouthAcademy, effectiveOverallAt, STAFF_SKILL_LABELS} from './realSquads.js';
 
 // ---- Seleção Paraguay (Los Yacarés) ---------------------------------------
 // Time "virtual" pra amistosos e torneios aleatórios: não disputa nenhuma
@@ -1865,8 +1865,12 @@ function tickAttendanceExtras() {
   const quality = getStaffQuality(state.myTeamId);
   // Academia usa o especialista em preparação física (ex.: Alexis Cibils,
   // Juan Carmona) tanto pra evoluir mais rápido quanto pro controle de carga
-  // (menos desgaste desnecessário) — ver tickCategoryTraining.
-  const conditioningQuality = specialtyStaffBonus(state.myTeamId, 'physicalConditioning');
+  // (menos desgaste desnecessário) — ver tickCategoryTraining. Multiplicada
+  // ainda pela ESTRUTURA FÍSICA do clube (getFacilityQuality) — ter ou não
+  // academia própria de verdade, tipo a sede do Curda em Assunção, é uma
+  // dimensão separada do staff: mesmo staff bom não compensa treinar sem
+  // instalação dedicada.
+  const conditioningQuality = specialtyStaffBonus(state.myTeamId, 'physicalConditioning') * getFacilityQuality(state.myTeamId);
   const conditioningLoadControl = conditioningQuality - getStaffQuality(state.myTeamId);
   tickCategoryTraining(roster, conditioningQuality, 'academia', ACADEMIA_SKILL_POOL, conditioningLoadControl);
   tickCategoryTraining(roster, quality, 'video', VIDEO_SKILL_POOL);
@@ -2434,6 +2438,10 @@ const ABOUT_HTML_PT = `
     <p>Todo clube com plantel real (curado) tem sua própria comissão, escalada pelo porte do clube: Curda e San José são os dois grandes clubes dual-competição do Paraguaio, com comissão completa (8 pessoas) e de ponta; Curne e Duendes RC são clubes médios, com staff menor e sem nutricionista dedicado; clubes menores como Cristo Rey, Santa Clara, Belgrano Athletic, Santa Fe RC, Club Atlético Estudiantes e Champagnat têm só 1-2 pessoas na comissão (em geral só o treinador principal, às vezes com um preparador físico), sem fisioterapeuta nem nutricionista — e treinam mais devagar que a média.</p>
   </div>
   <div class="card">
+    <h3>Estrutura do clube</h3>
+    <p>Além da comissão técnica (as pessoas), cada clube tem uma qualidade de ESTRUTURA FÍSICA (as instalações em si) que multiplica especificamente o rendimento da academia — uma dimensão separada do staff: mesmo com bons treinadores, treinar sem instalação dedicada rende menos e cansa mais. O Curda tem sede própria completa no meio de Assunção — academia, campo de hóquei, arquibancadas, vestiário, sala de vídeo, churrasqueira, tudo organizado — além de uma filial em Surubi-í, com dois campos de rugby, vestiário, salão de festa, churrasqueira e um espaço grande pra montar tendas, palcos e lojas de campeonato. A maioria dos outros clubes não tem nada parecido, então mesmo com staff comparável treinam mais devagar na academia.</p>
+  </div>
+  <div class="card">
     <h3>Treino semanal</h3>
     <ul>
       <li><b>Foco de clube (seg/ter/qui):</b> escolha um tipo de treino por dia (Duelo, Tocata, Contato, Formação, Touch, Pique, Chute a gol, Quebra de linha, Liderança, Recuperação) — cada tipo evolui um grupo de skills relacionadas em todo o elenco.</li>
@@ -2501,6 +2509,10 @@ const ABOUT_HTML_ES = `
     <h3>Comisión técnica</h3>
     <p>Además del rol/función de cada uno, algunos miembros del staff tienen skills propias (0-99, como las de los jugadores): trabajo con la base, entrenamiento de backs, entrenamiento de forwards, entrenamiento de pateo, estructuras fijas (scrum/ruck/line-out), preparación física, fisioterapia, nutrición deportiva, comunicación, paciencia y didáctica. Ej.: el preparador técnico Figu Super lidia muy bien con jóvenes/niños, es un excelente entrenador de backs y de pateo, con buena comunicación, paciencia y didáctica — eso acelera de verdad el entrenamiento de backs, de pateo y el nivel de los nuevos chicos que entran a la base, no es solo un texto de sabor. El nutricionista Cemilson es referente en nutrición deportiva y tiene buena comunicación con el grupo: eso acelera la recuperación de la condición física de todo el plantel entre un partido y otro, y ayuda a la evolución de la comunicación en los asados del equipo. El head coach Lito Molina es referente de toda la región del Nordeste Argentino (NEA) en las estructuras fijas del juego (scrum, ruck y line-out) — uno de los mejores, si no el mejor, especialista de la región —, lo que acelera bastante el entrenamiento de grupo de line-out; el auxiliar técnico Sebas Bereta, que asume el equipo B cuando las dos competiciones caen el mismo día en lugares distintos, también es de bueno a excelente en esa misma especialidad. El entrenador general Alexis Cibils es muy bueno en preparación física y control de carga de la academia, lo que acelera la evolución física en la academia y reduce el desgaste innecesario del entrenamiento. Y el fisioterapeuta Juan Carmona es excelente en fisioterapia, dando una chance real de acortar en una semana la recuperación de cada lesión.</p>
     <p>Todo club con plantel real (curado) tiene su propia comisión, escalada según el porte del club: Curda y San José son los dos grandes clubes dual-competición del paraguayo, con comisión completa (8 personas) y de primer nivel; Curne y Duendes RC son clubes medianos, con staff más chico y sin nutricionista dedicado; clubes más chicos como Cristo Rey, Santa Clara, Belgrano Athletic, Santa Fe RC, Club Atlético Estudiantes y Champagnat tienen solo 1-2 personas en la comisión (en general solo el entrenador principal, a veces con un preparador físico), sin fisioterapeuta ni nutricionista — y entrenan más lento que el promedio.</p>
+  </div>
+  <div class="card">
+    <h3>Estructura del club</h3>
+    <p>Además de la comisión técnica (las personas), cada club tiene una calidad de ESTRUCTURA FÍSICA (las instalaciones en sí) que multiplica específicamente el rendimiento de la academia — una dimensión separada del staff: incluso con buenos entrenadores, entrenar sin instalación dedicada rinde menos y cansa más. El Curda tiene sede propia completa en el medio de Asunción — academia, cancha de hockey, tribunas, vestuario, sala de video, quincho, todo organizado — además de una filial en Surubi-í, con dos canchas de rugby, vestuario, salón de fiestas, quincho y un espacio grande para montar carpas, escenarios y locales de campeonato. La mayoría de los otros clubes no tiene nada parecido, así que aunque el staff sea comparable entrenan más lento en la academia.</p>
   </div>
   <div class="card">
     <h3>Entrenamiento semanal</h3>

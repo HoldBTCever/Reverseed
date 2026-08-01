@@ -147,6 +147,36 @@ Times sem plantel real (a grande maioria — gerados proceduralmente via
 `getStaffQuality`/`specialtyStaffBonus` caem no fallback `1` (nem bônus nem
 malus).
 
+## Estrutura do clube (instalações)
+
+Dimensão SEPARADA da comissão técnica: `FACILITY_QUALITY`/
+`getFacilityQuality(teamId)` (`realSquads.js`) representa a qualidade das
+INSTALAÇÕES físicas do clube (ter ou não academia própria dedicada), não
+das pessoas. O Curda tem sede própria completa no meio de Assunção
+(academia, campo de hóquei, arquibancadas, vestiário, sala de vídeo,
+churrasqueira) mais uma filial em Surubi-í (dois campos de rugby,
+vestiário, salão de festa, churrasqueira e espaço grande pra montar
+tendas/palcos/lojas de campeonato) — a filial de Surubi-í por enquanto é
+só world-building/identidade do clube na tela "Sobre o jogo", sem mecânica
+própria ligada a ela ainda.
+
+Único efeito mecânico hoje: em `tickAttendanceExtras` (app.js), a
+qualidade da academia (`ACADEMIA_SKILL_POOL`: força/agilidade/resistência)
+é `specialtyStaffBonus(..., 'physicalConditioning') *
+getFacilityQuality(teamId)`, em vez de só o bônus do staff — mesmo staff
+bom não compensa treinar sem instalação dedicada. Como o `loadControl`
+repassado a `tickCategoryTraining` é o excedente dessa qualidade final
+sobre o `getStaffQuality` genérico, uma estrutura ruim (facility < 1) pode
+tornar esse excedente NEGATIVO — nesse caso o time também cansa um pouco
+mais na academia (treino improvisado desgasta mais), não só evolui mais
+devagar.
+
+Escala por clube (`FACILITY_QUALITY`, fallback `0,6` pra qualquer clube
+sem entrada): Curda 1,4 (grande e sozinho no topo — nenhum outro clube tem
+facility declarada tão alta); San José 1,0; Curne 0,85; Duendes RC 0,8;
+Belgrano Athletic/Champagnat 0,75; Cristo Rey/Santa Fe RC 0,7; Santa
+Clara/Club Atlético Estudiantes 0,65.
+
 ## Treino semanal
 
 Executado uma vez por rodada finalizada (`tickTraining`, chamado em

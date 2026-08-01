@@ -848,6 +848,36 @@ const STAFF_QUALITY = {
   'INT-CAE': 0.85,
 };
 
+// Estrutura física do clube — separado da qualidade do STAFF (pessoas):
+// aqui é sobre as INSTALAÇÕES em si. O Curda tem sede própria completa no
+// meio de Assunção (academia, campo de hóquei, arquibancadas, vestiário,
+// sala de vídeo, churrasqueira, tudo organizado) mais uma filial em
+// Surubi-í (dois campos de rugby, vestiário, salão de festa, churrasqueira
+// e um espaço grande pra montar tendas/palcos/lojas de campeonato) — a
+// maioria dos outros clubes não tem nada parecido, então mesmo com staff
+// comparável treinam mais devagar na academia por falta de estrutura
+// dedicada. Só afeta o treino de academia (ver tickAttendanceExtras em
+// app.js) — não o staff em si nem as outras atividades de assiduidade.
+const FACILITY_QUALITY = {
+  'ARG-CUR': 1.4,
+  'PAR-CUR': 1.4,
+  'ARG-SNJ': 1.0,
+  'PAR-SNJ': 1.0,
+  'ARG-CNE': 0.85,
+  'INT-CNE': 0.85,
+  'INT-DUE': 0.8,
+  'BUE-BEL': 0.75,
+  'BUE-CHA': 0.75,
+  'PAR-CRI': 0.7,
+  'INT-SFE': 0.7,
+  'PAR-STC': 0.65,
+  'INT-CAE': 0.65,
+};
+
+export function getFacilityQuality(teamId) {
+  return FACILITY_QUALITY[teamId] != null ? FACILITY_QUALITY[teamId] : 0.6;
+}
+
 // Jogadores captados de clubes menores do Paraguaio que aceitaram o convite
 // pra jogar no Curda (ver tickScouting/inviteProspect em app.js). Fica num
 // registro à parte em vez de mutar CURDA_ROSTER porque essa lista muda ao
