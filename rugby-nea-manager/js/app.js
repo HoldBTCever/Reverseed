@@ -2111,14 +2111,17 @@ function renderYouthAcademyHtml(positionFilter = null) {
       <p class="muted">${t('baseHelp')}</p>
       <div class="youthGrid">
         ${YOUTH_CATEGORIES.map(cat => {
-          const catPlayers = positionFilter ? academy[cat].filter(p => p.posId === positionFilter) : academy[cat];
+          const catPlayers = positionFilter
+            ? academy[cat].filter(p => canPlay(p, positionFilter))
+              .sort((a, b) => effectiveOverallAt(b, positionFilter) - effectiveOverallAt(a, positionFilter))
+            : academy[cat];
           return `
           <div class="youthCategoryCol">
             <div class="youthCategoryLabel">${cat} <span class="muted">(${academy[cat].length} de ${YOUTH_CATEGORY_TOTAL_SIZE}+)</span></div>
             ${catPlayers.map(p => `
               <div class="youthPlayerRow" title="${escapeHtmlAttr(p.name)} — ${p.position}">
                 <span class="youthPlayerName">${escapeHtmlAttr(p.name)}</span>
-                <span class="muted">${p.position.slice(0, 3)} · ${p.rating}</span>
+                <span class="muted">${p.position.slice(0, 3)} · ${positionFilter ? effectiveOverallAt(p, positionFilter) : p.rating}</span>
               </div>
             `).join('')}
             ${positionFilter && !catPlayers.length ? `<p class="muted" style="font-size:11px">${t('semDestaquePosto')}</p>` : ''}
@@ -3238,17 +3241,26 @@ function renderRealSquad() {
   const myOptions = {conditionOf: currentConditionOf, metaOverrides: state.playerOverrides, skillOverrides: state.skillGrowth, excludedIds: arcCalledUpIds()};
   let rows = rosterWithStatus(state.myTeamId, myOptions);
   if (squadSortMode === 'position') {
-    rows = sortRowsByPosition(rows);
-    if (squadPositionFilter) rows = rows.filter(p => p.posId === squadPositionFilter);
+    if (squadPositionFilter) {
+      // Com um posto específico selecionado, inclui quem também joga ali
+      // como alternativa (altPos) — não só quem tem esse posto como natural
+      // — e ordena pelo overall EFETIVO nesse posto (não o overall natural,
+      // que seria enganoso pra quem só joga ali como segunda opção).
+      rows = rows.filter(p => canPlay(p, squadPositionFilter))
+        .sort((a, b) => effectiveOverallAt(b, squadPositionFilter) - effectiveOverallAt(a, squadPositionFilter));
+    } else {
+      rows = sortRowsByPosition(rows);
+    }
   }
   const {xv} = formationDataFor(state.myTeamId, myOptions);
   const myTeam = teamById[state.myTeamId];
+  const posFilterActive = squadSortMode === 'position' && squadPositionFilter;
   const rowHtml = p => `
     <tr class="squadRow ${p.status === 'lesionado' ? 'injuredRow' : ''}" data-player="${p.id}">
       <td>${statusCell(p)}</td>
       <td class="teamCol">▸ ${p.name}${p.meta.nickname ? ` <span class="muted">"${p.meta.nickname}"</span>` : ''}${p.meta.captain ? ' <b>(C)</b>' : ''}${p.meta.emergencyCallUp ? ` <span class="muted">(${t('convocacaoEmergenciaBadge')})</span>` : ''} ${traitsHtml(p.meta)}</td>
       <td class="posCol">${p.position}${altPosHtml(p.meta)}</td>
-      <td><b>${p.rating}</b></td>
+      <td><b>${posFilterActive ? effectiveOverallAt(p, squadPositionFilter) : p.rating}</b></td>
       ${conditionCell(p.condition)}
       ${categoryCell(p.skills, 'técnico')}
       ${categoryCell(p.skills, 'mental')}

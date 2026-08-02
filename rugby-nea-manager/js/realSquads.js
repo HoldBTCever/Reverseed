@@ -262,23 +262,25 @@ const KNOWN_STRENGTH_TARGET = {
 };
 
 const CURDA_ROSTER_RAW = [
-  // Pilares (ordem: Aranda, Salta, Tiago, Sitjar, Ballasch, Josechi, Petiño,
-  // Martin, Jariton, England, Laterza, Samurai, Piacentini, Thanos)
-  {...mkPlayer('Estefano Aranda', 'PI', 87, {}, {nationalTeam: 'seleção'}, 88), weightKg: 130},
-  {...mkPlayer('Carlos Rodríguez', 'PI', 80, {}, {nickname: 'Salta'}, 85), weightKg: 130},
-  {...mkPlayer('Tiago Riveros', 'PI', 78, {}, {birthDate: '2003-04-14', age: 'jovem', potential: 'alto'}, 80), weightKg: 110},
-  {...mkPlayer('Martín Sitjar', 'PI', 74, {strength: 92}, {birthDate: '1992-11-17', note: 'o jogador mais pesado do time'}, 78), weightKg: 140},
-  {...mkPlayer('Matías Ballasch', 'PI', 76, {lineoutThrow: 97, jump: 80, tackle: 80, strength: 90, scrum: 92}, {birthDate: '2002-01-08', note: 'também joga de hooker', altPos: ['HK']}, 76), weightKg: 110},
-  {...mkPlayer('José Santacruz', 'PI', 66, {}, {birthDate: '2000-08-05', nickname: 'Josechi'}, 73), weightKg: 110},
-  {...mkPlayer('Petiño Santacruz', 'PI', 71, {}, {}, 71), weightKg: 130},
-  {...mkPlayer('Martín Ayala', 'PI', 58, {}, {birthDate: '2000-12-13', note: 'por vezes usado no time intermédio'}, 68), weightKg: 130},
-  {...mkPlayer('Adolfo Jariton', 'PI', 72, {lineoutThrow: 99, jump: 85, tackle: 82, strength: 88, scrum: 92, stamina: 80}, {birthDate: '2001-12-18', note: 'também joga de hooker', altPos: ['HK']}, 65), weightKg: 120},
-  {...mkPlayer('Fernando Gracía', 'PI', 58, {}, {birthDate: '1992-03-16', nickname: 'England', note: 'pilar mediano'}, 62), weightKg: 100},
-  {...mkPlayer('Franco Laterza', 'PI', 60, {lineoutThrow: 88, scrum: 80, tackle: 78, strength: 80, stamina: 78, determination: 80}, {birthDate: '2006-03-21', age: 18, nationalTeam: 'seleção juvenil', note: 'também joga de hooker', altPos: ['HK']}, 60), weightKg: 110},
-  {...mkPlayer('Gonzalo Barrios', 'PI', 58, {lineoutThrow: 48}, {birthDate: '2007-08-23', nickname: 'Samurai', age: 18, altPos: ['HK']}, 58), weightKg: 103, heightCm: 180},
-  {...mkPlayer('Piacentini', 'PI', 56, {}, {birthDate: '1993-07-14', note: 'pilar mediano'}, 56), weightKg: 130},
-  {...mkPlayer('Martín Carvallo', 'PI', 53, {}, {nickname: 'Thanos', age: 31}, 53), weightKg: 116, heightCm: 179},
-  mkPlayer('Santiago Sapriza', 'PI', 42, {}, {birthDate: '2000-01-15', trainingAttendance: uniformAttendance(8), note: 'baixa frequência de treino'}, 42),
+  // Pilares, em ordem de qualidade (melhor pro pior): Aranda, Salta, Tiago
+  // Riveros, Sitjar, Josechi, Sapriza (lesionado, mas 6º em nível), Ballasch,
+  // Jariton, Petiño, Laterza, Ayala — daí um salto de qualidade maior pro
+  // último grupo: Piacentini, England, Samurai, Thanos.
+  {...mkPlayer('Estefano Aranda', 'PI', 87, {}, {nationalTeam: 'seleção'}, 54), weightKg: 130},
+  {...mkPlayer('Carlos Rodríguez', 'PI', 84, {}, {nickname: 'Salta'}, 50), weightKg: 130},
+  {...mkPlayer('Tiago Riveros', 'PI', 81, {}, {birthDate: '2003-04-14', age: 'jovem', potential: 'alto'}, 45), weightKg: 110},
+  {...mkPlayer('Martín Sitjar', 'PI', 77, {strength: 92}, {birthDate: '1992-11-17', note: 'o jogador mais pesado do time'}, 43), weightKg: 140},
+  {...mkPlayer('José Santacruz', 'PI', 79, {}, {birthDate: '2000-08-05', nickname: 'Josechi'}, 44), weightKg: 110},
+  {...mkPlayer('Santiago Sapriza', 'PI', 78, {}, {birthDate: '2000-01-15', trainingAttendance: uniformAttendance(8), note: 'baixa frequência de treino', injuryWeeks: 13, injuryLabel: '3 meses'}, 42)},
+  {...mkPlayer('Matías Ballasch', 'PI', 65, {lineoutThrow: 88, jump: 74, tackle: 73, strength: 81, scrum: 84}, {birthDate: '2002-01-08', note: 'também joga de hooker', altPos: ['HK']}, 41), weightKg: 110},
+  {...mkPlayer('Adolfo Jariton', 'PI', 55, {lineoutThrow: 88, jump: 72, tackle: 72, strength: 80, scrum: 82}, {birthDate: '2001-12-18', note: 'também joga de hooker', altPos: ['HK']}, 40), weightKg: 120},
+  {...mkPlayer('Petiño Santacruz', 'PI', 74, {}, {}, 39), weightKg: 130},
+  {...mkPlayer('Franco Laterza', 'PI', 20, {lineoutThrow: 99, pass: 80, reception: 80, comunicacao: 80, leadership: 80}, {birthDate: '2006-03-21', age: 18, nationalTeam: 'seleção juvenil', note: 'também joga de hooker — excelente no lineout, com muita liderança e comunicação pro posto', altPos: ['HK']}, 37), weightKg: 110},
+  {...mkPlayer('Martín Ayala', 'PI', 70, {}, {birthDate: '2000-12-13', note: 'por vezes usado no time intermédio'}, 35), weightKg: 130},
+  {...mkPlayer('Piacentini', 'PI', 61, {}, {birthDate: '1993-07-14', note: 'pilar mediano'}, 30), weightKg: 130},
+  {...mkPlayer('Fernando Gracía', 'PI', 58, {}, {birthDate: '1992-03-16', nickname: 'England', note: 'pilar mediano'}, 30), weightKg: 100},
+  {...mkPlayer('Gonzalo Barrios', 'PI', 53, {lineoutThrow: 48}, {birthDate: '2007-08-23', nickname: 'Samurai', age: 18, altPos: ['HK']}, 30), weightKg: 103, heightCm: 180},
+  {...mkPlayer('Martín Carvallo', 'PI', 45, {}, {nickname: 'Thanos', age: 31}, 30), weightKg: 116, heightCm: 179},
 
   // Hookers (ordem: Otaño, Ballasch, Jariton, Centurión, Fabiño, Achon, Laterza, Samurai)
   mkPlayer('Lucas Otaño', 'HK', 80, {}, {birthDate: '2001-11-07', injuryWeeks: 13, injuryLabel: '3 meses', traits: ['injuryProne']}, 82),
@@ -298,7 +300,6 @@ const CURDA_ROSTER_RAW = [
   mkPlayer('Sebas Benítez', 'SL', 50, {}, {}, 50),
   mkPlayer('Pesoka', 'SL', 47, {}, {age: 40}, 47),
   mkPlayer('Abel Locatti', 'SL', 40, {}, {birthDate: '1989-02-17'}, 40),
-  mkPlayer('Maxi Doldan', 'SL', 38, {}, {age: 18, note: 'juvenil'}, 38),
   mkPlayer('Bruno Vacotti', 'SL', 60, {}, {birthDate: '1986-10-16'}),
   mkPlayer('Elías Rodríguez', 'SL', 74, {strength: 82, speed: 76, determination: 88}, {note: 'muita garra, muito bom em quebrar tackles'}),
   mkPlayer('Juan José Agüero', 'SL', 46, {}, {birthDate: '2001-07-15', nickname: 'Gato', trainingAttendance: uniformAttendance(8), note: 'baixa frequência de treino; também joga de ala', altPos: ['AL']}, 46),
@@ -350,6 +351,7 @@ const CURDA_ROSTER_RAW = [
   mkPlayer('Nico Allo', 'CE', 66, {}, {birthDate: '1999-10-18', age: 25}, 64),
   mkPlayer('Diego Argaña', 'CE', 66, {}, {birthDate: '1990-04-04'}, 63),
   mkPlayer('Marcelo Villaroel', 'CE', 66, {}, {birthDate: '2005-04-07', nickname: 'Negro'}, 60),
+  mkPlayer('Juan José Gato', 'CE', 58, {}, {note: 'também joga de fullback', altPos: ['FB']}, 55),
   mkPlayer('Mario Domec', 'CE', 60, {}, {}, 48),
   mkPlayer('Maximiliano Rubin', 'CE', 38, {}, {birthDate: '2007-05-23', trainingAttendance: uniformAttendance(8), note: 'baixa frequência de treino; também joga de ponta', altPos: ['WG']}, 38),
   mkPlayer('Piero Portaluppi', 'CE', 36, {}, {birthDate: '2007-02-26', trainingAttendance: uniformAttendance(8), note: 'baixa frequência de treino; também joga de ponta', altPos: ['WG']}, 36),
