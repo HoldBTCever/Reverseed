@@ -353,7 +353,6 @@ const CURDA_ROSTER_RAW = [
   mkPlayer('Mario Domec', 'CE', 60, {}, {}, 48),
   mkPlayer('Maximiliano Rubin', 'CE', 38, {}, {birthDate: '2007-05-23', trainingAttendance: uniformAttendance(8), note: 'baixa frequência de treino; também joga de ponta', altPos: ['WG']}, 38),
   mkPlayer('Piero Portaluppi', 'CE', 36, {}, {birthDate: '2007-02-26', trainingAttendance: uniformAttendance(8), note: 'baixa frequência de treino; também joga de ponta', altPos: ['WG']}, 36),
-  {...mkPlayer('Gonzalo Saba', 'CE', 58, {}, {note: 'joga de centro ou ponta', altPos: ['WG']}, 58), heightCm: 170, weightKg: 70},
 
   // Wing (ordem: Facu Paiva, LuizMi, Choclo, Micmacher, King, Lewis, Inge, Vic Torres, Fabiño)
   mkPlayer('Facundo Paiva', 'WG', 91, {speed: 92}, {birthDate: '2004-05-18', nationalTeam: 'seleção', note: 'um dos melhores jogadores do Curda'}),
@@ -975,7 +974,15 @@ export const YOUTH_CATEGORIES = ['M14', 'M15', 'M16', 'M18'];
 // sem precisar gerar/guardar 23 registros individuais por categoria.
 export const YOUTH_CATEGORY_TOTAL_SIZE = 23;
 const YOUTH_SQUAD_SIZE = 6;
-const YOUTH_BASE_RANGE = {M14: [28, 40], M15: [34, 46], M16: [42, 56], M18: [50, 66]};
+// Faixas rebaixadas de propósito em relação aos destaques nomeados de cada
+// categoria (ver curatedM18Players — hoje na faixa 58-65, fora o Nacho Lopes
+// que é deliberadamente o mais fraco): um garoto anônimo gerado pelo sistema
+// nunca deve nascer melhor que os prospectos de verdade que o manager já
+// identificou e nomeou. advanceYouthAcademy só REALOCA o mesmo jogador de
+// categoria em categoria (não regenera as skills), então essa faixa aqui —
+// usada de novo só pra repor a M14 a cada ciclo — é o teto de verdade de
+// qualquer "anônimo" que um dia se forma e entra no plantel principal.
+const YOUTH_BASE_RANGE = {M14: [22, 32], M15: [26, 36], M16: [30, 42], M18: [34, 50]};
 const YOUTH_POTENTIALS = ['limitado', 'médio', 'alto', 'altíssimo'];
 
 // Nomes que nunca devem ser sorteados pra base — evita repetir jogadores que
@@ -1048,6 +1055,14 @@ function curatedM18Players() {
       potential: 'alto',
       note: 'Categoria M18 do Curda, sob comando de Dante Legui — médio scrum (#9)',
       youthCategory: 'M18',
+    }), heightCm: 170, weightKg: 70},
+    // Gonzalo Saba: centro/ponta da M18.
+    {...mkPlayer('Gonzalo Saba', 'CE', 58, {}, {
+      age: 'M18',
+      potential: 'alto',
+      note: 'Categoria M18 do Curda, sob comando de Dante Legui — joga de centro ou ponta',
+      youthCategory: 'M18',
+      altPos: ['WG'],
     }), heightCm: 170, weightKg: 70},
   ];
 }
