@@ -353,6 +353,7 @@ const CURDA_ROSTER_RAW = [
   mkPlayer('Mario Domec', 'CE', 60, {}, {}, 48),
   mkPlayer('Maximiliano Rubin', 'CE', 38, {}, {birthDate: '2007-05-23', trainingAttendance: uniformAttendance(8), note: 'baixa frequência de treino; também joga de ponta', altPos: ['WG']}, 38),
   mkPlayer('Piero Portaluppi', 'CE', 36, {}, {birthDate: '2007-02-26', trainingAttendance: uniformAttendance(8), note: 'baixa frequência de treino; também joga de ponta', altPos: ['WG']}, 36),
+  {...mkPlayer('Gonzalo Saba', 'CE', 58, {}, {note: 'joga de centro ou ponta', altPos: ['WG']}, 58), heightCm: 170, weightKg: 70},
 
   // Wing (ordem: Facu Paiva, LuizMi, Choclo, Micmacher, King, Lewis, Inge, Vic Torres, Fabiño)
   mkPlayer('Facundo Paiva', 'WG', 91, {speed: 92}, {birthDate: '2004-05-18', nationalTeam: 'seleção', note: 'um dos melhores jogadores do Curda'}),
@@ -360,7 +361,7 @@ const CURDA_ROSTER_RAW = [
   mkPlayer('Juan King', 'WG', 80, {speed: 88, tackle: 82, stamina: 85, kicking: 32, vision: 35, positioning: 35, reception: 55}, {birthDate: '1997-12-06', note: 'ótima disposição, velocidade e tackles, não desiste da jogada', altPos: ['FB']}, 73),
   mkPlayer('Luis Guanes', 'WG', 78, {}, {birthDate: '1992-08-11', nickname: 'Lewis'}, 70),
   mkPlayer('Christian Daniel', 'WG', 64, {}, {nickname: 'Inge'}),
-  mkPlayer('Nicolás Olivo', 'WG', 40, {}, {birthDate: '1997-02-01', trainingAttendance: uniformAttendance(8), note: 'baixa frequência de treino'}, 40),
+  {...mkPlayer('Nicolás Olivo', 'WG', 40, {}, {birthDate: '1997-02-01', nickname: 'Tucu', trainingAttendance: uniformAttendance(8), note: 'baixa frequência de treino'}, 40), heightCm: 174, weightKg: 80},
 
   // Fullback (ordem: Mussi, Arturo, Horacio, Julián, Kirichenko, King)
   mkPlayer('Arturo López', 'FB', 90, {}, {birthDate: '2000-09-14', nationalTeam: 'seleção adulta'}),
@@ -1041,6 +1042,13 @@ function curatedM18Players() {
       youthCategory: 'M18',
       altPos: ['WG'],
     }),
+    // Lúcio Nicolás: médio scrum (#9) da M18.
+    {...mkPlayer('Lúcio Nicolás', 'MS', 58, {}, {
+      age: 'M18',
+      potential: 'alto',
+      note: 'Categoria M18 do Curda, sob comando de Dante Legui — médio scrum (#9)',
+      youthCategory: 'M18',
+    }), heightCm: 170, weightKg: 70},
   ];
 }
 
