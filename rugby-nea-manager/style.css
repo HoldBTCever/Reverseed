@@ -335,6 +335,13 @@ canvas#pitch {
 }
 .sortBtn.selected { border-color: var(--accent); color: var(--text); background: rgba(46,204,113,0.1); }
 
+.posFilterToggle { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.posFilterBtn {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 9px; font-size: 11px; color: var(--muted); cursor: pointer;
+}
+.posFilterBtn.selected { border-color: var(--accent); color: var(--text); background: rgba(46,204,113,0.1); }
+
 .lineupEditorGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));

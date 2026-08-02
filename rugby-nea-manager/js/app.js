@@ -273,6 +273,8 @@ const I18N = {
     plantelCompleto: 'Plantel completo ({n} jugadores — titulares destacados)',
     porOverall: 'Por overall',
     porPosicao: 'Por posición',
+    verTodosPostos: 'Ver todos los puestos',
+    semDestaquePosto: 'Ningún destacado en este puesto todavía',
     colStatus: 'Estado',
     colJogador: 'Jugador',
     colPosicao: 'Posición',
@@ -535,6 +537,8 @@ const I18N = {
     plantelCompleto: 'Plantel completo ({n} jogadores — titulares em destaque)',
     porOverall: 'Por overall',
     porPosicao: 'Por posição',
+    verTodosPostos: 'Ver todos os postos',
+    semDestaquePosto: 'Nenhum destaque nesse posto ainda',
     colStatus: 'Status',
     colJogador: 'Jogador',
     colPosicao: 'Posição',
@@ -1133,6 +1137,10 @@ const myTeamBadge = document.getElementById('myTeamBadge');
 
 let currentView = 'dashboard';
 let squadSortMode = 'overall'; // 'overall' (padrão) ou 'position' (1-15 titulares por camisa, depois reservas por posto)
+// Posto exibido (sozinho) quando squadSortMode === 'position', em cada caixa
+// (plantel principal e cada categoria de base) de forma independente;
+// null = ver todos os postos. Começa em pilares, como pedido.
+let squadPositionFilter = 'PI';
 
 document.getElementById('newGameBtn').addEventListener('click', resetGame);
 mainNav.addEventListener('click', e => {
@@ -2093,24 +2101,30 @@ function tickYouthAcademy() {
   }
 }
 
-function renderYouthAcademyHtml() {
+// positionFilter: posto único a mostrar em CADA categoria (independente do
+// plantel principal), ou null pra ver todos os postos — ver squadPositionFilter.
+function renderYouthAcademyHtml(positionFilter = null) {
   const academy = state.youthAcademy || createInitialYouthAcademy();
   return `
     <div class="card">
       <h3>${t('baseTitle')}</h3>
       <p class="muted">${t('baseHelp')}</p>
       <div class="youthGrid">
-        ${YOUTH_CATEGORIES.map(cat => `
+        ${YOUTH_CATEGORIES.map(cat => {
+          const catPlayers = positionFilter ? academy[cat].filter(p => p.posId === positionFilter) : academy[cat];
+          return `
           <div class="youthCategoryCol">
             <div class="youthCategoryLabel">${cat} <span class="muted">(${academy[cat].length} de ${YOUTH_CATEGORY_TOTAL_SIZE}+)</span></div>
-            ${academy[cat].map(p => `
+            ${catPlayers.map(p => `
               <div class="youthPlayerRow" title="${escapeHtmlAttr(p.name)} — ${p.position}">
                 <span class="youthPlayerName">${escapeHtmlAttr(p.name)}</span>
                 <span class="muted">${p.position.slice(0, 3)} · ${p.rating}</span>
               </div>
             `).join('')}
+            ${positionFilter && !catPlayers.length ? `<p class="muted" style="font-size:11px">${t('semDestaquePosto')}</p>` : ''}
           </div>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
     </div>
   `;
@@ -3104,6 +3118,14 @@ function statusCell(p) {
 // posto, do melhor pro pior.
 const POS_ORDER_INDEX = {PI: 0, HK: 1, SL: 2, AL: 3, N8: 4, MS: 5, AP: 6, WG: 7, CE: 8, FB: 9};
 
+// Opções do filtro "por posição": um botão por posto (na ordem 1-15) mais
+// "ver todos" — usado tanto no plantel principal quanto na base (ver
+// renderRealSquad/renderYouthAcademyHtml).
+const POS_FILTER_OPTIONS = Object.keys(POS_ORDER_INDEX).map(id => ({
+  id,
+  label: POSITIONS.find(p => p.id === id).label,
+}));
+
 function sortRowsByPosition(rows) {
   return [...rows].sort((a, b) => {
     if (a.number != null && b.number != null) return a.number - b.number;
@@ -3215,7 +3237,10 @@ function renderLineoutGroupHtml() {
 function renderRealSquad() {
   const myOptions = {conditionOf: currentConditionOf, metaOverrides: state.playerOverrides, skillOverrides: state.skillGrowth, excludedIds: arcCalledUpIds()};
   let rows = rosterWithStatus(state.myTeamId, myOptions);
-  if (squadSortMode === 'position') rows = sortRowsByPosition(rows);
+  if (squadSortMode === 'position') {
+    rows = sortRowsByPosition(rows);
+    if (squadPositionFilter) rows = rows.filter(p => p.posId === squadPositionFilter);
+  }
   const {xv} = formationDataFor(state.myTeamId, myOptions);
   const myTeam = teamById[state.myTeamId];
   const rowHtml = p => `
@@ -3259,7 +3284,13 @@ function renderRealSquad() {
   ` : '';
   const isCurda = state.myTeamId === 'ARG-CUR' || state.myTeamId === 'PAR-CUR';
   const scoutingHtml = isCurda ? renderScoutingHtml() : '';
-  const youthHtml = isCurda ? renderYouthAcademyHtml() : '';
+  const youthHtml = isCurda ? renderYouthAcademyHtml(squadSortMode === 'position' ? squadPositionFilter : null) : '';
+  const posFilterHtml = squadSortMode === 'position' ? `
+    <div class="posFilterToggle" id="squadPosFilterToggle">
+      ${POS_FILTER_OPTIONS.map(o => `<button class="posFilterBtn ${squadPositionFilter === o.id ? 'selected' : ''}" data-pos="${o.id}">${o.label}</button>`).join('')}
+      <button class="posFilterBtn ${squadPositionFilter === null ? 'selected' : ''}" data-pos="">${t('verTodosPostos')}</button>
+    </div>
+  ` : '';
 
   content.innerHTML = `
     <h1>${t('elencoTitle', {team: myTeam.name})}</h1>
@@ -3275,6 +3306,7 @@ function renderRealSquad() {
           <button class="sortBtn" data-sort="position">${t('porPosicao')}</button>
         </div>
       </div>
+      ${posFilterHtml}
       <div class="tableScroll"><table class="squadTable"><thead>${headHtml}</thead>
       <tbody>${rows.map(rowHtml).join('')}</tbody></table></div>
     </div>
@@ -3291,6 +3323,16 @@ function renderRealSquad() {
       renderRealSquad();
     });
   });
+
+  const posFilterToggle = document.getElementById('squadPosFilterToggle');
+  if (posFilterToggle) {
+    Array.from(posFilterToggle.children).forEach(btn => {
+      btn.addEventListener('click', () => {
+        squadPositionFilter = btn.dataset.pos || null;
+        renderRealSquad();
+      });
+    });
+  }
 
   Array.from(document.querySelectorAll('.squadRow')).forEach(tr => {
     tr.addEventListener('click', () => {
