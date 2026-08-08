@@ -307,7 +307,11 @@ const I18N = {
     subsPickIn: 'Elegí quién entra por {name}',
     subsNoneLeft: 'Ya usaste las {max} sustituciones disponibles.',
     subsBankEmpty: 'No hay suplentes disponibles para esa posición.',
+    subsEnCancha: 'Mover un titular',
+    subsPickInFor: 'Elegí quién entra por {name} ({pos})',
+    subsCancelMove: 'Cancelar movimiento',
     subChangeLog: 'Cambio en {team}: entra {in}, sale {out}.',
+    subMoveLog: '{team}: {player} pasa de {from} a {to}.',
     medBloodLog: '🩸 Corte en {player} ({team}): sale al bloodbin, entra {in} de forma temporal.',
     medHiaLog: '🏥 Golpe en la cabeza de {player} ({team}): va a la evaluación HIA, entra {in} de forma temporal.',
     medHiaFailLog: '⛔ {player} ({team}) no pasó la evaluación HIA y no vuelve más a la cancha.',
@@ -573,7 +577,11 @@ const I18N = {
     subsPickIn: 'Escolha quem entra no lugar de {name}',
     subsNoneLeft: 'Você já usou as {max} substituições disponíveis.',
     subsBankEmpty: 'Não tem reserva disponível pra essa posição.',
+    subsEnCancha: 'Mover um titular',
+    subsPickInFor: 'Escolha quem entra no lugar de {name} ({pos})',
+    subsCancelMove: 'Cancelar movimentação',
     subChangeLog: 'Substituição no {team}: entra {in}, sai {out}.',
+    subMoveLog: '{team}: {player} passa de {from} para {to}.',
     medBloodLog: '🩸 Corte em {player} ({team}): sai pro sangue, entra {in} temporariamente.',
     medHiaLog: '🏥 Pancada na cabeça de {player} ({team}): vai fazer avaliação de HIA, entra {in} temporariamente.',
     medHiaFailLog: '⛔ {player} ({team}) não passou na avaliação de HIA e não volta mais pro jogo.',
@@ -5076,6 +5084,10 @@ function renderLive() {
   const MAX_SUBS = 8;
   let subsUsed = 0;
   let subOutSelected = null; // id do titular em campo escolhido pra sair
+  // Id do titular (já em campo, noutro posto) escolhido pra se mover pro
+  // posto do subOutSelected — enquanto isso fica setado, o painel pede quem
+  // do banco cobre o posto que ELE deixou vago (ver performPositionSwapSub).
+  let subSwapSelected = null;
   let subsOpen = false;
   const subbedOffIds = new Set();
   // Acumula todo mundo que entrou em campo (titulares + quem entrou depois),
@@ -5388,12 +5400,22 @@ function renderLive() {
   // Troca genérica num dos dois lados (usada tanto pela substituição manual
   // quanto pelos eventos médicos automáticos abaixo): recalcula o "futuro" da
   // partida via resumeState e funde o resultado no que já está em tela.
-  function performLiveSub(squadArr, outId, inPlayer, logText) {
-    const idx = squadArr.findIndex(p => p.id === outId);
-    if (idx === -1) return null;
-    const outPlayer = squadArr[idx];
-    const newPlayer = {...inPlayer, posId: outPlayer.posId, position: outPlayer.position, group: outPlayer.group, number: outPlayer.number};
-    squadArr[idx] = newPlayer;
+  // Aplica uma ou mais trocas de titular ATOMICAMENTE (uma resimulação só
+  // pro conjunto inteiro) — as trocas são resolvidas por ÍNDICE, capturado
+  // ANTES de qualquer mutação: como a troca de posição reusa o id de um
+  // titular já em campo como "quem entra" de outro posto, procurar de novo
+  // por id DEPOIS da primeira mutação encontraria o slot errado (o id passa
+  // a existir em dois lugares até a segunda troca ser aplicada).
+  function performLiveSubMulti(squadArr, changes, logTexts) {
+    const indices = changes.map(({outId}) => squadArr.findIndex(p => p.id === outId));
+    if (indices.some(i => i === -1)) return null;
+    const applied = changes.map(({inPlayer}, i) => {
+      const idx = indices[i];
+      const outPlayer = squadArr[idx];
+      const newPlayer = {...inPlayer, posId: outPlayer.posId, position: outPlayer.position, group: outPlayer.group, number: outPlayer.number};
+      return {idx, outPlayer, newPlayer};
+    });
+    applied.forEach(({idx, newPlayer}) => { squadArr[idx] = newPlayer; });
 
     const resumeState = currentResumeState();
     const newSegment = simulateMatch(
@@ -5411,11 +5433,12 @@ function renderLive() {
       if (!logByMinute[l.minute]) logByMinute[l.minute] = [];
       logByMinute[l.minute].push(l.text);
     });
-    if (logText) {
+    (logTexts || []).forEach(logText => {
+      if (!logText) return;
       if (!logByMinute[currentMinute]) logByMinute[currentMinute] = [];
       logByMinute[currentMinute].push(logText);
       pushLog(currentMinute, logText);
-    }
+    });
 
     result.scorersA = result.scorersA.filter(s => s.minute <= currentMinute).concat(newSegment.scorersA);
     result.scorersB = result.scorersB.filter(s => s.minute <= currentMinute).concat(newSegment.scorersB);
@@ -5425,7 +5448,14 @@ function renderLive() {
     if (lastTick) { result.scoreA = lastTick.scoreA; result.scoreB = lastTick.scoreB; }
     if (newSegment.motm) result.motm = newSegment.motm;
 
-    return {outPlayer, newPlayer, currentMinute};
+    return {changes: applied, currentMinute};
+  }
+
+  function performLiveSub(squadArr, outId, inPlayer, logText) {
+    const res = performLiveSubMulti(squadArr, [{outId, inPlayer}], logText ? [logText] : []);
+    if (!res) return null;
+    const {outPlayer, newPlayer} = res.changes[0];
+    return {outPlayer, newPlayer, currentMinute: res.currentMinute};
   }
 
   function performSubstitution(outId, inPlayer) {
@@ -5439,6 +5469,29 @@ function renderLive() {
     playedPlayersById[res.newPlayer.id] = res.newPlayer;
     subsUsed++;
     subbedOffIds.add(res.outPlayer.id);
+  }
+
+  // Reposiciona um titular já em campo pro posto de quem está saindo (ex.:
+  // o abertura vira medio scrum) e cobre o posto que ele deixou vago com
+  // alguém do banco — no rúgbi de verdade isso gasta só UMA substituição
+  // (só quem realmente entra do banco conta; reposicionar dois titulares
+  // entre si é de graça).
+  function performPositionSwapSub(outId, swapPlayerId, benchInPlayer) {
+    if (subsUsed >= MAX_SUBS) return;
+    const outPlayerRef = mySquad.find(p => p.id === outId);
+    const swapPlayerRef = mySquad.find(p => p.id === swapPlayerId);
+    if (!outPlayerRef || !swapPlayerRef) return;
+    const subTeamName = isHome ? homeTeam.name : awayTeam.name;
+    const moveText = t('subMoveLog', {team: subTeamName, player: swapPlayerRef.name, from: swapPlayerRef.position, to: outPlayerRef.position});
+    const subText = t('subChangeLog', {team: subTeamName, in: benchInPlayer.name, out: outPlayerRef.name});
+    const res = performLiveSubMulti(mySquad, [
+      {outId: outPlayerRef.id, inPlayer: swapPlayerRef},
+      {outId: swapPlayerRef.id, inPlayer: benchInPlayer},
+    ], [moveText, subText]);
+    if (!res) return;
+    res.changes.forEach(({newPlayer}) => { playedPlayersById[newPlayer.id] = newPlayer; });
+    subsUsed++;
+    subbedOffIds.add(outPlayerRef.id);
   }
 
   // ---- Eventos médicos automáticos (sangue / HIA) --------------------------
@@ -5620,19 +5673,73 @@ function renderLive() {
       </button>
     `;
 
+    // PASSO 2 do reposicionamento: já escolheu mover um titular pro posto de
+    // quem sai — agora só falta quem do banco cobre o posto que ELE (o
+    // titular movido) deixou vago. Substitui o painel inteiro nesse passo
+    // pra manter o fluxo focado numa coisa de cada vez.
+    if (subSwapSelected) {
+      const swapPlayer = mySquad.find(p => p.id === subSwapSelected);
+      if (!swapPlayer) {
+        subSwapSelected = null;
+      } else {
+        const posId = swapPlayer.posId;
+        const specialists = availableBench.filter(p => canPlay(p, posId));
+        const outros = FRONT_ROW_POS.has(posId) ? [] : availableBench.filter(p => !canPlay(p, posId));
+        subsPanelEl.innerHTML = `
+          <div class="lineupPicker">
+            <h4>${t('subsPanelTitle', {used: subsUsed, max: MAX_SUBS})}</h4>
+            <div class="lineupPickGroupLabel">${t('subsPickInFor', {name: swapPlayer.name, pos: swapPlayer.position})}</div>
+            ${!specialists.length && !outros.length ? `<p class="muted">${t('subsBankEmpty')}</p>` : ''}
+            ${specialists.length ? `<div class="lineupPickList">${specialists.map(p => benchRow(p, posId)).join('')}</div>` : ''}
+            ${outros.length ? `<div class="lineupPickGroupLabel">${t('outrasPosicoes')}</div><div class="lineupPickList">${outros.map(p => benchRow(p, posId)).join('')}</div>` : ''}
+            <button type="button" class="ctrlBtn" id="cancelSwapBtn">${t('subsCancelMove')}</button>
+            <button type="button" class="ctrlBtn" id="closeSubsBtn">${t('fecharSeletor')}</button>
+          </div>
+        `;
+        Array.from(subsPanelEl.querySelectorAll('[data-in]')).forEach(btn => {
+          btn.addEventListener('click', () => {
+            const benchInPlayer = availableBench.find(p => p.id === btn.dataset.in);
+            if (!benchInPlayer || !subOutSelected || !subSwapSelected) return;
+            performPositionSwapSub(subOutSelected, subSwapSelected, benchInPlayer);
+            subOutSelected = null;
+            subSwapSelected = null;
+            updateSubsButtonLabel();
+            renderSubsPanel();
+          });
+        });
+        const cancelBtn = document.getElementById('cancelSwapBtn');
+        if (cancelBtn) cancelBtn.addEventListener('click', () => { subSwapSelected = null; renderSubsPanel(); });
+        const closeBtnStep2 = document.getElementById('closeSubsBtn');
+        if (closeBtnStep2) closeBtnStep2.addEventListener('click', () => { subsOpen = false; subOutSelected = null; subSwapSelected = null; renderSubsPanel(); });
+        return;
+      }
+    }
+
     // Lista de quem pode entrar, renderizada logo ABAIXO do botão do jogador
     // escolhido pra sair (em vez de sempre lá embaixo do painel) — assim fica
-    // óbvio pra qual titular aquela lista se refere.
+    // óbvio pra qual titular aquela lista se refere. Além do banco, também
+    // lista titulares já em campo que podem ser REPOSICIONADOS pra cá (ex.:
+    // o abertura vira medio scrum) — escolher um deles abre o passo 2 acima.
     const pickerHtmlFor = outPlayer => {
       const posId = outPlayer.posId;
       const specialists = availableBench.filter(p => canPlay(p, posId));
       const outros = FRONT_ROW_POS.has(posId) ? [] : availableBench.filter(p => !canPlay(p, posId));
+      const onFieldCandidates = FRONT_ROW_POS.has(posId)
+        ? mySquad.filter(p => p.id !== outPlayer.id && canPlay(p, posId))
+        : sortCandidates(mySquad.filter(p => p.id !== outPlayer.id), posId);
+      const onFieldRow = p => `
+        <button type="button" class="lineupPickBtn" data-swap="${p.id}">
+          <span>${escapeHtmlAttr(p.name)}${p.posId !== posId ? ' ⇄' : ''} <span class="muted">(${p.position})</span></span>
+          <span class="muted">${effectiveOverallAt(p, posId)} · ${liveConditionOf(p)}%</span>
+        </button>
+      `;
       return `
         <div class="subsInlinePicker">
           <div class="lineupPickGroupLabel">${t('subsPickIn', {name: outPlayer.name})}</div>
           ${!specialists.length && !outros.length ? `<p class="muted">${t('subsBankEmpty')}</p>` : ''}
           ${specialists.length ? `<div class="lineupPickList">${specialists.map(p => benchRow(p, posId)).join('')}</div>` : ''}
           ${outros.length ? `<div class="lineupPickGroupLabel">${t('outrasPosicoes')}</div><div class="lineupPickList">${outros.map(p => benchRow(p, posId)).join('')}</div>` : ''}
+          ${onFieldCandidates.length ? `<div class="lineupPickGroupLabel">${t('subsEnCancha')}</div><div class="lineupPickList">${onFieldCandidates.map(onFieldRow).join('')}</div>` : ''}
         </div>
       `;
     };
@@ -5672,14 +5779,21 @@ function renderLive() {
         renderSubsPanel();
       });
     });
+    Array.from(subsPanelEl.querySelectorAll('[data-swap]')).forEach(btn => {
+      btn.addEventListener('click', () => {
+        subSwapSelected = btn.dataset.swap;
+        renderSubsPanel();
+      });
+    });
     const closeBtn = document.getElementById('closeSubsBtn');
-    if (closeBtn) closeBtn.addEventListener('click', () => { subsOpen = false; subOutSelected = null; renderSubsPanel(); });
+    if (closeBtn) closeBtn.addEventListener('click', () => { subsOpen = false; subOutSelected = null; subSwapSelected = null; renderSubsPanel(); });
   }
 
   if (subsBtn) {
     subsBtn.addEventListener('click', () => {
       subsOpen = !subsOpen;
       subOutSelected = null;
+      subSwapSelected = null;
       renderSubsPanel();
     });
   }
