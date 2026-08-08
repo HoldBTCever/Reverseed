@@ -299,6 +299,8 @@ const I18N = {
     mesmaLinha: 'Misma línea',
     outrasPosicoes: 'Otras posiciones',
     fecharSeletor: 'Cerrar selector',
+    verMais: 'Ver más',
+    verMenos: 'Ver menos',
     subsBtnLabel: '🔄 Sustituciones ({used}/{max})',
     subsPanelTitle: 'Sustituciones ({used}/{max})',
     subsPickOut: 'Elegí quién sale',
@@ -563,6 +565,8 @@ const I18N = {
     mesmaLinha: 'Mesma linha',
     outrasPosicoes: 'Outras posições',
     fecharSeletor: 'Fechar seletor',
+    verMais: 'Ver mais',
+    verMenos: 'Ver menos',
     subsBtnLabel: '🔄 Substituições ({used}/{max})',
     subsPanelTitle: 'Substituições ({used}/{max})',
     subsPickOut: 'Escolha quem sai',
@@ -924,6 +928,10 @@ let manualSlots = null; // array de 15 playerIds (ou null nalguma posição = au
 let manualSlotsSignature = null; // identifica pra qual partida o manualSlots atual pertence, pra resetar ao mudar de jogo
 let openLineupSlot = null; // índice (0-14) do slot com o seletor de jogador aberto no campo clicável, ou null se fechado
 let lineupPickerAnchor = null; // {x, y} do clique que abriu o seletor, pra flutuar o popup perto do cursor
+// Se o seletor aberto (Dia de Jogo OU Plantel — só um fica aberto por vez)
+// está mostrando a lista de especialistas completa ou só o top 5 (padrão) —
+// reseta pra colapsado sempre que um slot novo é aberto/fechado.
+let lineupPickerExpanded = false;
 let manualBenchSlots = null; // array de até MAX_BENCH playerIds (reservas escolhidas pra hoje) em edição na tela de Dia de Jogo
 let openBenchSlot = null; // índice do slot de reserva com o seletor aberto, ou null se fechado
 let benchPickerAnchor = null; // {x, y} do clique que abriu o seletor de reserva
@@ -3370,6 +3378,7 @@ function renderRealSquad() {
         squadFormSlot = idx;
         squadFormAnchor = {x: ev.clientX, y: ev.clientY};
       }
+      lineupPickerExpanded = false;
       renderRealSquad();
     });
   });
@@ -3385,15 +3394,24 @@ function renderRealSquad() {
       state.lineupPresets[state.myTeamId].A = currentSlots;
       squadFormSlot = null;
       squadFormAnchor = null;
+      lineupPickerExpanded = false;
       saveState();
       renderRealSquad();
     });
   });
+  const expandSquadFormBtn = document.getElementById('expandSquadFormPickerBtn');
+  if (expandSquadFormBtn) {
+    expandSquadFormBtn.addEventListener('click', () => {
+      lineupPickerExpanded = !lineupPickerExpanded;
+      renderRealSquad();
+    });
+  }
   const closeSquadFormBtn = document.getElementById('closeSquadFormPickerBtn');
   if (closeSquadFormBtn) {
     closeSquadFormBtn.addEventListener('click', () => {
       squadFormSlot = null;
       squadFormAnchor = null;
+      lineupPickerExpanded = false;
       renderRealSquad();
     });
   }
@@ -3402,6 +3420,7 @@ function renderRealSquad() {
     squadFormBackdrop.addEventListener('click', () => {
       squadFormSlot = null;
       squadFormAnchor = null;
+      lineupPickerExpanded = false;
       renderRealSquad();
     });
   }
@@ -3634,13 +3653,9 @@ function canPlay(p, posId) {
   return p.posId === posId || (p.meta.altPos && p.meta.altPos.includes(posId));
 }
 
-// Top N (padrão 5) candidatos pra uma posição, ordenados pelo overall
-// EFETIVO naquela posição (não o rating "de origem" do jogador) — é o que
-// aparece no seletor de substituição, então tem que ser a mesma métrica.
+// Quantos especialistas aparecem por padrão no seletor de posição antes de
+// precisar clicar em "ver mais" (ver renderDiaDeJogo/renderSquadFormation...).
 const LINEUP_PICKER_MAX = 5;
-function topCandidates(list, posId, n = LINEUP_PICKER_MAX) {
-  return [...list].sort((a, b) => effectiveOverallAt(b, posId) - effectiveOverallAt(a, posId)).slice(0, n);
-}
 
 // Lista completa (sem cortar em 5), ordenada do melhor pro pior overall
 // efetivo naquela posição — usada em "outras posições", que deve mostrar TODO
@@ -3775,7 +3790,9 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor) {
     const slot = POSITIONS[idx];
     const posId = slot.id;
     const currentId = manualSlots ? manualSlots[idx] : null;
-    const specialists = topCandidates(eligible.filter(p => canPlay(p, posId)), posId);
+    const allSpecialists = sortCandidates(eligible.filter(p => canPlay(p, posId)), posId);
+    const specialists = lineupPickerExpanded ? allSpecialists : allSpecialists.slice(0, LINEUP_PICKER_MAX);
+    const hasMoreSpecialists = allSpecialists.length > LINEUP_PICKER_MAX;
     const outros = FRONT_ROW_POS.has(posId) ? [] : sortCandidates(eligible.filter(p => !canPlay(p, posId)), posId);
     const playerRow = p => `
       <button type="button" class="lineupPickBtn ${p.id === currentId ? 'selected' : ''}" data-pick="${p.id}">
@@ -3799,6 +3816,7 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor) {
         ${!specialists.length ? `<p class="muted">${t('convocacaoEmergencia')}</p>` : `
           <div class="lineupPickGroupLabel">${t('especialistas')}</div>
           <div class="lineupPickList">${specialists.map(playerRow).join('')}</div>
+          ${hasMoreSpecialists ? `<button type="button" class="ctrlBtn" id="expandLineupPickerBtn">${lineupPickerExpanded ? t('verMenos') : t('verMais')}</button>` : ''}
         `}
         ${outros.length ? `
           <div class="lineupPickGroupLabel">${t('outrasPosicoes')}</div>
@@ -3943,7 +3961,9 @@ function renderSquadFormationEditorHtml(teamId, myOptions, teamColor, autoXV) {
     const slot = POSITIONS[idx];
     const posId = slot.id;
     const currentId = slots[idx];
-    const specialists = topCandidates(eligible.filter(p => canPlay(p, posId)), posId);
+    const allSpecialists = sortCandidates(eligible.filter(p => canPlay(p, posId)), posId);
+    const specialists = lineupPickerExpanded ? allSpecialists : allSpecialists.slice(0, LINEUP_PICKER_MAX);
+    const hasMoreSpecialists = allSpecialists.length > LINEUP_PICKER_MAX;
     const outros = FRONT_ROW_POS.has(posId) ? [] : sortCandidates(eligible.filter(p => !canPlay(p, posId)), posId);
     const playerRow = p => `
       <button type="button" class="lineupPickBtn ${p.id === currentId ? 'selected' : ''}" data-pick="${p.id}">
@@ -3967,6 +3987,7 @@ function renderSquadFormationEditorHtml(teamId, myOptions, teamColor, autoXV) {
         ${!specialists.length ? `<p class="muted">${t('convocacaoEmergencia')}</p>` : `
           <div class="lineupPickGroupLabel">${t('especialistas')}</div>
           <div class="lineupPickList">${specialists.map(playerRow).join('')}</div>
+          ${hasMoreSpecialists ? `<button type="button" class="ctrlBtn" id="expandSquadFormPickerBtn">${lineupPickerExpanded ? t('verMenos') : t('verMais')}</button>` : ''}
         `}
         ${outros.length ? `
           <div class="lineupPickGroupLabel">${t('outrasPosicoes')}</div>
@@ -4715,6 +4736,7 @@ function renderMatchday() {
           openLineupSlot = idx;
           lineupPickerAnchor = {x: ev.clientX, y: ev.clientY};
         }
+        lineupPickerExpanded = false;
         renderMatchday();
       });
     });
@@ -4727,15 +4749,24 @@ function renderMatchday() {
         manualSlots[idx] = newId;
         openLineupSlot = null;
         lineupPickerAnchor = null;
+        lineupPickerExpanded = false;
         pruneBenchAgainstXV();
         renderMatchday();
       });
     });
+    const expandPickerBtn = document.getElementById('expandLineupPickerBtn');
+    if (expandPickerBtn) {
+      expandPickerBtn.addEventListener('click', () => {
+        lineupPickerExpanded = !lineupPickerExpanded;
+        renderMatchday();
+      });
+    }
     const closePickerBtn = document.getElementById('closeLineupPickerBtn');
     if (closePickerBtn) {
       closePickerBtn.addEventListener('click', () => {
         openLineupSlot = null;
         lineupPickerAnchor = null;
+        lineupPickerExpanded = false;
         renderMatchday();
       });
     }
@@ -4744,6 +4775,7 @@ function renderMatchday() {
       pickerBackdrop.addEventListener('click', () => {
         openLineupSlot = null;
         lineupPickerAnchor = null;
+        lineupPickerExpanded = false;
         renderMatchday();
       });
     }
