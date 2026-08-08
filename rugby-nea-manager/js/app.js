@@ -3816,7 +3816,7 @@ function renderLineupEditorHtml(teamId, myOptions, teamColor) {
         ${!specialists.length ? `<p class="muted">${t('convocacaoEmergencia')}</p>` : `
           <div class="lineupPickGroupLabel">${t('especialistas')}</div>
           <div class="lineupPickList">${specialists.map(playerRow).join('')}</div>
-          ${hasMoreSpecialists ? `<button type="button" class="ctrlBtn" id="expandLineupPickerBtn">${lineupPickerExpanded ? t('verMenos') : t('verMais')}</button>` : ''}
+          ${hasMoreSpecialists ? `<button type="button" class="ctrlBtn" id="expandLineupPickerBtn">${lineupPickerExpanded ? t('verMenos') : `${t('verMais')} (+${allSpecialists.length - LINEUP_PICKER_MAX})`}</button>` : ''}
         `}
         ${outros.length ? `
           <div class="lineupPickGroupLabel">${t('outrasPosicoes')}</div>
@@ -3987,7 +3987,7 @@ function renderSquadFormationEditorHtml(teamId, myOptions, teamColor, autoXV) {
         ${!specialists.length ? `<p class="muted">${t('convocacaoEmergencia')}</p>` : `
           <div class="lineupPickGroupLabel">${t('especialistas')}</div>
           <div class="lineupPickList">${specialists.map(playerRow).join('')}</div>
-          ${hasMoreSpecialists ? `<button type="button" class="ctrlBtn" id="expandSquadFormPickerBtn">${lineupPickerExpanded ? t('verMenos') : t('verMais')}</button>` : ''}
+          ${hasMoreSpecialists ? `<button type="button" class="ctrlBtn" id="expandSquadFormPickerBtn">${lineupPickerExpanded ? t('verMenos') : `${t('verMais')} (+${allSpecialists.length - LINEUP_PICKER_MAX})`}</button>` : ''}
         `}
         ${outros.length ? `
           <div class="lineupPickGroupLabel">${t('outrasPosicoes')}</div>
