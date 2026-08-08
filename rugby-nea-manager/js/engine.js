@@ -566,6 +566,11 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
   let scoreB = resumeState ? resumeState.scoreB : 0;
   let cardPenaltyA = resumeState ? resumeState.cardPenaltyA : 0; // ticks restantes de desvantagem por cartão amarelo
   let cardPenaltyB = resumeState ? resumeState.cardPenaltyB : 0;
+  // Contadores de "preso na própria área" pro alívio territorial (ver mais
+  // abaixo) — não são carregados de resumeState: um recálculo ao vivo só
+  // reseta essa paciência, o pior caso é adiar o alívio por até 3 ticks a mais.
+  let pinnedLowStreak = 0; // pos <= 15 por ticks seguidos = A sufocado
+  let pinnedHighStreak = 0; // pos >= 85 por ticks seguidos = B sufocado
   const stats = cloneMatchStats(resumeState && resumeState.stats);
   let statsAtCheckpoint = null;
   let redCardA = resumeState ? resumeState.redCardA : false; // expulso: desvantagem por todo o resto da partida
@@ -769,8 +774,52 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       phase = 'scrum';
     }
 
+    // Saída de emergência da própria 22: chance FIXA de aliviar a pressão
+    // perto da própria linha, não escalada pela diferença de qualidade pro
+    // rival — mesmo o time mais fraco sabe executar um chute de saída básico
+    // na maior parte das vezes. Sem isso, só o diferencial attack/defense
+    // decide quem sai da própria área, e o time mais fraco quase nunca sai.
+    if (pos + push <= 15 && Math.random() < 0.12) {
+      push += rand(10, 20);
+      addLog(minute, `${teamA.name} despeja bien y gana terreno.`);
+      phase = 'exit';
+    } else if (pos + push >= 85 && Math.random() < 0.12) {
+      push -= rand(10, 20);
+      addLog(minute, `${teamB.name} despeja bien y gana terreno.`);
+      phase = 'exit';
+    }
+
     pos = Math.max(0, Math.min(100, pos + push));
     eventHandled = false;
+
+    // Alívio territorial: sem isso, uma vez que a bola fica perto de um
+    // extremo ela tende a ficar ali (passeio aleatório com viés grudado na
+    // borda 0-100) — e como pos só reseta pro meio-campo num try/penal/drop,
+    // um time que nunca consegue pontuar também nunca ganha esse reset,
+    // ficando sufocado o jogo inteiro sem chance real de ataque. Depois de
+    // ficar preso perto da própria linha por ticks seguidos, o time simula
+    // um bom despeje/contra-ataque e volta pro jogo.
+    if (pos <= 15) {
+      pinnedLowStreak++;
+      pinnedHighStreak = 0;
+    } else if (pos >= 85) {
+      pinnedHighStreak++;
+      pinnedLowStreak = 0;
+    } else {
+      pinnedLowStreak = 0;
+      pinnedHighStreak = 0;
+    }
+    if (pinnedLowStreak >= 3) {
+      pos = Math.min(100, pos + rand(25, 40));
+      addLog(minute, `${teamA.name} sale del área de peligro con un buen despeje.`);
+      pinnedLowStreak = 0;
+      phase = 'exit';
+    } else if (pinnedHighStreak >= 3) {
+      pos = Math.max(0, pos - rand(25, 40));
+      addLog(minute, `${teamB.name} sale del área de peligro con un buen despeje.`);
+      pinnedHighStreak = 0;
+      phase = 'exit';
+    }
 
     // Tarjeta amarilla (poco frecuente): times mais disciplinados sofrem menos.
     if (!eventHandled && Math.random() < yellowChanceA) {
@@ -806,10 +855,50 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       phase = 'card';
     }
 
+    // Evento raro de oportunismo: chance FIXA e pequena de pontuar "do
+    // nada" — intercepto, erro grosseiro do rival etc. — independente de
+    // onde a bola estava. Sem isso, toda pontuação depende só de dominar
+    // território, que por sua vez depende quase todo do gap de força; isso
+    // garante que mesmo o time mais fraco tenha uma chance ocasional de
+    // furar o domínio territorial do rival.
+    if (!eventHandled && Math.random() < 0.008) {
+      const scorer = bestByGroup(playersA, 'vision', 'back');
+      scoreA += 5;
+      scorersA.push({minute, player: scorer.name});
+      addLog(minute, `¡Intercepción de ${scorer.name} y try de la nada para ${teamA.name}!`);
+      stats.A.conversionsAttempted++;
+      if (Math.random() * 100 < (kickEffective(kickerA, tick, weatherObj.kickMod) + homeKickBonusA) * 0.9) {
+        scoreA += 2;
+        addLog(minute, `${kickerA.name} convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
+        stats.A.conversionsMade++;
+      } else {
+        addLog(minute, `${kickerA.name} falla la conversión.`);
+      }
+      pos = 50;
+      eventHandled = true;
+      phase = 'try';
+    } else if (!eventHandled && Math.random() < 0.008) {
+      const scorer = bestByGroup(playersB, 'vision', 'back');
+      scoreB += 5;
+      scorersB.push({minute, player: scorer.name});
+      addLog(minute, `¡Intercepción de ${scorer.name} y try de la nada para ${teamB.name}!`);
+      stats.B.conversionsAttempted++;
+      if (Math.random() * 100 < kickEffective(kickerB, tick, weatherObj.kickMod) * 0.9) {
+        scoreB += 2;
+        addLog(minute, `${kickerB.name} convierte. ${teamA.name} ${scoreA} - ${scoreB} ${teamB.name}.`);
+        stats.B.conversionsMade++;
+      } else {
+        addLog(minute, `${kickerB.name} falla la conversión.`);
+      }
+      pos = 50;
+      eventHandled = true;
+      phase = 'try';
+    }
+
     // Try — kickEffective já leva o vento/chuva embutido (weatherObj.kickMod);
     // o mandante ainda ganha um bônus fixo de aproveitamento (torcida/campo
     // conhecido), o visitante não.
-    if (!eventHandled && pos >= 94 && Math.random() < 0.35) {
+    if (!eventHandled && pos >= 90 && Math.random() < 0.55) {
       const scorer = pick(playersA.filter(p => p.group === 'back'));
       scoreA += 5;
       scorersA.push({minute, player: scorer.name});
@@ -825,7 +914,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       pos = 50;
       eventHandled = true;
       phase = 'try';
-    } else if (!eventHandled && pos <= 6 && Math.random() < 0.35) {
+    } else if (!eventHandled && pos <= 10 && Math.random() < 0.55) {
       const scorer = pick(playersB.filter(p => p.group === 'back'));
       scoreB += 5;
       scorersB.push({minute, player: scorer.name});
@@ -843,8 +932,11 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       phase = 'try';
     }
 
-    // Penal
-    if (!eventHandled && pos >= 72 && pos < 94 && Math.random() < 0.08) {
+    // Penal — faixa alargada (62+) e chance mais alta (0.11) do que antes:
+    // ficar perto da linha sem converter o try (ex.: pos>=94 mas errou o
+    // try acima) também tem que dar chance de penal, não só de nada
+    // acontecer — senão fica muita jogada "morta" perto do ingoal.
+    if (!eventHandled && pos >= 55 && Math.random() < 0.18) {
       stats.A.penaltiesAttempted++;
       if (Math.random() * 100 < (kickEffective(kickerA, tick, weatherObj.kickMod) + homeKickBonusA) * 0.85) {
         scoreA += 3;
@@ -856,7 +948,7 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       pos = 50;
       eventHandled = true;
       phase = 'penalty';
-    } else if (!eventHandled && pos <= 28 && pos > 6 && Math.random() < 0.08) {
+    } else if (!eventHandled && pos <= 45 && Math.random() < 0.18) {
       stats.B.penaltiesAttempted++;
       if (Math.random() * 100 < kickEffective(kickerB, tick, weatherObj.kickMod) * 0.85) {
         scoreB += 3;
