@@ -1,90 +1,84 @@
-# Card Notifier — Leitor de Notificações de Cartão
+# Reverseed Imóveis
 
-App Android que captura notificações de cartão de crédito/débito automaticamente e sincroniza com o Mobills.
+App web para corretores de imóveis atenderem clientes de forma individualizada:
+o cliente conta o que procura (tipo de imóvel, finalidade, prazo e faixa de
+preço em dólar, guarani ou real) e o corretor vai enviando imóveis
+compatíveis, um de cada vez. O cliente precisa dar feedback (gostei / não é
+para mim / talvez depois) em cada imóvel para liberar o próximo.
 
-## Funcionalidades
+## Stack
 
-- **Captura automática** de notificações de +15 bancos brasileiros (Nubank, Itaú, Bradesco, Inter, C6, Santander, BB, Caixa, PicPay, PagBank, Neon, Méliuz…)
-- **Parser inteligente** que extrai: banco, valor (R$), descrição/estabelecimento, tipo (crédito/débito/Pix)
-- **Sincronização com Mobills** via API com suporte a auto-sync
-- **Histórico local** com busca e filtros por tipo
-- **Deduplicação** automática de notificações repetidas
+- [Next.js 16](https://nextjs.org) (App Router, Server Actions)
+- TypeScript + Tailwind CSS 4
+- [Prisma 7](https://www.prisma.io) + SQLite (via `@prisma/adapter-better-sqlite3`)
+- Autenticação própria (cookies assinados com JWT via `jose`, senhas com `bcryptjs`)
 
-## Como usar
+Não há dependências de serviços externos pagos — o projeto roda inteiramente
+local com um banco SQLite em arquivo. Isso é ideal para rodar em uma única
+máquina/VPS; para deploy serverless (ex: Vercel) troque o `datasource` do
+Prisma para Postgres (basta mudar `provider` no `prisma/schema.prisma` e a
+`DATABASE_URL`, o resto do código não muda).
 
-### 1. Permissão de notificações
-
-O Android exige que o usuário conceda acesso manualmente:
-
-> **Configurações → Notificações → Acesso a notificações → Card Notifier → Ativar**
-
-O app mostra um banner de alerta enquanto a permissão não estiver ativa.
-
-### 2. Configurar Mobills (opcional)
-
-1. Acesse `app.mobills.com.br` no navegador
-2. Vá em **Configurações → Integrações → API**
-3. Gere um token e cole na aba **Configurações** do app
-4. Informe o ID da conta e da categoria padrão
-5. Ative **Sincronizar automaticamente** para sync imediato
-
-### 3. Sincronização manual
-
-Na tela inicial, toque em **"Sincronizar com Mobills"** para enviar todas as transações pendentes.
-
-## Arquitetura
-
-```
-src/
-├── NotificationParser.ts     # Regex parser: extrai valor, descrição, tipo
-├── services/
-│   └── MobillsService.ts     # Cliente Axios para a API do Mobills
-├── store/
-│   └── useTransactionStore.ts # Zustand + AsyncStorage (persistência local)
-├── screens/
-│   ├── HomeScreen.tsx         # Dashboard: status, totais, recentes
-│   ├── TransactionListScreen.tsx # Lista completa com busca/filtros
-│   └── SettingsScreen.tsx     # Config Mobills, filtros, limpar dados
-└── components/
-    ├── TransactionCard.tsx    # Card de transação
-    └── StatusBanner.tsx       # Banner de status da permissão
-
-android/app/src/main/java/com/cardnotificationparser/
-├── CardNotificationService.java  # NotificationListenerService
-├── NotificationListenerModule.java # Bridge React Native ↔ Java
-├── NotificationListenerPackage.java # Registro do módulo nativo
-├── MainActivity.java
-└── MainApplication.java
-```
-
-## Instalação e build
+## Como rodar localmente
 
 ```bash
 npm install
-npx react-native run-android
+cp .env.example .env
+# edite .env: gere um SESSION_SECRET e defina a senha do admin
+
+npm run db:migrate   # cria o banco SQLite e as tabelas
+npm run db:seed      # cria o usuário administrador (corretor)
+
+npm run dev
 ```
 
-## Bancos suportados
+Acesse `http://localhost:3000`.
 
-| Banco | Package |
+- Área do cliente: cadastro em `/cadastro`, preferências em `/onboarding`,
+  imóveis recebidos em `/imoveis`.
+- Área do corretor (admin): login em `/entrar` com o e-mail/senha definidos em
+  `ADMIN_EMAIL`/`ADMIN_PASSWORD` (padrão: `corretor@reverseed.com.py` /
+  `mudeesta123` — troque isso no `.env` antes de usar em produção).
+
+## Variáveis de ambiente
+
+Veja `.env.example`. Resumo:
+
+| Variável | Descrição |
 |---|---|
-| Nubank | com.nu.production |
-| Itaú | br.com.itau.internet |
-| Bradesco | com.bradesco |
-| Next | br.com.bradesco.next |
-| Banco Inter | br.com.intermedium |
-| C6 Bank | com.c6bank.app |
-| Santander | com.santander.app |
-| Banco do Brasil | br.com.bb.android |
-| Caixa | br.gov.caixa.internet |
-| PicPay | com.picpay |
-| PagBank | br.com.uol.ps.myaccount |
-| Neon | com.neon.bank.android.prd |
-| Méliuz | br.com.meliuz |
-| Sicoob | br.com.sicoob.mobile |
-| Sicredi | br.com.sicredi |
-| XP | com.xpi.app |
-| Ame Digital | com.Ame |
-| Mercado Pago | com.mercadopago.wallet |
+| `DATABASE_URL` | Caminho do banco SQLite (`file:./dev.db` por padrão) |
+| `SESSION_SECRET` | Segredo para assinar os cookies de sessão. Gere com `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` | Credenciais do corretor, usadas pelo `prisma/seed.ts` |
 
-Bancos não listados são detectados pelo conteúdo da notificação (presença de "R$" + palavras-chave de transação).
+## Estrutura
+
+```
+prisma/schema.prisma        Modelos: User, ClientProfile, Property, Recommendation, Settings
+prisma/seed.ts              Cria o usuário admin e as cotações padrão
+src/lib/                    Prisma client, sessão/JWT, validação (zod), matching de imóveis
+src/app/actions/            Server Actions (auth, perfil, imóveis, recomendações, config)
+src/app/(client)/           Área do cliente: onboarding, imóveis, perfil
+src/app/admin/              Área do corretor: clientes, imóveis, configurações
+src/proxy.ts                Proteção de rotas (Next.js 16 renomeou middleware -> proxy)
+```
+
+## Como funciona o fluxo principal
+
+1. O cliente se cadastra e preenche as preferências (tipo de imóvel, se é
+   para morar/investir, prazo, faixa de preço + moeda, bairro, quartos).
+2. O corretor vê a lista de clientes com essas preferências em `/admin`, abre
+   o cliente e escolhe imóveis do catálogo para enviar (imóveis compatíveis
+   com o perfil aparecem marcados como "Compatível").
+3. O cliente vê os imóveis enviados **um de cada vez** em `/imoveis` — só
+   depois de responder com um feedback (interessado / não interessado /
+   talvez) o próximo imóvel da fila aparece. O histórico de respostas fica
+   visível para o cliente e para o corretor.
+4. Preços podem ser cadastrados em USD, PYG (guarani) ou BRL; a cotação usada
+   para converter e comparar valores é configurada pelo corretor em
+   `/admin/config`.
+
+## Fotos dos imóveis
+
+Não há upload de arquivo — cole links de fotos já hospedadas (Google Fotos,
+Drive público, Imgur etc.), um por linha, ao cadastrar o imóvel. Isso evita
+depender de armazenamento de arquivos, que não é o foco do MVP.

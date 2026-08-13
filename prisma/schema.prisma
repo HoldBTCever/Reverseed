@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// SQLite has no native enum type, so role/type/status fields below are
+// plain strings constrained by TypeScript unions + zod at the app layer
+// (see src/lib/constants.ts).
+
+model User {
+  id              String           @id @default(cuid())
+  role            String // "ADMIN" | "CLIENT"
+  name            String
+  email           String?          @unique
+  phone           String?          @unique
+  passwordHash    String
+  createdAt       DateTime         @default(now())
+  clientProfile   ClientProfile?
+  recommendations Recommendation[]
+}
+
+model ClientProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyTypes String // comma-separated: APARTAMENTO,CASA,TERRENO,COMERCIAL
+  purpose       String // INVESTIR | MORAR
+  timeline      String // PROXIMO_MES | TRES_A_SEIS_MESES | SEM_PRAZO
+  budgetMin     Float?
+  budgetMax     Float?
+  currency      String // USD | PYG | BRL
+  bedroomsMin   Int?
+  zone          String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Property {
+  id              String           @id @default(cuid())
+  title           String
+  description     String?
+  type            String // APARTAMENTO | CASA | TERRENO | COMERCIAL
+  suitableFor     String           @default("AMBOS") // INVESTIR | MORAR | AMBOS
+  price           Float
+  currency        String // USD | PYG | BRL
+  zone            String
+  bedrooms        Int?
+  bathrooms       Int?
+  areaM2          Float?
+  photos          String? // comma-separated URLs
+  status          String           @default("ATIVO") // ATIVO | INATIVO
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  recommendations Recommendation[]
+}
+
+model Recommendation {
+  id           String    @id @default(cuid())
+  clientId     String
+  client       User      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  propertyId   String
+  property     Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  status       String    @default("PENDENTE") // PENDENTE | INTERESSADO | NAO_INTERESSADO | TALVEZ
+  feedbackNote String?
+  sentAt       DateTime  @default(now())
+  respondedAt  DateTime?
+
+  @@unique([clientId, propertyId])
+  @@index([clientId, status, sentAt])
+}
+
+model Settings {
+  id        Int      @id @default(1)
+  usdToPyg  Float    @default(7300)
+  usdToBrl  Float    @default(5.4)
+  updatedAt DateTime @updatedAt
+}
