@@ -9,12 +9,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
-// SQLite has no native enum type, so role/type/status fields below are
-// plain strings constrained by TypeScript unions + zod at the app layer
-// (see src/lib/constants.ts).
+// role/type/status fields below are plain strings constrained by
+// TypeScript unions + zod at the app layer (see src/lib/constants.ts)
+// rather than native Prisma enums, to keep the schema portable.
 
 model User {
   id              String           @id @default(cuid())

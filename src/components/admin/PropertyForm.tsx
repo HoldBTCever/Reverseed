@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   createPropertyAction,
   updatePropertyAction,
@@ -13,8 +13,10 @@ import {
   PROPERTY_TYPE_LABELS,
   PURPOSES,
   PURPOSE_LABELS,
+  getPhotoUrls,
 } from "@/lib/constants";
 import type { Property } from "@/generated/prisma/client";
+import { PhotoFetcher } from "@/components/admin/PhotoFetcher";
 import {
   FieldError,
   FormError,
@@ -30,6 +32,16 @@ export function PropertyForm({ property }: { property?: Property }) {
     action,
     INITIAL_ACTION_STATE,
   );
+  const [photosValue, setPhotosValue] = useState(property?.photos ?? "");
+
+  function handleAddPhotos(urls: string[]) {
+    const existing = getPhotoUrls(photosValue);
+    const merged = [...existing];
+    for (const url of urls) {
+      if (!merged.includes(url)) merged.push(url);
+    }
+    setPhotosValue(merged.join("\n"));
+  }
 
   return (
     <form action={formAction} className="space-y-5">
@@ -202,23 +214,27 @@ export function PropertyForm({ property }: { property?: Property }) {
         <FieldError messages={state?.fieldErrors?.description} />
       </div>
 
-      <div>
-        <label htmlFor="photos" className={labelClass}>
-          Fotos (uma URL por linha)
-        </label>
-        <textarea
-          id="photos"
-          name="photos"
-          rows={4}
-          placeholder={"https://...\nhttps://..."}
-          defaultValue={property?.photos ?? undefined}
-          className={inputClass}
-        />
-        <p className="mt-1 text-xs text-stone-500">
-          Cole links de fotos já hospedadas (Google Fotos, Drive público,
-          Imgur, etc). A primeira URL vira a foto principal.
-        </p>
-        <FieldError messages={state?.fieldErrors?.photos} />
+      <div className="space-y-3">
+        <p className={labelClass}>Fotos</p>
+        <PhotoFetcher onAddPhotos={handleAddPhotos} />
+        <div>
+          <label htmlFor="photos" className="text-xs text-stone-500">
+            Ou cole/edite os links manualmente (uma URL por linha)
+          </label>
+          <textarea
+            id="photos"
+            name="photos"
+            rows={4}
+            placeholder={"https://...\nhttps://..."}
+            value={photosValue}
+            onChange={(e) => setPhotosValue(e.target.value)}
+            className={inputClass}
+          />
+          <p className="mt-1 text-xs text-stone-500">
+            A primeira URL da lista vira a foto principal do imóvel.
+          </p>
+          <FieldError messages={state?.fieldErrors?.photos} />
+        </div>
       </div>
 
       <SubmitButton pending={pending}>
