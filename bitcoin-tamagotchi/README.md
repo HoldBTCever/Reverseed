@@ -2,8 +2,7 @@
 
 Um tamagochi que só cresce quando você o alimenta com **satoshis de verdade**.
 Vincule uma carteira Bitcoin — on-chain ou Lightning, apenas leitura, nunca
-custódia — e cada pagamento recebido nela vira uma refeição para o seu
-bichinho.
+custódia — e cada pagamento recebido vira uma refeição para o seu bichinho.
 
 ## Como funciona
 
@@ -11,12 +10,12 @@ bichinho.
    - **On-chain**: cole qualquer endereço Bitcoin (legacy `1...`, P2SH `3...`
      ou SegWit/Taproot `bc1...`) que você controle, ou clique em "Conectar
      carteira" se tiver a extensão [Unisat](https://unisat.io) instalada.
-   - **Lightning**: cole uma string de conexão
-     [Nostr Wallet Connect (NWC)](https://nwc.dev), gerada no app da sua
-     carteira (Alby, Mutiny, Zeus, etc.), concedendo apenas permissões de
-     leitura (saldo e transações).
+   - **Lightning**: cole seu **Lightning Address** (`nome@carteira.com`, ex:
+     `thisoctave46@walletofsatoshi.com`) — um identificador público, como um
+     e-mail, que qualquer pessoa pode usar para te pagar. Não é preciso
+     compartilhar senha nem chave alguma.
 
-   Em ambos os casos, só lemos dados públicos — nunca pedimos nem armazenamos
+   Em ambos os casos, só usamos dados públicos — nunca pedimos nem armazenamos
    chave privada, seed phrase, ou qualquer segredo de custódia.
 2. **Alimente com sats.**
    - **On-chain**: envie qualquer valor para o endereço vinculado. O app
@@ -24,10 +23,19 @@ bichinho.
      ([mempool.space](https://mempool.space), com
      [blockstream.info](https://blockstream.info) como alternativa) e detecta
      pagamentos novos automaticamente.
-   - **Lightning**: qualquer pagamento recebido na carteira conectada via NWC
-     é detectado no próximo poll. Se a conexão tiver a permissão
-     `make_invoice`, dá pra gerar uma fatura Lightning direto no app para
-     facilitar o envio.
+   - **Lightning**: como endereços Lightning não têm histórico público (não
+     existe um "mempool.space" para Lightning), alimentar funciona por ação
+     explícita — duas formas:
+     - **Gerar fatura**: o app pede uma fatura de X sats à sua carteira via
+       [LNURL-pay](https://github.com/lnurl/luds/blob/luds/06.md) e mostra o
+       QR code. Se a carteira suportar
+       [verificação sem autenticação (LUD-21)](https://github.com/lnurl/luds/blob/luds/21.md),
+       o app detecta o pagamento sozinho assim que ele é liquidado; senão, um
+       botão "Já paguei" confirma manualmente.
+     - **Colar uma fatura**: cole qualquer fatura `lnbc...` que você já tenha.
+       O app decodifica o valor localmente e, se detectar uma extensão WebLN
+       no navegador (ex: [Alby](https://getalby.com)), oferece pagar
+       diretamente; senão, também dá pra confirmar manualmente.
 3. **Cuide do seu pet.** Fome, felicidade e energia diminuem com o tempo,
    como em qualquer tamagochi. Alimentá-lo (recebendo sats) restaura os
    status; brincar e dormir ajudam entre uma alimentação e outra. Se ficar
@@ -46,15 +54,14 @@ tocar em nenhuma rede, só para testar o jogo.
 - Nunca pedimos, armazenamos ou transmitimos chaves privadas, seed phrases
   ou qualquer segredo de custódia.
 - **On-chain**: o único dado salvo é o endereço público vinculado.
-- **Lightning**: a string de conexão NWC concede exatamente as permissões que
-  você autorizar ao criá-la na sua carteira (recomendamos conceder só leitura:
-  `get_balance` + `list_transactions`, e opcionalmente `make_invoice`) — ela
-  nunca dá controle total da carteira, e pode ser revogada a qualquer momento
-  no app da sua carteira. Trate-a como uma senha.
+- **Lightning**: o único dado salvo é o Lightning Address — um identificador
+  público, sem nenhum segredo associado. Ninguém consegue gastar seus sats a
+  partir dele; ele só permite que outros te paguem, como um endereço de
+  e-mail permite que te enviem mensagens.
 - Tudo fica apenas no `localStorage` do seu navegador — nunca enviado a
   nenhum servidor nosso, pois não existe backend. O app fala diretamente com
-  APIs públicas de block explorers (on-chain) ou com o relay Nostr da sua
-  carteira (Lightning, via NWC).
+  APIs públicas de block explorers (on-chain) ou com o servidor LNURL-pay da
+  sua carteira (Lightning).
 - Toda a lógica do jogo roda no seu navegador.
 
 ## Rodando localmente
@@ -76,21 +83,23 @@ src/
 ├── lib/
 │   ├── petEngine.ts          # Lógica pura: decaimento, alimentação, evolução, humor
 │   ├── mempoolApi.ts         # Cliente para mempool.space/blockstream.info (saldo + txs on-chain)
-│   ├── nwc.ts                 # Cliente Nostr Wallet Connect (saldo + transações + faturas Lightning)
+│   ├── lnurl.ts               # Cliente LNURL-pay (resolve Lightning Address, gera e verifica faturas)
+│   ├── bolt11.ts              # Decodificador de faturas Lightning coladas manualmente
+│   ├── webln.ts               # Integração opcional com extensão WebLN (ex: Alby) para pagar faturas
 │   ├── demoWallet.ts         # Carteira on-chain simulada para o modo demonstração
 │   ├── demoLightning.ts      # Carteira Lightning simulada para o modo demonstração
 │   ├── bitcoinAddress.ts     # Validação de formato de endereço
 │   ├── unisat.ts             # Integração opcional com a extensão Unisat
 │   └── storage.ts            # Helpers de localStorage
 ├── hooks/
-│   ├── useWalletSync.ts      # Poll periódico da carteira vinculada (on-chain ou Lightning)
+│   ├── useWalletSync.ts      # Poll periódico da carteira vinculada (on-chain e Lightning demo)
 │   └── usePetState.ts        # Liga o estado do pet ao ciclo de vida da carteira
 └── components/
     ├── OnboardingScreen.tsx  # Tela de vínculo de carteira (abas on-chain / Lightning)
     ├── GameScreen.tsx        # Tela principal do jogo
     ├── PetSprite.tsx         # Sprite SVG do pet (varia por estágio/humor)
     ├── AddressCard.tsx       # Card de saldo + QR para carteiras on-chain
-    ├── LightningCard.tsx     # Card de saldo + geração de fatura para carteiras Lightning
+    ├── LightningCard.tsx     # Card de saldo + geração/colagem de fatura para carteiras Lightning
     ├── StatBar.tsx, FeedLog.tsx, ActionBar.tsx, TopHeader.tsx
 ```
 

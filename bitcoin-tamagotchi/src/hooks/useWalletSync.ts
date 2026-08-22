@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAddressInfo, getAddressTxs } from '../lib/mempoolApi';
 import { getDemoAddressInfo, getDemoAddressTxs } from '../lib/demoWallet';
 import { getDemoLightningInfo, getDemoLightningTxs } from '../lib/demoLightning';
-import { getLightningWalletData } from '../lib/nwc';
 import type { LinkedWallet, WalletTx } from '../types';
 
 const POLL_INTERVAL_MS = 45_000;
@@ -16,6 +15,17 @@ interface WalletSyncResult {
   refresh: () => void;
 }
 
+/**
+ * Whether a linked wallet can be passively polled for new incoming payments.
+ * On-chain addresses (real or demo) can — there's a public tx history API.
+ * A real Lightning Address cannot: LNURL-pay only lets you request and watch
+ * a specific invoice you generated, not list arbitrary incoming payments.
+ * Demo Lightning simulates payments locally, so it's pollable too.
+ */
+function isPollable(link: LinkedWallet): boolean {
+  return link.kind === 'onchain' || link.isDemo;
+}
+
 async function fetchWalletData(link: LinkedWallet): Promise<{ balanceSats: number; txs: WalletTx[] }> {
   if (link.kind === 'onchain') {
     if (link.isDemo) {
@@ -26,11 +36,8 @@ async function fetchWalletData(link: LinkedWallet): Promise<{ balanceSats: numbe
     return { balanceSats: info.balanceSats, txs };
   }
 
-  if (link.isDemo) {
-    const [info, txs] = await Promise.all([getDemoLightningInfo(), getDemoLightningTxs()]);
-    return { balanceSats: info.balanceSats, txs };
-  }
-  return getLightningWalletData(link.nwcUri);
+  const [info, txs] = await Promise.all([getDemoLightningInfo(), getDemoLightningTxs()]);
+  return { balanceSats: info.balanceSats, txs };
 }
 
 export function useWalletSync(link: LinkedWallet | null): WalletSyncResult {
@@ -42,7 +49,7 @@ export function useWalletSync(link: LinkedWallet | null): WalletSyncResult {
   const requestSeq = useRef(0);
 
   const load = useCallback(async () => {
-    if (!link) return;
+    if (!link || !isPollable(link)) return;
     const seq = ++requestSeq.current;
     setLoading(true);
     try {
@@ -61,7 +68,7 @@ export function useWalletSync(link: LinkedWallet | null): WalletSyncResult {
   }, [link]);
 
   useEffect(() => {
-    if (!link) return;
+    if (!link || !isPollable(link)) return;
     load();
     const interval = setInterval(load, POLL_INTERVAL_MS);
     const onFocus = () => load();

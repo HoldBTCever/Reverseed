@@ -352,6 +352,17 @@ body {
   color: var(--text-dim);
 }
 
+.lightning-card__form textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: monospace;
+  resize: vertical;
+}
+
 .lightning-card__amount-row {
   display: flex;
   gap: 8px;

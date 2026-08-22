@@ -4,7 +4,7 @@ export type WalletKind = 'onchain' | 'lightning';
 
 export type LinkedWallet =
   | { kind: 'onchain'; address: string; isDemo: boolean }
-  | { kind: 'lightning'; nwcUri: string; isDemo: boolean };
+  | { kind: 'lightning'; lightningAddress: string; isDemo: boolean };
 
 export interface FeedEvent {
   txid: string;

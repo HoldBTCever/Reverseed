@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { isValidBitcoinAddress } from '../lib/bitcoinAddress';
 import { connectUnisat, isUnisatAvailable } from '../lib/unisat';
-import { isValidNwcUri } from '../lib/nwc';
+import { isValidLightningAddress, resolveLightningAddress } from '../lib/lnurl';
 import type { LinkedWallet, WalletKind } from '../types';
 
 interface OnboardingScreenProps {
@@ -75,49 +75,57 @@ function OnchainTab({ onLink }: { onLink: (wallet: LinkedWallet) => void }) {
 }
 
 function LightningTab({ onLink }: { onLink: (wallet: LinkedWallet) => void }) {
-  const [nwcUri, setNwcUri] = useState('');
+  const [lightningAddress, setLightningAddress] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = nwcUri.trim();
-    if (!isValidNwcUri(trimmed)) {
-      setError('Isso não parece uma string de conexão NWC válida. Confira e tente novamente.');
+    const trimmed = lightningAddress.trim();
+    if (!isValidLightningAddress(trimmed)) {
+      setError('Isso não parece um endereço Lightning válido. Confira e tente novamente.');
       return;
     }
     setError(null);
-    onLink({ kind: 'lightning', nwcUri: trimmed, isDemo: false });
+    setVerifying(true);
+    try {
+      await resolveLightningAddress(trimmed);
+      onLink({ kind: 'lightning', lightningAddress: trimmed, isDemo: false });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível verificar esse endereço.');
+    } finally {
+      setVerifying(false);
+    }
   };
 
   return (
     <>
       <form className="onboarding__form" onSubmit={submit}>
-        <label htmlFor="nwc-input">Cole a string de conexão Nostr Wallet Connect (NWC)</label>
+        <label htmlFor="lnaddress-input">Cole seu endereço Lightning (Lightning Address)</label>
         <input
-          id="nwc-input"
+          id="lnaddress-input"
           type="text"
-          value={nwcUri}
-          onChange={(e) => setNwcUri(e.target.value)}
-          placeholder="nostr+walletconnect://..."
+          value={lightningAddress}
+          onChange={(e) => setLightningAddress(e.target.value)}
+          placeholder="seunome@carteira.com"
           spellCheck={false}
           autoComplete="off"
         />
         {error && <p className="onboarding__error">{error}</p>}
-        <button type="submit" className="primary-btn">
-          Vincular carteira Lightning
+        <button type="submit" className="primary-btn" disabled={verifying}>
+          {verifying ? 'Verificando…' : 'Vincular carteira Lightning'}
         </button>
       </form>
 
-      <button className="link-btn" onClick={() => onLink({ kind: 'lightning', nwcUri: '', isDemo: true })}>
+      <button className="link-btn" onClick={() => onLink({ kind: 'lightning', lightningAddress: '', isDemo: true })}>
         Experimentar Lightning em modo demonstração
       </button>
 
       <p className="onboarding__note">
-        NWC é um padrão aberto suportado por Alby, Mutiny, Zeus e outras carteiras Lightning para dar
-        acesso limitado a um app, sem entregar custódia. Gere a conexão no app da sua carteira e conceda
-        apenas as permissões de leitura (saldo e transações) — <strong>trate essa string como uma senha</strong>,
-        pois ela concede exatamente o que você autorizar. Revogue o acesso a qualquer momento no app da
-        sua carteira.
+        Um endereço Lightning (como <code>nome@carteira.com</code>) é um identificador público — como um
+        e-mail — que qualquer pessoa pode usar para te pagar. Não é preciso compartilhar senha nem chave
+        alguma. Como endereços Lightning não têm histórico público, alimentar o pet aqui funciona gerando
+        uma fatura para cada pagamento (ou colando uma fatura <code>lnbc...</code> que você já tem).
       </p>
     </>
   );

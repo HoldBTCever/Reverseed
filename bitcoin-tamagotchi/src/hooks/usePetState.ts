@@ -1,26 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { applyFeed, applyTick, createPetState, play as playAction, toggleSleep as toggleSleepAction } from '../lib/petEngine';
 import { loadJson, removeKey, saveJson } from '../lib/storage';
-import { disconnectLightningWallet, walletPubkeyFromUri } from '../lib/nwc';
 import { useWalletSync } from './useWalletSync';
 import type { LinkedWallet, PetState } from '../types';
 
 const LINK_KEY = 'satoshipet:link:v1';
 const TICK_INTERVAL_MS = 15_000;
 
-/** A storage key and display label that are safe to derive from a linked wallet — never the NWC secret itself. */
+/** A storage key and display label for a linked wallet — both are always public-safe. */
 function walletIdentity(link: LinkedWallet): { storageKey: string; label: string } {
   if (link.kind === 'onchain') {
     return link.isDemo
       ? { storageKey: 'demo-onchain', label: 'Modo demonstração' }
       : { storageKey: `onchain:${link.address}`, label: link.address };
   }
-  if (link.isDemo) {
-    return { storageKey: 'demo-lightning', label: 'Modo demonstração' };
-  }
-  const pubkey = walletPubkeyFromUri(link.nwcUri) ?? 'desconhecida';
-  const short = pubkey.length > 16 ? `${pubkey.slice(0, 8)}…${pubkey.slice(-6)}` : pubkey;
-  return { storageKey: `lightning:${pubkey}`, label: `Lightning ${short}` };
+  return link.isDemo
+    ? { storageKey: 'demo-lightning', label: 'Modo demonstração' }
+    : { storageKey: `lightning:${link.lightningAddress}`, label: link.lightningAddress };
 }
 
 function petKey(storageKey: string): string {
@@ -100,11 +96,10 @@ export function usePetState() {
   }, []);
 
   const unlinkWallet = useCallback(() => {
-    if (link?.kind === 'lightning' && !link.isDemo) disconnectLightningWallet();
     removeKey(LINK_KEY);
     setLink(null);
     setPet(null);
-  }, [link]);
+  }, []);
 
   const resetPet = useCallback(() => {
     if (!link) return;
@@ -122,6 +117,15 @@ export function usePetState() {
     persist(toggleSleepAction(pet));
   }, [pet, persist]);
 
+  /** Feeds the pet from a confirmed Lightning payment discovered outside the polling loop (an invoice generated or paid in-app). */
+  const feedManually = useCallback(
+    (id: string, sats: number, at = Date.now()) => {
+      if (!pet) return;
+      persist(applyFeed(pet, id, sats, at));
+    },
+    [pet, persist],
+  );
+
   return useMemo(
     () => ({
       pet,
@@ -132,7 +136,8 @@ export function usePetState() {
       resetPet,
       play,
       toggleSleep,
+      feedManually,
     }),
-    [pet, link, wallet, linkWallet, unlinkWallet, resetPet, play, toggleSleep],
+    [pet, link, wallet, linkWallet, unlinkWallet, resetPet, play, toggleSleep, feedManually],
   );
 }

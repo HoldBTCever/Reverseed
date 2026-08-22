@@ -20,6 +20,7 @@ interface GameScreenProps {
   onRefresh: () => void;
   onUnlink: () => void;
   onReset: () => void;
+  onFeed: (id: string, sats: number) => void;
 }
 
 const STATUS_MESSAGE: Record<string, string> = {
@@ -39,6 +40,7 @@ export default function GameScreen({
   onRefresh,
   onUnlink,
   onReset,
+  onFeed,
 }: GameScreenProps) {
   const stage = stageForTotalSats(pet.totalSatsFed);
   const mood = moodFor(pet);
@@ -84,8 +86,9 @@ export default function GameScreen({
         <LightningCard
           walletLabel={pet.walletLabel}
           isDemo={pet.isDemo}
-          nwcUri={linked.kind === 'lightning' && !linked.isDemo ? linked.nwcUri : null}
+          lightningAddress={linked.kind === 'lightning' && !linked.isDemo ? linked.lightningAddress : null}
           balanceSats={balanceSats}
+          onFeed={onFeed}
         />
       )}
 
