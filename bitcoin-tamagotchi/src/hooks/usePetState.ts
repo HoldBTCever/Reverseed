@@ -1,8 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { applyFeed, applyTick, createPetState, play as playAction, toggleSleep as toggleSleepAction } from '../lib/petEngine';
+import {
+  applyFeed,
+  applyTick,
+  createPetState,
+  play as playAction,
+  practiceHabit as practiceHabitAction,
+  toggleSleep as toggleSleepAction,
+  withHabitDefaults,
+} from '../lib/petEngine';
 import { loadJson, removeKey, saveJson } from '../lib/storage';
 import { useWalletSync } from './useWalletSync';
-import type { LinkedWallet, PetState } from '../types';
+import type { HabitKind, LinkedWallet, PetState } from '../types';
+
+function loadPet(storageKey: string): PetState | null {
+  const stored = loadJson<PetState>(petKey(storageKey));
+  return stored ? withHabitDefaults(stored) : null;
+}
 
 const LINK_KEY = 'satoshipet:link:v1';
 const TICK_INTERVAL_MS = 15_000;
@@ -29,7 +42,7 @@ export function usePetState() {
     const linked = loadJson<LinkedWallet>(LINK_KEY);
     if (!linked) return null;
     const identity = walletIdentity(linked);
-    return loadJson<PetState>(petKey(identity.storageKey)) ?? createPetState(linked.kind, identity.label, linked.isDemo);
+    return loadPet(identity.storageKey) ?? createPetState(linked.kind, identity.label, linked.isDemo);
   });
 
   const wallet = useWalletSync(link);
@@ -89,7 +102,7 @@ export function usePetState() {
     saveJson(LINK_KEY, next);
     setLink(next);
     const identity = walletIdentity(next);
-    const existing = loadJson<PetState>(petKey(identity.storageKey));
+    const existing = loadPet(identity.storageKey);
     const initial = existing ?? createPetState(next.kind, identity.label, next.isDemo);
     saveJson(petKey(identity.storageKey), initial);
     setPet(initial);
@@ -126,6 +139,14 @@ export function usePetState() {
     [pet, persist],
   );
 
+  const practiceHabit = useCallback(
+    (kind: HabitKind) => {
+      if (!pet) return;
+      persist(practiceHabitAction(pet, kind));
+    },
+    [pet, persist],
+  );
+
   return useMemo(
     () => ({
       pet,
@@ -137,7 +158,8 @@ export function usePetState() {
       play,
       toggleSleep,
       feedManually,
+      practiceHabit,
     }),
-    [pet, link, wallet, linkWallet, unlinkWallet, resetPet, play, toggleSleep, feedManually],
+    [pet, link, wallet, linkWallet, unlinkWallet, resetPet, play, toggleSleep, feedManually, practiceHabit],
   );
 }

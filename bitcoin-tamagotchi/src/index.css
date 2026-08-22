@@ -179,6 +179,14 @@ body {
   font-weight: 500;
 }
 
+.top-header__description {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-dim);
+  max-width: 260px;
+}
+
 .top-header__actions {
   display: flex;
   gap: 8px;

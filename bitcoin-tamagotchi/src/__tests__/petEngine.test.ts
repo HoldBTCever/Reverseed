@@ -4,7 +4,11 @@ import {
   applyTick,
   createPetState,
   feedPointsForSats,
+  HABIT_BADGE_THRESHOLD,
+  HABIT_COOLDOWN_MS,
+  hasHabitBadge,
   moodFor,
+  practiceHabit,
   stageForTotalSats,
 } from '../lib/petEngine';
 
@@ -12,23 +16,23 @@ const ADDRESS = 'bc1qtestaddress0000000000000000000000000';
 const HOUR = 60 * 60 * 1000;
 
 describe('stageForTotalSats', () => {
-  it('starts as an unhatched egg', () => {
-    expect(stageForTotalSats(0).name).toBe('Ovo de Satoshi');
+  it('starts still asleep in the fiat system', () => {
+    expect(stageForTotalSats(0).name).toBe('Plebe Adormecido');
   });
 
-  it('hatches after any sats are fed', () => {
-    expect(stageForTotalSats(1).name).toBe('Sat-Bebê');
+  it('wakes up after any sats are fed', () => {
+    expect(stageForTotalSats(1).name).toBe('Recém Orange-Pilled');
   });
 
   it('evolves through thresholds', () => {
-    expect(stageForTotalSats(10_000).name).toBe('Sat-Cub');
-    expect(stageForTotalSats(100_000).name).toBe('HODLer Jr.');
-    expect(stageForTotalSats(1_000_000).name).toBe('Bitcoin Whale');
-    expect(stageForTotalSats(100_000_000).name).toBe('Satoshi Lendário');
+    expect(stageForTotalSats(10_000).name).toBe('Poupador Disciplinado');
+    expect(stageForTotalSats(100_000).name).toBe('Provedor Estável');
+    expect(stageForTotalSats(1_000_000).name).toBe('Pai de Família Próspero');
+    expect(stageForTotalSats(100_000_000).name).toBe('Maximalista Lendário');
   });
 
   it('never regresses below the highest threshold reached', () => {
-    expect(stageForTotalSats(99_999).name).toBe('Sat-Cub');
+    expect(stageForTotalSats(99_999).name).toBe('Poupador Disciplinado');
   });
 });
 
@@ -175,5 +179,58 @@ describe('moodFor', () => {
     expect(moodFor({ ...base, hunger: 50, happiness: 50, energy: 50 })).toBe('neutral');
     expect(moodFor({ ...base, hunger: 20, happiness: 20, energy: 20 })).toBe('sad');
     expect(moodFor({ ...base, hunger: 5, happiness: 5, energy: 5 })).toBe('critical');
+  });
+});
+
+describe('practiceHabit', () => {
+  it('boosts stats and increments the habit counter', () => {
+    const now = Date.now();
+    const state = createPetState('onchain', ADDRESS, false, now);
+    const after = practiceHabit(state, 'gym', now);
+    expect(after.habits.gym).toBe(1);
+    expect(after.habits.carnivore).toBe(0);
+    expect(after.lastHabitAt.gym).toBe(now);
+    expect(after.happiness).toBeGreaterThan(state.happiness);
+  });
+
+  it('is a no-op within the cooldown window', () => {
+    const now = Date.now();
+    const state = practiceHabit(createPetState('onchain', ADDRESS, false, now), 'carnivore', now);
+    const tooSoon = practiceHabit(state, 'carnivore', now + HABIT_COOLDOWN_MS - 1);
+    expect(tooSoon).toEqual(state);
+  });
+
+  it('works again once the cooldown has elapsed', () => {
+    const now = Date.now();
+    const state = practiceHabit(createPetState('onchain', ADDRESS, false, now), 'carnivore', now);
+    const later = practiceHabit(state, 'carnivore', now + HABIT_COOLDOWN_MS + 1);
+    expect(later.habits.carnivore).toBe(2);
+  });
+
+  it('never affects a dead avatar', () => {
+    const now = Date.now();
+    const state = { ...createPetState('onchain', ADDRESS, false, now), status: 'gone' as const };
+    expect(practiceHabit(state, 'gym', now)).toEqual(state);
+  });
+
+  it('tracks each habit kind independently', () => {
+    const now = Date.now();
+    let state = createPetState('onchain', ADDRESS, false, now);
+    state = practiceHabit(state, 'gym', now);
+    state = practiceHabit(state, 'austrianSchool', now);
+    expect(state.habits).toEqual({ gym: 1, austrianSchool: 1, carnivore: 0 });
+  });
+});
+
+describe('hasHabitBadge', () => {
+  it('is false below the threshold and true once reached', () => {
+    const now = Date.now();
+    let state = createPetState('onchain', ADDRESS, false, now);
+    for (let i = 0; i < HABIT_BADGE_THRESHOLD - 1; i++) {
+      state = practiceHabit(state, 'gym', now + i * HABIT_COOLDOWN_MS);
+    }
+    expect(hasHabitBadge(state, 'gym')).toBe(false);
+    state = practiceHabit(state, 'gym', now + HABIT_BADGE_THRESHOLD * HABIT_COOLDOWN_MS);
+    expect(hasHabitBadge(state, 'gym')).toBe(true);
   });
 });

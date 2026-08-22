@@ -2,7 +2,7 @@
   "name": "bitcoin-tamagotchi",
   "private": true,
   "version": "1.0.0",
-  "description": "Um bichinho virtual (tamagochi) alimentado por satoshis de Bitcoin recebidos na carteira vinculada.",
+  "description": "Um avatar que evolui com suas decisões financeiras de longo prazo, alimentado por satoshis de Bitcoin recebidos na carteira vinculada.",
   "type": "module",
   "scripts": {
     "dev": "vite",

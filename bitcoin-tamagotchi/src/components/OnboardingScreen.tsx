@@ -137,12 +137,13 @@ export default function OnboardingScreen({ onLink }: OnboardingScreenProps) {
   return (
     <div className="onboarding">
       <div className="onboarding__hero">
-        <span className="onboarding__egg">🥚</span>
+        <span className="onboarding__egg">🟠</span>
         <h1>Satoshi Pet</h1>
         <p>
-          Um bichinho virtual que só cresce se você o alimentar com <strong>satoshis de verdade</strong>.
-          Vincule uma carteira Bitcoin on-chain ou Lightning — apenas para leitura, nunca pedimos custódia
-          — e cada pagamento recebido vira uma refeição.
+          Um avatar que evolui conforme suas <strong>decisões financeiras de longo prazo</strong>. Vincule
+          uma carteira Bitcoin on-chain ou Lightning — apenas para leitura, nunca pedimos custódia — e cada
+          satoshi acumulado o aproxima de uma vida construída com baixa preferência temporal: estabilidade,
+          família, saúde, liberdade.
         </p>
       </div>
 

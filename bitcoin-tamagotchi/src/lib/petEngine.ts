@@ -1,13 +1,77 @@
-import type { EvolutionStage, Mood, PetState, PetStatus, WalletKind } from '../types';
+import type { EvolutionStage, HabitCounts, HabitKind, HabitTimestamps, Mood, PetState, PetStatus, WalletKind } from '../types';
 
 export const STAGES: EvolutionStage[] = [
-  { id: 0, name: 'Ovo de Satoshi', minTotalSats: 0 },
-  { id: 1, name: 'Sat-Bebê', minTotalSats: 1 },
-  { id: 2, name: 'Sat-Cub', minTotalSats: 10_000 },
-  { id: 3, name: 'HODLer Jr.', minTotalSats: 100_000 },
-  { id: 4, name: 'Bitcoin Whale', minTotalSats: 1_000_000 },
-  { id: 5, name: 'Satoshi Lendário', minTotalSats: 100_000_000 },
+  {
+    id: 0,
+    name: 'Plebe Adormecido',
+    description: 'Ainda no sistema fiduciário — precisa ser despertado com o primeiro satoshi.',
+    minTotalSats: 0,
+  },
+  {
+    id: 1,
+    name: 'Recém Orange-Pilled',
+    description: 'Acabou de descobrir Bitcoin. A jornada de baixa preferência temporal começa agora.',
+    minTotalSats: 1,
+  },
+  {
+    id: 2,
+    name: 'Poupador Disciplinado',
+    description: 'Trocando consumo imediato por acumulação — construindo o hábito.',
+    minTotalSats: 10_000,
+  },
+  {
+    id: 3,
+    name: 'Provedor Estável',
+    description: 'Já tem onde morar. A base está posta.',
+    minTotalSats: 100_000,
+  },
+  {
+    id: 4,
+    name: 'Pai de Família Próspero',
+    description: 'Casa, família, filhos livres do fiat — as decisões de longo prazo compensaram.',
+    minTotalSats: 1_000_000,
+  },
+  {
+    id: 5,
+    name: 'Maximalista Lendário',
+    description: '1 BTC acumulado. O topo da pirâmide de necessidades, bitcoinizada.',
+    minTotalSats: 100_000_000,
+  },
 ];
+
+export const HABIT_KINDS: HabitKind[] = ['carnivore', 'austrianSchool', 'gym'];
+export const HABIT_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+export const HABIT_BADGE_THRESHOLD = 5;
+
+export const HABIT_INFO: Record<HabitKind, { label: string; flavor: string; icon: string }> = {
+  carnivore: { label: 'Dieta Carnívora', flavor: 'Só carne, sal e água.', icon: '🥩' },
+  austrianSchool: { label: 'Escola Austríaca', flavor: 'Mises, Hayek, Rothbard, O Padrão Bitcoin.', icon: '📖' },
+  gym: { label: 'Treinar', flavor: 'Ficar difícil de matar.', icon: '💪' },
+};
+
+const HABIT_EFFECTS: Record<HabitKind, { happiness: number; health: number; energy: number }> = {
+  carnivore: { happiness: 6, health: 10, energy: 6 },
+  austrianSchool: { happiness: 12, health: 0, energy: -3 },
+  gym: { happiness: 8, health: 8, energy: -10 },
+};
+
+function emptyHabitCounts(): HabitCounts {
+  return { carnivore: 0, austrianSchool: 0, gym: 0 };
+}
+
+function emptyHabitTimestamps(): HabitTimestamps {
+  return { carnivore: null, austrianSchool: null, gym: null };
+}
+
+/** Backfills habits/lastHabitAt on a PetState persisted before those fields existed. */
+export function withHabitDefaults(state: PetState): PetState {
+  if (state.habits && state.lastHabitAt) return state;
+  return {
+    ...state,
+    habits: state.habits ?? emptyHabitCounts(),
+    lastHabitAt: state.lastHabitAt ?? emptyHabitTimestamps(),
+  };
+}
 
 // Stat points lost per hour of real elapsed time.
 const HUNGER_DECAY_PER_HOUR = 4;
@@ -53,6 +117,8 @@ export function createPetState(
     feedLog: [],
     hibernatingSince: null,
     name: 'Satoshi',
+    habits: emptyHabitCounts(),
+    lastHabitAt: emptyHabitTimestamps(),
   };
 }
 
@@ -188,6 +254,27 @@ export function play(state: PetState, now = Date.now()): PetState {
 export function toggleSleep(state: PetState): PetState {
   if (state.status !== 'alive') return state;
   return { ...state, isSleeping: !state.isSleeping };
+}
+
+/** Practices a Bitcoiner-lifestyle habit — a free, cosmetic/mood action that never affects evolution stage. */
+export function practiceHabit(state: PetState, kind: HabitKind, now = Date.now()): PetState {
+  if (state.status !== 'alive') return state;
+  const last = state.lastHabitAt[kind];
+  if (last && now - last < HABIT_COOLDOWN_MS) return state;
+
+  const effect = HABIT_EFFECTS[kind];
+  return {
+    ...state,
+    happiness: clamp(state.happiness + effect.happiness),
+    health: clamp(state.health + effect.health),
+    energy: clamp(state.energy + effect.energy),
+    habits: { ...state.habits, [kind]: state.habits[kind] + 1 },
+    lastHabitAt: { ...state.lastHabitAt, [kind]: now },
+  };
+}
+
+export function hasHabitBadge(state: PetState, kind: HabitKind): boolean {
+  return state.habits[kind] >= HABIT_BADGE_THRESHOLD;
 }
 
 function pushCapped(list: string[], item: string, max: number): string[] {

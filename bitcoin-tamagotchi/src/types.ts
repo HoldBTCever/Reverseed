@@ -12,6 +12,12 @@ export interface FeedEvent {
   at: number;
 }
 
+/** Bitcoiner-lifestyle actions the avatar can practice between real sat deposits. Purely cosmetic/mood — never affects evolution stage. */
+export type HabitKind = 'carnivore' | 'austrianSchool' | 'gym';
+
+export type HabitCounts = Record<HabitKind, number>;
+export type HabitTimestamps = Record<HabitKind, number | null>;
+
 export interface PetState {
   walletKind: WalletKind;
   /** Public-safe label for the linked wallet (address, or a shortened Lightning wallet pubkey). Never a secret. */
@@ -31,6 +37,8 @@ export interface PetState {
   feedLog: FeedEvent[];
   hibernatingSince: number | null;
   name: string;
+  habits: HabitCounts;
+  lastHabitAt: HabitTimestamps;
 }
 
 export type Mood = 'happy' | 'neutral' | 'sad' | 'critical' | 'hibernating' | 'gone';
@@ -38,6 +46,7 @@ export type Mood = 'happy' | 'neutral' | 'sad' | 'critical' | 'hibernating' | 'g
 export interface EvolutionStage {
   id: number;
   name: string;
+  description: string;
   minTotalSats: number;
 }
 

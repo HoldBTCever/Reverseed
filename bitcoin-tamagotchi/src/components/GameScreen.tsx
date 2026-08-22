@@ -1,5 +1,5 @@
-import { moodFor, stageForTotalSats } from '../lib/petEngine';
-import type { LinkedWallet, PetState } from '../types';
+import { hasHabitBadge, moodFor, stageForTotalSats } from '../lib/petEngine';
+import type { HabitKind, LinkedWallet, PetState } from '../types';
 import PetSprite from './PetSprite';
 import StatBar from './StatBar';
 import AddressCard from './AddressCard';
@@ -21,11 +21,12 @@ interface GameScreenProps {
   onUnlink: () => void;
   onReset: () => void;
   onFeed: (id: string, sats: number) => void;
+  onHabit: (kind: HabitKind) => void;
 }
 
 const STATUS_MESSAGE: Record<string, string> = {
-  hibernating: '😴 Seu pet hibernou por falta de cuidado. Envie sats para a carteira vinculada e ele acorda.',
-  gone: '💔 Seu pet partiu depois de dias sem receber sats. Você pode recomeçar com a mesma carteira.',
+  hibernating: '😴 Seu avatar voltou a viver no curto prazo por falta de aportes. Envie mais sats e ele retoma o rumo.',
+  gone: '💔 Depois de dias sem aportes, seu avatar recaiu de vez no sistema fiduciário. Comece de novo com a mesma carteira.',
 };
 
 export default function GameScreen({
@@ -41,16 +42,23 @@ export default function GameScreen({
   onUnlink,
   onReset,
   onFeed,
+  onHabit,
 }: GameScreenProps) {
   const stage = stageForTotalSats(pet.totalSatsFed);
   const mood = moodFor(pet);
   const isInteractive = pet.status === 'alive';
+  const habitBadges = {
+    carnivore: hasHabitBadge(pet, 'carnivore'),
+    austrianSchool: hasHabitBadge(pet, 'austrianSchool'),
+    gym: hasHabitBadge(pet, 'gym'),
+  };
 
   return (
     <div className="game-screen">
       <TopHeader
         petName={pet.name}
         stageName={stage.name}
+        stageDescription={stage.description}
         walletKind={pet.walletKind}
         onUnlink={onUnlink}
         onReset={onReset}
@@ -58,7 +66,7 @@ export default function GameScreen({
 
       <div className="device-shell">
         <div className="device-screen">
-          <PetSprite stageId={stage.id} mood={mood} />
+          <PetSprite stageId={stage.id} mood={mood} habitBadges={habitBadges} />
           {pet.isSleeping && pet.status === 'alive' && <p className="device-screen__hint">Zzz… dormindo para recuperar energia</p>}
           {STATUS_MESSAGE[pet.status] && <p className="device-screen__alert">{STATUS_MESSAGE[pet.status]}</p>}
         </div>
@@ -76,6 +84,7 @@ export default function GameScreen({
           onPlay={onPlay}
           onToggleSleep={onToggleSleep}
           onRefresh={onRefresh}
+          onHabit={onHabit}
           refreshing={walletLoading}
         />
       </div>

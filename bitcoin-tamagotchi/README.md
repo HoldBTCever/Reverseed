@@ -1,8 +1,9 @@
-# Satoshi Pet 🐣
+# Satoshi Pet 🟠
 
-Um tamagochi que só cresce quando você o alimenta com **satoshis de verdade**.
+Um avatar que evolui conforme suas **decisões financeiras de longo prazo**.
 Vincule uma carteira Bitcoin — on-chain ou Lightning, apenas leitura, nunca
-custódia — e cada pagamento recebido vira uma refeição para o seu bichinho.
+custódia — e cada satoshi acumulado o aproxima de uma vida construída com
+baixa preferência temporal: estabilidade, família, saúde, liberdade.
 
 ## Como funciona
 
@@ -36,18 +37,23 @@ custódia — e cada pagamento recebido vira uma refeição para o seu bichinho.
        O app decodifica o valor localmente e, se detectar uma extensão WebLN
        no navegador (ex: [Alby](https://getalby.com)), oferece pagar
        diretamente; senão, também dá pra confirmar manualmente.
-3. **Cuide do seu pet.** Fome, felicidade e energia diminuem com o tempo,
-   como em qualquer tamagochi. Alimentá-lo (recebendo sats) restaura os
-   status; brincar e dormir ajudam entre uma alimentação e outra. Se ficar
-   muito tempo sem sats, o pet hiberna — e se a hibernação durar mais de 7
-   dias sem alimento, ele parte (dá pra recomeçar a qualquer momento).
-4. **Evolua.** A cada satoshi recebido, o total acumulado avança o pet por
-   estágios: Ovo → Sat-Bebê → Sat-Cub → HODLer Jr. → Bitcoin Whale →
-   Satoshi Lendário (em 1 BTC acumulado).
+3. **Cuide do avatar.** Fome, felicidade e energia diminuem com o tempo.
+   Alimentá-lo (recebendo sats) restaura os status; brincar e dormir ajudam
+   entre um aporte e outro — assim como as **ações temáticas bitcoiner**:
+   Dieta Carnívora 🥩, Escola Austríaca 📖 e Treinar 💪 (cada uma com seu
+   cooldown, e desbloqueia um selo cosmético no avatar após 5 usos — nunca
+   afetam a evolução, que só acontece com sats reais). Se ficar muito tempo
+   sem aportes, o avatar recai no curto prazo — e se isso durar mais de 7
+   dias, ele volta pro sistema fiduciário de vez (dá pra recomeçar quando
+   quiser).
+4. **Evolua.** A cada satoshi recebido, o total acumulado avança o avatar por
+   estágios: Plebe Adormecido → Recém Orange-Pilled → Poupador Disciplinado →
+   Provedor Estável (casa) → Pai de Família Próspero (família) → Maximalista
+   Lendário (1 BTC acumulado).
 
 Não quer usar uma carteira real ainda? Cada aba (on-chain e Lightning) tem seu
 próprio **modo demonstração**: gera pagamentos simulados periodicamente, sem
-tocar em nenhuma rede, só para testar o jogo.
+tocar em nenhuma rede, só para testar o app.
 
 ## Privacidade e segurança
 
@@ -81,7 +87,7 @@ npm run typecheck # checagem de tipos
 src/
 ├── types.ts                 # Tipos compartilhados (PetState, WalletKind, LinkedWallet, ...)
 ├── lib/
-│   ├── petEngine.ts          # Lógica pura: decaimento, alimentação, evolução, humor
+│   ├── petEngine.ts          # Lógica pura: decaimento, alimentação, evolução, humor, hábitos bitcoiner
 │   ├── mempoolApi.ts         # Cliente para mempool.space/blockstream.info (saldo + txs on-chain)
 │   ├── lnurl.ts               # Cliente LNURL-pay (resolve Lightning Address, gera e verifica faturas)
 │   ├── bolt11.ts              # Decodificador de faturas Lightning coladas manualmente
@@ -97,7 +103,7 @@ src/
 └── components/
     ├── OnboardingScreen.tsx  # Tela de vínculo de carteira (abas on-chain / Lightning)
     ├── GameScreen.tsx        # Tela principal do jogo
-    ├── PetSprite.tsx         # Sprite SVG do pet (varia por estágio/humor)
+    ├── PetSprite.tsx         # Avatar SVG (bust humano; varia por estágio/humor + selos de casa/família/hábitos)
     ├── AddressCard.tsx       # Card de saldo + QR para carteiras on-chain
     ├── LightningCard.tsx     # Card de saldo + geração/colagem de fatura para carteiras Lightning
     ├── StatBar.tsx, FeedLog.tsx, ActionBar.tsx, TopHeader.tsx
