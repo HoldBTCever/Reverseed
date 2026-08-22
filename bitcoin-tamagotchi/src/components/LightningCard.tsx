@@ -128,9 +128,11 @@ function GenerateInvoiceSection({ lightningAddress, onFeed }: { lightningAddress
           <button className="link-btn" onClick={copyInvoice}>
             {copied ? 'Copiado!' : 'Copiar fatura'}
           </button>
-          {pending.verifyUrl && (
-            <p className="onboarding__note">Aguardando pagamento… se essa carteira confirmar automaticamente, o pet come sozinho.</p>
-          )}
+          <p className="onboarding__note">
+            {pending.verifyUrl
+              ? '✅ Essa carteira confirma pagamentos automaticamente — aguardando… o pet come sozinho assim que a fatura for paga.'
+              : '⚠️ Essa carteira não confirma pagamentos automaticamente. Pague e confirme manualmente abaixo, ou use uma carteira com extensão WebLN.'}
+          </p>
           {error && <p className="onboarding__error">{error}</p>}
           {isWebLNAvailable() && (
             <button className="primary-btn" onClick={payWithExtension} disabled={paying}>
