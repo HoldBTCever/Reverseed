@@ -6,6 +6,14 @@ import {NEA_SEED_MATCHES} from './seedNea.js';
 import {PARAGUAYO_FIXTURE} from './seedParaguayo.js';
 import {getRealRoster, pickStartingXV, rosterWithStatus, getStaff, getStaffQuality, specialtyStaffBonus, getFacilityQuality, getDualPartner, conditionMultiplier, getParaguaySquad, setRecruitedPlayers, YOUTH_CATEGORIES, YOUTH_CATEGORY_TOTAL_SIZE, createInitialYouthAcademy, ensureCuratedYouthPlayers, advanceYouthAcademy, effectiveOverallAt, STAFF_SKILL_LABELS} from './realSquads.js';
 
+// Dificuldade escolhida uma vez no início do jogo (ver renderTeamSelect/
+// newGame): multiplicador de ataque/defesa aplicado só no lado RIVAL das
+// partidas do próprio usuário (nunca no seu time — ver matchContext.rivalMod/
+// rivalSide, repassado pro engine.js em renderLive). Valores modestos, na
+// mesma faixa da vantagem de mandante (HOME_ADVANTAGE ±3% em engine.js), pra
+// não distorcer o resto do equilíbrio da simulação.
+const DIFFICULTY_MOD = {facil: 0.90, medio: 1, dificil: 1.12};
+
 // ---- Seleção Paraguay (Los Yacarés) ---------------------------------------
 // Time "virtual" pra amistosos e torneios aleatórios: não disputa nenhuma
 // competição de clubes, é escalado sob demanda com getParaguaySquad() (melhor
@@ -106,6 +114,14 @@ const I18N = {
     langToggleBtn: 'Português',
     teamSelectTitle: '🏉 Elegí tu equipo',
     teamSelectDesc: 'Elegí el club que vas a dirigir como manager. Disputás el campeonato de tu país, junto con los demás clubes de la misma liga, y seguís los partidos en vivo en la cancha. Algunos clubes disputan dos ligas al mismo tiempo.',
+    difficultyTitle: 'Dificultad',
+    difficultyDesc: 'Elegí antes de tocar tu club — no se puede cambiar después de empezar. Solo afecta a los rivales EN TUS partidos, no cambia el resto de la liga.',
+    difficultyFacil: 'Fácil',
+    difficultyFacilDesc: 'Rivales un poco más flojos en tus partidos.',
+    difficultyMedio: 'Medio',
+    difficultyMedioDesc: 'Equilibrio normal del juego.',
+    difficultyDificil: 'Difícil',
+    difficultyDificilDesc: 'Rivales más duros en tus partidos.',
     statsLine: 'Ataque {a} · Defensa {d} · Físico {s}',
     dualLeague: 'Disputa dos ligas',
     colTime: 'Equipo',
@@ -376,6 +392,14 @@ const I18N = {
     langToggleBtn: 'Español',
     teamSelectTitle: '🏉 Escolha seu time',
     teamSelectDesc: 'Selecione o clube que você vai comandar como manager. Você disputa o campeonato do seu país, junto com os outros clubes da mesma liga, e acompanha as partidas ao vivo na quadra. Alguns clubes disputam duas ligas ao mesmo tempo.',
+    difficultyTitle: 'Dificuldade',
+    difficultyDesc: 'Escolha antes de clicar no seu clube — não dá pra mudar depois de começar. Só afeta os rivais NAS SUAS partidas, não muda o resto da liga.',
+    difficultyFacil: 'Fácil',
+    difficultyFacilDesc: 'Rivais um pouco mais fracos nas suas partidas.',
+    difficultyMedio: 'Médio',
+    difficultyMedioDesc: 'Equilíbrio normal do jogo.',
+    difficultyDificil: 'Difícil',
+    difficultyDificilDesc: 'Rivais mais duros nas suas partidas.',
     statsLine: 'Ataque {a} · Defesa {d} · Físico {s}',
     dualLeague: 'Disputa duas ligas',
     colTime: 'Time',
@@ -1094,7 +1118,7 @@ function buildCompetition(teamId) {
   return league.groups ? buildGroupCompetition(league, teamId) : buildLeagueCompetition(league, teamId);
 }
 
-function newGame(myTeamId) {
+function newGame(myTeamId, difficulty) {
   const competitions = {};
   const primary = buildCompetition(myTeamId);
   competitions[primary.league] = primary;
@@ -1109,6 +1133,7 @@ function newGame(myTeamId) {
 
   state = {
     myTeamId,
+    difficulty: DIFFICULTY_MOD[difficulty] ? difficulty : 'medio', // 'facil' | 'medio' | 'dificil' — escolhida uma vez no início, ver DIFFICULTY_MOD
     competitions,
     activeCompetition: primary.league,
     tactic: 'equilibrado',
@@ -1152,6 +1177,9 @@ const topbarRight = document.getElementById('topbarRight');
 const myTeamBadge = document.getElementById('myTeamBadge');
 
 let currentView = 'dashboard';
+// Dificuldade escolhida na tela de novo jogo, ANTES de clicar no time (ver
+// renderTeamSelect) — só existe até o clique virar um newGame(team.id, ...).
+let newGameDifficulty = 'medio';
 let squadSortMode = 'overall'; // 'overall' (padrão) ou 'position' (1-15 titulares por camisa, depois reservas por posto)
 // Posto exibido (sozinho) quando squadSortMode === 'position', em cada caixa
 // (plantel principal e cada categoria de base) de forma independente;
@@ -2646,11 +2674,32 @@ function render() {
 }
 
 function renderTeamSelect() {
+  const difficultyOption = key => `
+    <button type="button" class="sortBtn difficultyBtn ${newGameDifficulty === key ? 'selected' : ''}" data-difficulty="${key}">
+      <b>${t('difficulty' + key.charAt(0).toUpperCase() + key.slice(1))}</b>
+      <span class="muted">${t('difficulty' + key.charAt(0).toUpperCase() + key.slice(1) + 'Desc')}</span>
+    </button>
+  `;
   content.innerHTML = `
     <h1>${t('teamSelectTitle')}</h1>
     <p class="muted">${t('teamSelectDesc')}</p>
+    <div class="card">
+      <h3>${t('difficultyTitle')}</h3>
+      <p class="muted">${t('difficultyDesc')}</p>
+      <div class="difficultyOptions">
+        ${difficultyOption('facil')}
+        ${difficultyOption('medio')}
+        ${difficultyOption('dificil')}
+      </div>
+    </div>
     <div id="leagueSections"></div>
   `;
+  Array.from(document.querySelectorAll('[data-difficulty]')).forEach(btn => {
+    btn.addEventListener('click', () => {
+      newGameDifficulty = btn.dataset.difficulty;
+      renderTeamSelect();
+    });
+  });
   const sections = document.getElementById('leagueSections');
   LEAGUES.forEach(league => {
     const section = document.createElement('div');
@@ -2668,7 +2717,7 @@ function renderTeamSelect() {
         <div class="teamStats">${t('statsLine', {a: team.attack, d: team.defense, s: team.stamina})}</div>
         ${dual ? `<div class="teamStats muted">${t('dualLeague')}</div>` : ''}
       `;
-      card.addEventListener('click', () => newGame(team.id));
+      card.addEventListener('click', () => newGame(team.id, newGameDifficulty));
       grid.appendChild(card);
     });
     section.appendChild(grid);
@@ -5107,10 +5156,14 @@ function renderLive() {
   // qualquer recálculo por substituição ao vivo (ver performLiveSub, que
   // reusa este mesmo matchContext). Vantagem de mandante e moral entram
   // pelo mesmo matchContext, sempre relativo ao mandante real da partida.
+  // Dificuldade (ver DIFFICULTY_MOD): só entra nas partidas do PRÓPRIO
+  // usuário, e só no lado RIVAL — nunca no seu próprio time.
   const matchContext = {
     formA: teamFormFor(homeId),
     formB: teamFormFor(awayId),
     weather: rollWeather(),
+    rivalMod: DIFFICULTY_MOD[state.difficulty] || 1,
+    rivalSide: homeId === c.teamId ? 'B' : (awayId === c.teamId ? 'A' : null),
   };
 
   const result = simulateMatch(

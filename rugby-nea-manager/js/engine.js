@@ -448,8 +448,14 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
   const planB = gamePlanB || defaultGamePlan();
   const tacticObjA = TACTICS[tacticA] || TACTICS.equilibrado;
   const tacticObjB = TACTICS[tacticB] || TACTICS.equilibrado;
-  const {neutralVenue = false, formA = null, formB = null, weather = 'seco'} = matchContext;
+  const {neutralVenue = false, formA = null, formB = null, weather = 'seco', rivalMod = 1, rivalSide = null} = matchContext;
   const weatherObj = WEATHER_TYPES[weather] || WEATHER_TYPES.seco;
+  // Dificuldade escolhida pelo usuário no início do jogo: um multiplicador
+  // de ataque/defesa aplicado só no lado RIVAL (ver newGame/DIFFICULTY_MOD
+  // em app.js) — nunca no próprio lado do usuário, então só entra em jogo
+  // nas partidas que ele realmente disputa.
+  const difficultyModA = rivalSide === 'A' ? rivalMod : 1;
+  const difficultyModB = rivalSide === 'B' ? rivalMod : 1;
   const moraleModA = moraleModFromForm(formA);
   const moraleModB = moraleModFromForm(formB);
   const homeKickBonusA = neutralVenue ? 0 : HOME_ADVANTAGE.homeKickBonus;
@@ -620,10 +626,10 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
 
     const homeAttackModA = neutralVenue ? 1 : HOME_ADVANTAGE.attackMod;
     const homeDefenseModA = neutralVenue ? 1 : HOME_ADVANTAGE.defenseMod;
-    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.attackMod * sysA.attackMod * podsA.attackMod * weatherObj.attackMod * moraleModA * homeAttackModA;
-    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.defenseMod * sysA.defenseMod * podsA.defenseMod * weatherObj.defenseMod * moraleModA * homeDefenseModA;
-    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.attackMod * sysB.attackMod * podsB.attackMod * weatherObj.attackMod * moraleModB;
-    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.defenseMod * sysB.defenseMod * podsB.defenseMod * weatherObj.defenseMod * moraleModB;
+    const effAttackA = sA.attack * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.attackMod * sysA.attackMod * podsA.attackMod * weatherObj.attackMod * moraleModA * homeAttackModA * difficultyModA;
+    const effDefenseA = sA.defense * (cardPenaltyA > 0 ? 0.82 : 1) * (redCardA ? 0.75 : 1) * fatigueA * styleA.defenseMod * sysA.defenseMod * podsA.defenseMod * weatherObj.defenseMod * moraleModA * homeDefenseModA * difficultyModA;
+    const effAttackB = sB.attack * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.attackMod * sysB.attackMod * podsB.attackMod * weatherObj.attackMod * moraleModB * difficultyModB;
+    const effDefenseB = sB.defense * (cardPenaltyB > 0 ? 0.82 : 1) * (redCardB ? 0.75 : 1) * fatigueB * styleB.defenseMod * sysB.defenseMod * podsB.defenseMod * weatherObj.defenseMod * moraleModB * difficultyModB;
 
     let push = ((effAttackA - effDefenseB) - (effAttackB - effDefenseA)) * 0.14;
     push += rand(-9, 9);

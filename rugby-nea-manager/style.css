@@ -342,6 +342,13 @@ canvas#pitch {
 }
 .posFilterBtn.selected { border-color: var(--accent); color: var(--text); background: rgba(46,204,113,0.1); }
 
+.difficultyOptions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.difficultyBtn {
+  flex: 1 1 160px; display: flex; flex-direction: column; gap: 3px; text-align: left;
+  padding: 10px 12px;
+}
+.difficultyBtn .muted { font-size: 11px; }
+
 .lineupEditorGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
