@@ -22,12 +22,13 @@ function GenerateInvoiceSection({ lightningAddress, onFeed }: { lightningAddress
   const [pending, setPending] = useState<GeneratedInvoice | null>(null);
   const [pendingSats, setPendingSats] = useState(0);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [settled, setSettled] = useState(false);
+  const [settled, setSettled] = useState<'unpaid' | 'verified' | 'unverified'>('unpaid');
   const [copied, setCopied] = useState(false);
+  const [paying, setPaying] = useState(false);
   const pollStartedAt = useRef(0);
 
   useEffect(() => {
-    if (!pending?.verifyUrl || settled) return;
+    if (!pending?.verifyUrl || settled !== 'unpaid') return;
     pollStartedAt.current = Date.now();
     const interval = setInterval(async () => {
       if (Date.now() - pollStartedAt.current > VERIFY_TIMEOUT_MS) {
@@ -37,7 +38,7 @@ function GenerateInvoiceSection({ lightningAddress, onFeed }: { lightningAddress
       const ok = await isInvoiceSettled(pending.verifyUrl!);
       if (ok) {
         clearInterval(interval);
-        setSettled(true);
+        setSettled('verified');
         onFeed(pending.invoice, pendingSats);
       }
     }, VERIFY_POLL_MS);
@@ -54,7 +55,7 @@ function GenerateInvoiceSection({ lightningAddress, onFeed }: { lightningAddress
     setError(null);
     setPending(null);
     setQrDataUrl(null);
-    setSettled(false);
+    setSettled('unpaid');
     try {
       const result = await requestLightningInvoice(lightningAddress, sats, 'Alimentar Satoshi Pet');
       setPending(result);
@@ -83,14 +84,36 @@ function GenerateInvoiceSection({ lightningAddress, onFeed }: { lightningAddress
     }
   };
 
+  const payWithExtension = async () => {
+    if (!pending) return;
+    setPaying(true);
+    setError(null);
+    try {
+      await payWithWebLN(pending.invoice);
+      setSettled('verified');
+      onFeed(pending.invoice, pendingSats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'O pagamento falhou.');
+    } finally {
+      setPaying(false);
+    }
+  };
+
   const confirmManually = () => {
     if (!pending) return;
-    setSettled(true);
+    setSettled('unverified');
     onFeed(pending.invoice, pendingSats);
   };
 
-  if (settled) {
-    return <p className="onboarding__note">✅ Fatura paga! {pendingSats.toLocaleString('pt-BR')} sats alimentaram o pet.</p>;
+  if (settled === 'verified') {
+    return <p className="onboarding__note">✅ Pagamento confirmado! {pendingSats.toLocaleString('pt-BR')} sats alimentaram o pet.</p>;
+  }
+  if (settled === 'unverified') {
+    return (
+      <p className="onboarding__note">
+        🍖 {pendingSats.toLocaleString('pt-BR')} sats registrados (confirmado manualmente, sem verificação).
+      </p>
+    );
   }
 
   if (pending && qrDataUrl) {
@@ -105,18 +128,18 @@ function GenerateInvoiceSection({ lightningAddress, onFeed }: { lightningAddress
           <button className="link-btn" onClick={copyInvoice}>
             {copied ? 'Copiado!' : 'Copiar fatura'}
           </button>
-          {pending.verifyUrl ? (
-            <p className="onboarding__note">Aguardando pagamento… o pet come automaticamente assim que a fatura for paga.</p>
-          ) : (
-            <>
-              <p className="onboarding__note">
-                Essa carteira não confirma pagamentos automaticamente. Depois de pagar, confirme abaixo.
-              </p>
-              <button className="primary-btn" onClick={confirmManually}>
-                Já paguei
-              </button>
-            </>
+          {pending.verifyUrl && (
+            <p className="onboarding__note">Aguardando pagamento… se essa carteira confirmar automaticamente, o pet come sozinho.</p>
           )}
+          {error && <p className="onboarding__error">{error}</p>}
+          {isWebLNAvailable() && (
+            <button className="primary-btn" onClick={payWithExtension} disabled={paying}>
+              {paying ? 'Pagando…' : 'Pagar com carteira (verificado)'}
+            </button>
+          )}
+          <button className="link-btn" onClick={confirmManually}>
+            ⚠️ Já paguei (marcar sem verificação)
+          </button>
           <button className="link-btn" onClick={() => setPending(null)}>
             Cancelar
           </button>
@@ -143,7 +166,7 @@ function PasteInvoiceSection({ onFeed }: { onFeed: (id: string, sats: number) =>
   const [raw, setRaw] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
-  const [fed, setFed] = useState(false);
+  const [fed, setFed] = useState<'no' | 'verified' | 'unverified'>('no');
 
   let decoded: ReturnType<typeof decodeBolt11> | null = null;
   if (raw.trim()) {
@@ -161,7 +184,7 @@ function PasteInvoiceSection({ onFeed }: { onFeed: (id: string, sats: number) =>
     try {
       await payWithWebLN(raw.trim());
       onFeed(decoded.paymentHash, decoded.amountSats);
-      setFed(true);
+      setFed('verified');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'O pagamento falhou.');
     } finally {
@@ -172,11 +195,14 @@ function PasteInvoiceSection({ onFeed }: { onFeed: (id: string, sats: number) =>
   const confirmManually = () => {
     if (!decoded) return;
     onFeed(decoded.paymentHash, decoded.amountSats);
-    setFed(true);
+    setFed('unverified');
   };
 
-  if (fed) {
-    return <p className="onboarding__note">✅ Fatura registrada — pet alimentado!</p>;
+  if (fed === 'verified') {
+    return <p className="onboarding__note">✅ Pagamento confirmado! Pet alimentado.</p>;
+  }
+  if (fed === 'unverified') {
+    return <p className="onboarding__note">🍖 Registrado (confirmado manualmente, sem verificação).</p>;
   }
 
   return (
@@ -198,11 +224,11 @@ function PasteInvoiceSection({ onFeed }: { onFeed: (id: string, sats: number) =>
           <div className="lightning-card__amount-row">
             {isWebLNAvailable() && (
               <button className="primary-btn" onClick={payWithExtension} disabled={paying}>
-                {paying ? 'Pagando…' : 'Pagar com carteira'}
+                {paying ? 'Pagando…' : 'Pagar com carteira (verificado)'}
               </button>
             )}
             <button className="link-btn" onClick={confirmManually}>
-              Já paguei (marcar manualmente)
+              ⚠️ Já paguei (marcar sem verificação)
             </button>
           </div>
         </>
