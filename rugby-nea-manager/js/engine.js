@@ -998,7 +998,12 @@ export function simulateMatch(teamA, playersA, tacticA, teamB, playersB, tacticB
       phase = 'dropgoal';
     }
 
-    ticks.push({minute, pos, scoreA, scoreB, cardPenaltyA, cardPenaltyB, redCardA, redCardB, phase});
+    // statsSnapshot: foto das estatísticas (ver emptyMatchStats) logo após
+    // este tick — dá pra qualquer resimulação por resumeState (substituição
+    // ao vivo, ajuste tático) recomeçar as estatísticas exatamente de onde
+    // a partida realmente estava, em vez de herdar as estatísticas da
+    // partida INTEIRA já simulada (ver currentResumeState em app.js).
+    ticks.push({minute, pos, scoreA, scoreB, cardPenaltyA, cardPenaltyB, redCardA, redCardB, phase, statsSnapshot: cloneMatchStats(stats)});
     if (statsCheckpointTick != null && tick === statsCheckpointTick) {
       statsAtCheckpoint = cloneMatchStats(stats);
     }

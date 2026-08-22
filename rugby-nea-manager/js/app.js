@@ -5446,7 +5446,11 @@ function renderLive() {
       cardPenaltyA: last.cardPenaltyA || 0, cardPenaltyB: last.cardPenaltyB || 0,
       redCardA: !!last.redCardA, redCardB: !!last.redCardB,
       tick: tickIndex,
-      stats: result.stats, // sem isso, o trecho recalculado zerava as estatísticas do resumo pós-jogo
+      // Estatísticas reais até ESTE tick (ver statsSnapshot em engine.js) —
+      // usar result.stats aqui pegaria as estatísticas da partida INTEIRA já
+      // simulada (0-80'), inflando o resumo pós-jogo a cada substituição ao
+      // vivo (o placar batia, mas os tries/conversões/penais listados não).
+      stats: last.statsSnapshot,
     };
   }
 
