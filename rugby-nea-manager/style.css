@@ -1,0 +1,615 @@
+* { box-sizing: border-box; }
+
+:root {
+  --bg: #0f1720;
+  --panel: #17212b;
+  --panel-2: #1e2b38;
+  --text: #eef2f5;
+  --muted: #93a3b0;
+  --accent: #2ecc71;
+  --accent-2: #e74c3c;
+  --border: #2a3946;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+#app { min-height: 100vh; display: flex; flex-direction: column; }
+
+#topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#brand { font-weight: 700; font-size: 18px; }
+
+#mainNav { display: flex; gap: 6px; }
+#mainNav.hidden, #topbarRight.hidden { display: none; }
+
+.navBtn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.navBtn.active { background: var(--accent); color: #06210f; border-color: var(--accent); font-weight: 600; }
+.navBtn:hover:not(.active) { color: var(--text); border-color: var(--muted); }
+
+#topbarRight { display: flex; align-items: center; gap: 10px; }
+#myTeamBadge { font-size: 13px; padding: 4px 10px; border-radius: 20px; font-weight: 600; }
+
+button {
+  font-family: inherit;
+  transition: transform 0.08s ease-out, filter 0.08s ease-out;
+}
+/* Feedback visual simples de clique: qualquer botão do jogo encolhe e
+   escurece um instante ao ser clicado, pra deixar claro que o clique
+   registrou (antes não tinha nenhuma resposta visual imediata). */
+button:active:not(:disabled) {
+  transform: scale(0.94);
+  filter: brightness(0.88);
+}
+
+/* Mesmo feedback pros elementos clicáveis que não são <button> (linha do
+   plantel, badge de jogo na agenda) — o card de time tem sua própria regra
+   de :active logo depois do :hover dele, mais abaixo neste arquivo. */
+.squadRow:active,
+.agendaMatchBadge.pending[data-goto-comp]:active {
+  transform: scale(0.97);
+  filter: brightness(0.92);
+}
+
+#newGameBtn {
+  background: var(--panel-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+#newGameBtn:hover { color: var(--accent-2); border-color: var(--accent-2); }
+
+#langToggleBtn {
+  background: var(--panel-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+#langToggleBtn:hover { color: var(--accent); border-color: var(--accent); }
+
+#content { flex: 1; padding: 18px; max-width: 1100px; margin: 0 auto; width: 100%; }
+
+h1, h2, h3 { margin-top: 0; }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.teamGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.teamCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.teamCard:hover { transform: translateY(-3px); border-color: var(--accent); }
+.teamCard:active { transform: scale(0.97); filter: brightness(0.92); }
+.teamCrest {
+  width: 56px; height: 56px; border-radius: 50%;
+  margin: 0 auto 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 18px; color: #fff;
+}
+.teamCrestImg { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.teamName { font-weight: 700; margin-bottom: 6px; }
+.teamStats { font-size: 12px; color: var(--muted); }
+.teamIdentityLine { font-size: 12px; margin-bottom: 6px; }
+
+.dashboardHeaderRow { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+.dashboardHeaderRow h1 { margin-bottom: 2px; }
+.dashboardCrest { margin: 0; flex-shrink: 0; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 7px 8px; text-align: center; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+td.teamCol, th.teamCol { text-align: left; }
+tr.myTeamRow { background: rgba(46, 204, 113, 0.12); }
+tr.myTeamRow td.teamCol { font-weight: 700; }
+
+.roundBlock { margin-bottom: 14px; }
+.roundTitle { font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+.matchRow {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px;
+  background: var(--panel-2);
+}
+.matchRow.mine { border-color: var(--accent); }
+.matchRow .teams { font-size: 13px; }
+.matchRow .score { font-weight: 700; font-size: 14px; }
+.matchRow .pending { color: var(--muted); font-size: 12px; }
+
+.playBtn {
+  background: var(--accent); color: #06210f; border: none; border-radius: 8px;
+  padding: 10px 18px; font-weight: 700; cursor: pointer; font-size: 14px;
+}
+.playBtn:hover { filter: brightness(1.08); }
+.playBtn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+.tacticOptions { display: flex; gap: 10px; margin: 14px 0; flex-wrap: wrap; }
+.tacticBtn {
+  flex: 1; min-width: 140px;
+  background: var(--panel-2); border: 2px solid var(--border); border-radius: 8px;
+  padding: 12px; cursor: pointer; color: var(--text); text-align: left;
+}
+.tacticBtn.selected { border-color: var(--accent); background: rgba(46,204,113,0.1); }
+.tacticBtn b { display: block; margin-bottom: 4px; }
+.tacticBtn span { font-size: 12px; color: var(--muted); }
+
+#matchWrap { display: flex; flex-direction: column; gap: 12px; }
+#scoreboard {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--panel-2); border-radius: 10px; padding: 14px 20px;
+}
+#scoreboard .side { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+#scoreboard .crestSmall { width: 30px; height: 30px; border-radius: 50%; display:flex; align-items:center; justify-content:center; font-size: 11px; font-weight: 800; color:#fff; }
+#scoreboard .clock { font-size: 22px; font-weight: 800; color: var(--accent); }
+#scoreboard .scoreNum { font-size: 26px; }
+
+canvas#pitch {
+  width: 100%;
+  aspect-ratio: 7 / 4;
+  height: auto;
+  max-height: 620px;
+  border-radius: 10px;
+  display: block;
+  border: 1px solid var(--border);
+}
+
+#matchControls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ctrlBtn {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 14px; cursor: pointer; font-size: 13px;
+}
+.ctrlBtn.active { border-color: var(--accent); color: var(--accent); }
+
+#ticker {
+  background: var(--panel-2); border-radius: 10px; padding: 10px 14px;
+  height: 180px; overflow-y: auto; font-size: 13px; display: flex; flex-direction: column-reverse;
+}
+#ticker .tickerLine { padding: 4px 0; border-bottom: 1px solid var(--border); }
+#ticker .tickerLine .min { color: var(--accent); font-weight: 700; margin-right: 8px; }
+
+.squadTable td.posCol { color: var(--muted); font-size: 12px; }
+.squadTable th, .squadTable td { padding: 5px 6px; white-space: nowrap; }
+.tableScroll { overflow-x: auto; }
+.injuredRow { opacity: 0.55; }
+
+.squadRow { cursor: pointer; }
+.squadRow:hover { background: var(--panel-2); }
+.squadRow.expanded .teamCol { color: var(--accent); }
+.skillDetailTr { display: none; }
+.skillDetailTr.open { display: table-row; }
+/* position: sticky + largura limitada à tela: a tabela de plantel é mais
+   larga que a viewport no mobile (rola pro lado pra ver todas as colunas),
+   então sem isso o painel expandido (que usa flex-wrap) tinha espaço de
+   sobra pra abrir todos os grupos numa linha só, com físico/biometria
+   ficando fora da área visível sem indicação nenhuma de que dava pra rolar
+   pro lado pra vê-los. Grudado na borda esquerda da área de scroll e
+   limitado à largura da tela, o flex-wrap quebra de verdade. */
+.skillDetailWrap {
+  display: flex; flex-wrap: wrap; gap: 18px; padding: 10px 4px; background: var(--panel-2); border-radius: 8px; white-space: normal;
+  position: sticky; left: 0; width: max-content; max-width: calc(100vw - 24px);
+}
+.skillDetailGroup { min-width: 160px; }
+.skillDetailGroup h4 { margin: 0 0 6px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.skillDetailRow { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 0; }
+.skillDetailLabel { width: 34px; color: var(--muted); flex-shrink: 0; }
+.ratingBar { display: inline-block; width: 30px; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; vertical-align: middle; margin-right: 4px; }
+.ratingBar > span { display: block; height: 100%; background: var(--accent); }
+.conditionLow .ratingBar > span { background: #d4a017; }
+.conditionCritical .ratingBar > span { background: var(--accent-2); }
+
+.muted { color: var(--muted); }
+.center { text-align: center; }
+
+.summaryModal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center; z-index: 20;
+}
+.summaryBox {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 22px; max-width: 460px; width: 90%;
+  max-height: 88vh; overflow-y: auto;
+}
+.summaryBox h2 { text-align: center; }
+.summaryBox .finalScore { text-align: center; font-size: 30px; font-weight: 800; margin: 14px 0; }
+.summaryBox ul { padding-left: 18px; font-size: 13px; color: var(--muted); }
+
+.statsSection { margin-top: 16px; }
+.statsSection h3 { margin-bottom: 8px; }
+.statRow { margin-bottom: 10px; }
+.statLabel { font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+.statValLine { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+.statBarTrack {
+  display: flex; width: 100%; height: 8px; border-radius: 4px; overflow: hidden;
+  background: var(--border);
+}
+.statBarFill { height: 100%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18); }
+
+/* Escalação visual (campo estático em formação) */
+.formationCard { padding: 14px; }
+.pitchOuter {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  aspect-ratio: 3 / 4;
+  background:
+    repeating-linear-gradient(90deg, #1c6b2e 0, #1c6b2e 8%, #1a6329 8%, #1a6329 16%);
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.pitchLine { position: absolute; left: 4%; right: 4%; height: 1px; background: rgba(255,255,255,0.35); }
+.pitchLine.solid { height: 2px; background: rgba(255,255,255,0.6); }
+.shirtSlot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 62px;
+}
+.shirt {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 12px;
+  border: 2px solid rgba(0,0,0,0.4);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.45);
+  flex-shrink: 0;
+}
+.shirtName {
+  font-size: 10px; color: #fff; margin-top: 2px; text-align: center;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.shirtCond { width: 28px; height: 4px; margin: 2px 0 0; }
+.benchSection { margin-top: 14px; }
+.benchTitle { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+.benchRow { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
+.benchCard {
+  flex: 0 0 auto; width: 78px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px; text-align: center;
+}
+.benchShirt {
+  width: 26px; height: 26px; margin: 0 auto 4px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 10px;
+  border: 1px solid rgba(0,0,0,0.4);
+}
+.benchName { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.benchInjured { font-size: 9px; color: var(--accent-2); margin-top: 2px; }
+
+@media (min-width: 720px) {
+  .pitchOuter { max-width: 520px; }
+  .shirt { width: 34px; height: 34px; font-size: 13px; }
+  .shirtName { font-size: 11px; }
+}
+
+.squadHeaderRow { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.sortToggle { display: flex; gap: 6px; }
+.sortBtn {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 10px; font-size: 12px; color: var(--muted); cursor: pointer;
+}
+.sortBtn.selected { border-color: var(--accent); color: var(--text); background: rgba(46,204,113,0.1); }
+
+.posFilterToggle { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.posFilterBtn {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 9px; font-size: 11px; color: var(--muted); cursor: pointer;
+}
+.posFilterBtn.selected { border-color: var(--accent); color: var(--text); background: rgba(46,204,113,0.1); }
+
+.difficultyOptions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.difficultyBtn {
+  flex: 1 1 160px; display: flex; flex-direction: column; gap: 3px; text-align: left;
+  padding: 10px 12px;
+}
+.difficultyBtn .muted { font-size: 11px; }
+
+.lineupEditorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.lineupSlot { display: flex; flex-direction: column; gap: 4px; }
+.lineupSlot label { font-size: 11px; color: var(--muted); }
+.lineupSlot select {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px; font-size: 12px; width: 100%;
+}
+.lineupSlot select:disabled { color: var(--muted); font-style: italic; }
+
+/* Editor de escalação clicável (campo com camisas clicáveis) */
+.lineupShirtBtn {
+  background: none; border: none; padding: 0; font: inherit; color: inherit;
+  cursor: pointer;
+}
+.lineupShirtBtn .shirt { transition: transform 0.1s, box-shadow 0.1s; }
+.lineupShirtBtn:hover .shirt { transform: scale(1.08); }
+.lineupShirtBtn.slotOpen .shirt { box-shadow: 0 0 0 3px var(--accent); }
+
+/* Arrastar-e-soltar pra trocar/substituir (ver setupLineupDragDrop em app.js) */
+.lineupShirtBtn[data-filled="1"],
+.benchEditBtn[data-filled="1"] {
+  cursor: grab;
+  touch-action: none;
+}
+.dragging { opacity: 0.35; }
+.dragOverTarget .shirt,
+.dragOverTarget.benchCard {
+  box-shadow: 0 0 0 3px var(--accent-2);
+}
+.dragGhost {
+  pointer-events: none;
+  z-index: 2000;
+  opacity: 0.85;
+  transition: none;
+}
+
+/* Tooltip customizado (ver showCustomTooltip em app.js) — troca o title
+   nativo do navegador nos botões do editor de escalação */
+.customTooltip {
+  position: fixed;
+  z-index: 3000;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+.lineupPicker {
+  margin-top: 14px; padding: 12px; background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.lineupPickerFloating {
+  position: fixed;
+  margin-top: 0;
+  z-index: 1000;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.lineupPickerBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: transparent;
+}
+.lineupPicker h4 { margin: 0 0 8px; }
+.lineupPickGroupLabel { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 10px 0 4px; }
+.lineupPickList { display: flex; flex-direction: column; gap: 4px; }
+.lineupPickBtn {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 10px; font-size: 13px; color: var(--text); cursor: pointer; text-align: left;
+}
+.lineupPickBtn:hover { border-color: var(--accent); }
+
+/* Lista de "quem entra" ancorada logo abaixo do titular escolhido pra sair
+   (ver renderSubsPanel) — recuada e com borda de destaque à esquerda pra
+   deixar claro que pertence àquele jogador específico, não ao painel todo. */
+.subsInlinePicker {
+  margin: 4px 0 8px 14px;
+  padding: 8px 0 8px 10px;
+  border-left: 2px solid var(--accent);
+}
+.subsInlinePicker .lineupPickGroupLabel:first-child { margin-top: 0; }
+.lineupPickBtn.selected { border-color: var(--accent); background: rgba(46,204,113,0.1); }
+
+.trainingFocusGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+.trainingFocusDayCol, .lineoutGroupRoleCol {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+  max-height: 320px; overflow-y: auto;
+}
+.trainingFocusDayLabel { font-weight: 700; margin-bottom: 8px; font-size: 13px; }
+
+/* Cartão de tipo de treino (rádio único por dia — ver TRAINING_TYPES em
+   data.js): nome do tipo em cima, atributos que ele evolui embaixo. */
+.trainingTypeOption {
+  position: relative;
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 6px 8px; margin-bottom: 3px; border-radius: 6px;
+  border: 1px solid transparent; cursor: pointer;
+}
+.trainingTypeOption:hover { background: var(--panel); }
+.trainingTypeOption.selected { border-color: var(--accent); background: rgba(46,204,113,0.1); }
+.trainingTypeOption input { position: absolute; opacity: 0; pointer-events: none; }
+.trainingTypeName { font-size: 12px; font-weight: 600; }
+.trainingTypeSkills { font-size: 10.5px; }
+
+/* Lista de treino individual (DIP) na aba Treinamento — uma linha compacta
+   por jogador em vez de expandir cada linha do plantel. */
+.dipList { display: flex; flex-direction: column; gap: 6px; }
+.dipListRow {
+  display: grid; grid-template-columns: 1fr auto auto auto auto; align-items: center; gap: 10px;
+  padding: 6px 8px; border-radius: 6px; background: var(--panel-2);
+}
+.dipListName { font-size: 13px; font-weight: 600; }
+.dipListMeta { font-size: 11px; white-space: nowrap; }
+.dipListCap { font-size: 11px; white-space: nowrap; }
+@media (max-width: 640px) {
+  .dipListRow { grid-template-columns: 1fr; text-align: left; }
+}
+
+.staffSkillsRow { font-size: 11px; margin-top: 2px; }
+
+.dipSelect, .posTrainingSelect {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px; font-size: 12px; max-width: 220px;
+}
+.dipSelect:disabled { opacity: 0.5; }
+
+/* Tela de Tática: plano de jogo por zona (imagem do campo) + pilares + PDFs */
+.tacticalFieldOuter {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  aspect-ratio: 3 / 4;
+  display: flex;
+  flex-direction: column;
+  background: repeating-linear-gradient(90deg, #1c6b2e 0, #1c6b2e 8%, #1a6329 8%, #1a6329 16%);
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.tacticZoneBand {
+  flex: 0 0 auto;
+  width: 100%;
+  border: none;
+  border-top: 2px solid rgba(255,255,255,0.35);
+  border-left: 4px solid transparent;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 2px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: #fff;
+  transition: filter 0.15s;
+}
+.tacticZoneBand:first-child { border-top: none; }
+.tacticZoneBand:hover { filter: brightness(1.15); }
+.tacticZoneBand.zoneOpen { border-left-color: #fff; filter: brightness(1.2); }
+.tacticZoneLabel { font-weight: 700; font-size: 13px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.tacticZoneInfo { font-size: 11px; opacity: 0.95; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.tacticZoneEditor {
+  margin-top: 14px; padding: 12px; background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.tacticZoneEditor h4 { margin: 0 0 8px; }
+.podDescText { font-size: 12px; margin: 6px 0 0; }
+.zoneFieldLabel { font-size: 11px; color: var(--muted); margin-top: 6px; display: block; }
+.zoneStyleSelect, .zoneCodeInput, .zonePodsSelect, .systemSelect {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px; font-size: 12px; width: 100%;
+}
+.tacticZoneEditor .zoneStyleSelect, .tacticZoneEditor .zoneCodeInput, .tacticZoneEditor .zonePodsSelect {
+  background: var(--panel); margin-bottom: 4px;
+}
+.systemSelect { max-width: 480px; }
+.systemFormation { margin-top: 8px; margin-bottom: 0; font-size: 12px; }
+.pillarRow { margin-bottom: 12px; }
+.pillarRow label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+.pillarVal { color: var(--accent); font-weight: 700; }
+.pillarSlider { width: 100%; }
+.tacticaBtnRow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.pdfList { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.pdfRow {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
+}
+.pdfName { flex: 1; min-width: 140px; font-size: 13px; }
+#pdfUploadInput { color: var(--text); font-size: 13px; }
+
+/* Faixa tática (banner) acima da quadra na partida ao vivo */
+.tacticalBanner {
+  display: none;
+  align-items: center; gap: 8px;
+  background: var(--panel-2); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  border-radius: 8px; padding: 8px 12px; font-size: 13px;
+}
+.tacticalBanner.show { display: flex; }
+.tacticalBanner .crestSmall { width: 22px; height: 22px; border-radius: 50%; display:flex; align-items:center; justify-content:center; font-size: 9px; font-weight: 800; color:#fff; flex-shrink: 0; }
+.tacticalCode { font-weight: 800; letter-spacing: 0.03em; color: var(--accent); }
+.tacticalSystem { color: var(--muted); font-size: 12px; }
+
+.finalScoreSmall { font-size: 20px; font-weight: 800; text-align: center; }
+
+/* Categorias de base (M14/M15/M16/M18) */
+.youthGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.youthCategoryCol {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+}
+.youthCategoryLabel { font-weight: 700; color: var(--accent); margin-bottom: 6px; font-size: 13px; }
+.youthPlayerRow {
+  display: flex; justify-content: space-between; gap: 6px; font-size: 12px; padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+}
+.youthPlayerRow:last-child { border-bottom: none; }
+.youthPlayerName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Agenda do mês */
+.agendaHeaderRow, .agendaWeekRow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.agendaHeaderRow { margin-bottom: 6px; }
+.agendaHeaderCell { text-align: center; font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+.agendaWeekRow { margin-bottom: 4px; }
+.agendaCell {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px; min-height: 64px; font-size: 10px;
+}
+.agendaCell.today { border-color: var(--accent); border-width: 2px; }
+.agendaCell.agenda-jogo { background: rgba(46, 204, 113, 0.06); }
+.agendaCellDate { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
+.agendaTrainingBadge { color: var(--muted); font-size: 9px; line-height: 1.3; }
+.agendaMatchBadge {
+  border-left: 3px solid; border-radius: 3px; padding: 2px 4px; margin-top: 2px;
+  font-size: 9px; line-height: 1.3; background: var(--panel);
+}
+.agendaMatchBadge.pending[data-goto-comp] { cursor: pointer; }
+.agendaMatchBadge.pending[data-goto-comp]:hover { background: var(--border); }
+.agendaMatchBadge.played { opacity: 0.75; }
+
+@media (max-width: 640px) {
+  .agendaCell { font-size: 9px; min-height: 56px; padding: 3px; }
+  .agendaHeaderCell { font-size: 9px; }
+}
