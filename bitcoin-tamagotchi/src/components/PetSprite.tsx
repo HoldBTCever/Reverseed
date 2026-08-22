@@ -1,3 +1,4 @@
+import { INTELLIGENCE_GLASSES_THRESHOLD } from '../lib/petEngine';
 import type { Mood } from '../types';
 
 interface HabitBadgeState {
@@ -10,6 +11,9 @@ interface PetSpriteProps {
   stageId: number;
   mood: Mood;
   habitBadges?: HabitBadgeState;
+  physicalHealth?: number;
+  intelligence?: number;
+  isSleeping?: boolean;
 }
 
 interface StageStyle {
@@ -33,7 +37,18 @@ const HABIT_BADGE_ORDER: { key: keyof HabitBadgeState; icon: string }[] = [
   { key: 'gym', icon: '💪' },
 ];
 
-function Face({ mood }: { mood: Mood }) {
+const SLEEP_FACE = (
+  <g>
+    <path d="M84 60 Q90 60 96 60" stroke="#1a1a2e" strokeWidth={3} strokeLinecap="round" />
+    <path d="M104 60 Q110 60 116 60" stroke="#1a1a2e" strokeWidth={3} strokeLinecap="round" />
+    <path d="M92 77 Q100 74 108 77" stroke="#1a1a2e" strokeWidth={3} fill="none" strokeLinecap="round" />
+    <text x="120" y="44" fontSize="12" fill="#1a1a2e" fontWeight={700}>z</text>
+  </g>
+);
+
+function Face({ mood, isSleeping }: { mood: Mood; isSleeping: boolean }) {
+  if (isSleeping && mood !== 'hibernating' && mood !== 'gone') return SLEEP_FACE;
+
   switch (mood) {
     case 'happy':
       return (
@@ -91,12 +106,25 @@ function Face({ mood }: { mood: Mood }) {
   }
 }
 
-export default function PetSprite({ stageId, mood, habitBadges }: PetSpriteProps) {
+export default function PetSprite({
+  stageId,
+  mood,
+  habitBadges,
+  physicalHealth = 70,
+  intelligence = 40,
+  isSleeping = false,
+}: PetSpriteProps) {
   const style = STAGE_STYLES[stageId] ?? STAGE_STYLES[0];
   const isDormant = stageId === 0;
   const isGone = mood === 'gone';
   const hasHouse = stageId >= 3;
   const hasFamily = stageId >= 4;
+  const hasGlasses = intelligence >= INTELLIGENCE_GLASSES_THRESHOLD;
+
+  // Broader shoulders/torso as physicalHealth rises — "mais musculoso".
+  const bottomHalfWidth = 50 + physicalHealth * 0.15;
+  const topHalfWidth = 34 + physicalHealth * 0.08;
+  const torsoPath = `M${100 - bottomHalfWidth} 178 L${100 - topHalfWidth} 94 Q100 78 ${100 + topHalfWidth} 94 L${100 + bottomHalfWidth} 178 Z`;
 
   return (
     <svg
@@ -117,27 +145,21 @@ export default function PetSprite({ stageId, mood, habitBadges }: PetSpriteProps
       )}
 
       {/* Torso */}
-      <path
-        d="M40 178 L62 94 Q100 78 138 94 L160 178 Z"
-        fill={style.fill}
-        stroke="#1a1a2e"
-        strokeWidth={3}
-        strokeLinejoin="round"
-      />
+      <path d={torsoPath} fill={style.fill} stroke="#1a1a2e" strokeWidth={3} strokeLinejoin="round" />
       <ellipse cx="100" cy="182" rx="62" ry="10" fill="#1a1a2e" opacity={0.08} />
 
       {/* Head + face, tilted while still dormant */}
       <g transform={isDormant ? 'rotate(10 100 66)' : undefined}>
         <circle cx="100" cy="66" r="26" fill="#f2c9a0" stroke="#1a1a2e" strokeWidth={3} />
-        {isDormant ? (
-          <g>
-            <path d="M84 60 Q90 60 96 60" stroke="#1a1a2e" strokeWidth={3} strokeLinecap="round" />
-            <path d="M104 60 Q110 60 116 60" stroke="#1a1a2e" strokeWidth={3} strokeLinecap="round" />
-            <path d="M92 77 Q100 74 108 77" stroke="#1a1a2e" strokeWidth={3} fill="none" strokeLinecap="round" />
-            <text x="122" y="42" fontSize="14" fill="#1a1a2e" fontWeight={700}>Zzz</text>
+        {isDormant ? SLEEP_FACE : <Face mood={mood} isSleeping={isSleeping} />}
+        {hasGlasses && (
+          <g stroke="#1a1a2e" strokeWidth={2} fill="none" opacity={0.85}>
+            <circle cx="90" cy="60" r="9" />
+            <circle cx="110" cy="60" r="9" />
+            <path d="M99 60 L101 60" />
+            <path d="M81 58 L74 55" />
+            <path d="M119 58 L126 55" />
           </g>
-        ) : (
-          <Face mood={mood} />
         )}
       </g>
 

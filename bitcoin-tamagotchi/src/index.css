@@ -212,13 +212,18 @@ body {
   justify-content: center;
 }
 
-.device-screen__hint,
+.device-screen__clock,
 .device-screen__alert {
   margin: 0;
   text-align: center;
   color: var(--ink);
   font-size: 13px;
   font-weight: 600;
+}
+
+.device-screen__clock {
+  opacity: 0.75;
+  font-weight: 500;
 }
 
 .device-stats {
@@ -369,6 +374,29 @@ body {
   font-size: 13px;
   font-family: monospace;
   resize: vertical;
+}
+
+.lightning-card__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lightning-card__preset {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lightning-card__preset--active {
+  background: var(--shell);
+  border-color: var(--shell);
+  color: #1a1a2e;
 }
 
 .lightning-card__amount-row {

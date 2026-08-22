@@ -29,10 +29,14 @@ export interface PetState {
   hunger: number;
   happiness: number;
   energy: number;
-  health: number;
+  /** Strength/fitness — mostly driven by Treinar/Dieta Carnívora. Reaching 0 hibernates the avatar. */
+  physicalHealth: number;
+  /** Psychological wellbeing — mostly driven by Escola Austríaca/Treinar and financial stability. Reaching 0 hibernates the avatar. */
+  mentalHealth: number;
+  /** Knowledge — driven by Escola Austríaca. Purely cosmetic (unlocks glasses); never gates evolution or survival. */
+  intelligence: number;
   totalSatsFed: number;
   status: PetStatus;
-  isSleeping: boolean;
   lastPlayedAt: number | null;
   feedLog: FeedEvent[];
   hibernatingSince: number | null;

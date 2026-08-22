@@ -14,6 +14,7 @@ interface LightningCardProps {
 
 const VERIFY_POLL_MS = 4_000;
 const VERIFY_TIMEOUT_MS = 10 * 60 * 1000;
+const PRESET_AMOUNTS = [1_000, 5_000, 21_000, 100_000];
 
 function GenerateInvoiceSection({ lightningAddress, onFeed }: { lightningAddress: string; onFeed: (id: string, sats: number) => void }) {
   const [amount, setAmount] = useState('1000');
@@ -153,6 +154,18 @@ function GenerateInvoiceSection({ lightningAddress, onFeed }: { lightningAddress
   return (
     <div className="lightning-card__form">
       <label htmlFor="invoice-amount">Gerar fatura para alimentar (sats)</label>
+      <div className="lightning-card__presets">
+        {PRESET_AMOUNTS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            className={`lightning-card__preset ${amount === String(preset) ? 'lightning-card__preset--active' : ''}`}
+            onClick={() => setAmount(String(preset))}
+          >
+            {preset.toLocaleString('pt-BR')}
+          </button>
+        ))}
+      </div>
       <div className="lightning-card__amount-row">
         <input id="invoice-amount" type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <button className="primary-btn" onClick={generate} disabled={generating}>

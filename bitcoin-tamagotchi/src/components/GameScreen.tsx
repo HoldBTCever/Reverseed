@@ -1,4 +1,4 @@
-import { hasHabitBadge, moodFor, stageForTotalSats } from '../lib/petEngine';
+import { hasHabitBadge, isNightInBrazil, moodFor, stageForTotalSats } from '../lib/petEngine';
 import type { HabitKind, LinkedWallet, PetState } from '../types';
 import PetSprite from './PetSprite';
 import StatBar from './StatBar';
@@ -16,7 +16,6 @@ interface GameScreenProps {
   walletError: string | null;
   lastCheckedAt: number | null;
   onPlay: () => void;
-  onToggleSleep: () => void;
   onRefresh: () => void;
   onUnlink: () => void;
   onReset: () => void;
@@ -37,7 +36,6 @@ export default function GameScreen({
   walletError,
   lastCheckedAt,
   onPlay,
-  onToggleSleep,
   onRefresh,
   onUnlink,
   onReset,
@@ -52,6 +50,13 @@ export default function GameScreen({
     austrianSchool: hasHabitBadge(pet, 'austrianSchool'),
     gym: hasHabitBadge(pet, 'gym'),
   };
+  const now = Date.now();
+  const isNight = isNightInBrazil(now);
+  const brasiliaTime = new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  }).format(now);
 
   return (
     <div className="game-screen">
@@ -66,8 +71,17 @@ export default function GameScreen({
 
       <div className="device-shell">
         <div className="device-screen">
-          <PetSprite stageId={stage.id} mood={mood} habitBadges={habitBadges} />
-          {pet.isSleeping && pet.status === 'alive' && <p className="device-screen__hint">Zzz… dormindo para recuperar energia</p>}
+          <PetSprite
+            stageId={stage.id}
+            mood={mood}
+            habitBadges={habitBadges}
+            physicalHealth={pet.physicalHealth}
+            intelligence={pet.intelligence}
+            isSleeping={isNight && isInteractive}
+          />
+          <p className="device-screen__clock">
+            {isNight ? '🌙' : '☀️'} {brasiliaTime} (Brasília) {isNight && isInteractive ? '· dormindo' : ''}
+          </p>
           {STATUS_MESSAGE[pet.status] && <p className="device-screen__alert">{STATUS_MESSAGE[pet.status]}</p>}
         </div>
 
@@ -75,18 +89,12 @@ export default function GameScreen({
           <StatBar label="Fome" icon="🍗" value={pet.hunger} />
           <StatBar label="Felicidade" icon="💛" value={pet.happiness} />
           <StatBar label="Energia" icon="⚡" value={pet.energy} />
-          <StatBar label="Saúde" icon="❤️" value={pet.health} />
+          <StatBar label="Saúde Física" icon="💪" value={pet.physicalHealth} />
+          <StatBar label="Saúde Mental" icon="🧘" value={pet.mentalHealth} />
+          <StatBar label="Inteligência" icon="🧠" value={pet.intelligence} />
         </div>
 
-        <ActionBar
-          disabled={!isInteractive}
-          isSleeping={pet.isSleeping}
-          onPlay={onPlay}
-          onToggleSleep={onToggleSleep}
-          onRefresh={onRefresh}
-          onHabit={onHabit}
-          refreshing={walletLoading}
-        />
+        <ActionBar disabled={!isInteractive} onPlay={onPlay} onRefresh={onRefresh} onHabit={onHabit} refreshing={walletLoading} />
       </div>
 
       {pet.walletKind === 'onchain' ? (

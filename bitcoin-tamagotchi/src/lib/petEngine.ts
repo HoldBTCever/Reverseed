@@ -42,17 +42,12 @@ export const STAGES: EvolutionStage[] = [
 export const HABIT_KINDS: HabitKind[] = ['carnivore', 'austrianSchool', 'gym'];
 export const HABIT_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 export const HABIT_BADGE_THRESHOLD = 5;
+export const INTELLIGENCE_GLASSES_THRESHOLD = 70;
 
 export const HABIT_INFO: Record<HabitKind, { label: string; flavor: string; icon: string }> = {
-  carnivore: { label: 'Dieta Carnívora', flavor: 'Só carne, sal e água.', icon: '🥩' },
-  austrianSchool: { label: 'Escola Austríaca', flavor: 'Mises, Hayek, Rothbard, O Padrão Bitcoin.', icon: '📖' },
-  gym: { label: 'Treinar', flavor: 'Ficar difícil de matar.', icon: '💪' },
-};
-
-const HABIT_EFFECTS: Record<HabitKind, { happiness: number; health: number; energy: number }> = {
-  carnivore: { happiness: 6, health: 10, energy: 6 },
-  austrianSchool: { happiness: 12, health: 0, energy: -3 },
-  gym: { happiness: 8, health: 8, energy: -10 },
+  carnivore: { label: 'Dieta Carnívora', flavor: 'Só carne, sal e água — fortalece o corpo.', icon: '🥩' },
+  austrianSchool: { label: 'Escola Austríaca', flavor: 'Mises, Hayek, Rothbard — fortalece a mente e a inteligência.', icon: '📖' },
+  gym: { label: 'Treinar', flavor: 'Ficar difícil de matar — fortalece o corpo e desestressa.', icon: '💪' },
 };
 
 function emptyHabitCounts(): HabitCounts {
@@ -63,13 +58,17 @@ function emptyHabitTimestamps(): HabitTimestamps {
   return { carnivore: null, austrianSchool: null, gym: null };
 }
 
-/** Backfills habits/lastHabitAt on a PetState persisted before those fields existed. */
-export function withHabitDefaults(state: PetState): PetState {
-  if (state.habits && state.lastHabitAt) return state;
+/** Backfills fields on a PetState persisted before they existed (habits, and the physicalHealth/mentalHealth/intelligence split of the old single `health`). */
+export function migratePetState(state: PetState): PetState {
+  const legacy = state as PetState & { health?: number; isSleeping?: boolean };
+  const legacyHealth = legacy.health;
   return {
     ...state,
     habits: state.habits ?? emptyHabitCounts(),
     lastHabitAt: state.lastHabitAt ?? emptyHabitTimestamps(),
+    physicalHealth: state.physicalHealth ?? legacyHealth ?? 100,
+    mentalHealth: state.mentalHealth ?? legacyHealth ?? 100,
+    intelligence: state.intelligence ?? 40,
   };
 }
 
@@ -78,11 +77,14 @@ const HUNGER_DECAY_PER_HOUR = 4;
 const HAPPINESS_DECAY_PER_HOUR = 3;
 const ENERGY_DECAY_PER_HOUR = 2.5;
 const ENERGY_REGEN_WHILE_SLEEPING_PER_HOUR = 6;
-const LOW_HUNGER_HAPPINESS_PENALTY_MULT = 1.8;
-const LOW_HUNGER_THRESHOLD = 20;
+const PHYSICAL_HEALTH_DECAY_PER_HOUR = 1.2;
+const MENTAL_HEALTH_DECAY_PER_HOUR = 1.2;
+const INTELLIGENCE_DECAY_PER_HOUR = 0.3;
 
-// Health chases a weighted target of the other three stats.
-const HEALTH_CHASE_RATE_PER_HOUR = 0.35;
+const LOW_HUNGER_THRESHOLD = 20;
+const LOW_HUNGER_PENALTY_MULT = 1.8; // extra decay on happiness AND physicalHealth while malnourished
+const LOW_HAPPINESS_THRESHOLD = 20;
+const LOW_HAPPINESS_MENTAL_HEALTH_PENALTY_MULT = 1.6;
 
 // Cap how much elapsed time a single tick can account for, so re-opening
 // the app after months away doesn't produce a single absurd jump.
@@ -92,6 +94,14 @@ const HIBERNATION_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
 
 const MAX_FEED_LOG = 50;
 const MAX_SEEN_TXIDS = 300;
+
+/** Whether it's nighttime in Brazil (America/Sao_Paulo) at the given instant — drives the avatar's sleep cycle automatically. */
+export function isNightInBrazil(now: number): boolean {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: 'America/Sao_Paulo' }).format(now),
+  );
+  return hour >= 23 || hour < 7;
+}
 
 export function createPetState(
   walletKind: WalletKind,
@@ -109,10 +119,11 @@ export function createPetState(
     hunger: 70,
     happiness: 70,
     energy: 100,
-    health: 100,
+    physicalHealth: 100,
+    mentalHealth: 100,
+    intelligence: 40,
     totalSatsFed: 0,
     status: 'alive',
-    isSleeping: false,
     lastPlayedAt: null,
     feedLog: [],
     hibernatingSince: null,
@@ -137,7 +148,7 @@ export function stageForTotalSats(totalSatsFed: number): EvolutionStage {
 export function moodFor(state: PetState): Mood {
   if (state.status === 'gone') return 'gone';
   if (state.status === 'hibernating') return 'hibernating';
-  const avg = (state.hunger + state.happiness + state.energy) / 3;
+  const avg = (state.hunger + state.happiness + state.energy + state.mentalHealth) / 4;
   if (avg >= 70) return 'happy';
   if (avg >= 40) return 'neutral';
   if (avg >= 15) return 'sad';
@@ -162,22 +173,31 @@ export function applyTick(state: PetState, now = Date.now()): PetState {
 
   const hunger = clamp(state.hunger - HUNGER_DECAY_PER_HOUR * elapsedHours);
 
-  const happinessDecayMult = state.hunger < LOW_HUNGER_THRESHOLD ? LOW_HUNGER_HAPPINESS_PENALTY_MULT : 1;
-  const happiness = clamp(state.happiness - HAPPINESS_DECAY_PER_HOUR * happinessDecayMult * elapsedHours);
+  const lowHunger = state.hunger < LOW_HUNGER_THRESHOLD;
+  const happiness = clamp(
+    state.happiness - HAPPINESS_DECAY_PER_HOUR * (lowHunger ? LOW_HUNGER_PENALTY_MULT : 1) * elapsedHours,
+  );
 
-  const energy = state.isSleeping
+  const energy = isNightInBrazil(now)
     ? clamp(state.energy + ENERGY_REGEN_WHILE_SLEEPING_PER_HOUR * elapsedHours)
     : clamp(state.energy - ENERGY_DECAY_PER_HOUR * elapsedHours);
 
-  const healthTarget = hunger * 0.4 + happiness * 0.35 + energy * 0.25;
-  const health = clamp(
-    state.health + (healthTarget - state.health) * Math.min(1, HEALTH_CHASE_RATE_PER_HOUR * elapsedHours),
+  const physicalHealth = clamp(
+    state.physicalHealth - PHYSICAL_HEALTH_DECAY_PER_HOUR * (lowHunger ? LOW_HUNGER_PENALTY_MULT : 1) * elapsedHours,
   );
+
+  const lowHappiness = state.happiness < LOW_HAPPINESS_THRESHOLD;
+  const mentalHealth = clamp(
+    state.mentalHealth -
+      MENTAL_HEALTH_DECAY_PER_HOUR * (lowHappiness ? LOW_HAPPINESS_MENTAL_HEALTH_PENALTY_MULT : 1) * elapsedHours,
+  );
+
+  const intelligence = clamp(state.intelligence - INTELLIGENCE_DECAY_PER_HOUR * elapsedHours);
 
   let status: PetStatus = state.status;
   let hibernatingSince = state.hibernatingSince;
 
-  if (status === 'alive' && health <= 0) {
+  if (status === 'alive' && (physicalHealth <= 0 || mentalHealth <= 0)) {
     status = 'hibernating';
     hibernatingSince = now;
   } else if (status === 'hibernating') {
@@ -191,7 +211,9 @@ export function applyTick(state: PetState, now = Date.now()): PetState {
     hunger,
     happiness,
     energy,
-    health,
+    physicalHealth,
+    mentalHealth,
+    intelligence,
     status,
     hibernatingSince,
     lastTickAt: now,
@@ -222,7 +244,9 @@ export function applyFeed(state: PetState, txid: string, sats: number, at: numbe
   const hunger = clamp(state.hunger + points);
   const happiness = clamp(state.happiness + points * 0.6);
   const energy = clamp(state.energy + points * 0.3);
-  const health = clamp(state.health + (wasHibernating ? 30 : points * 0.2));
+  // Real sats mean financial security — mostly relieves mental stress, with a smaller physical benefit (better food, care).
+  const physicalHealth = clamp(state.physicalHealth + (wasHibernating ? 25 : points * 0.1));
+  const mentalHealth = clamp(state.mentalHealth + (wasHibernating ? 25 : points * 0.3));
   const totalSatsFed = state.totalSatsFed + sats;
 
   return {
@@ -230,7 +254,8 @@ export function applyFeed(state: PetState, txid: string, sats: number, at: numbe
     hunger,
     happiness,
     energy,
-    health,
+    physicalHealth,
+    mentalHealth,
     totalSatsFed,
     status: 'alive',
     hibernatingSince: null,
@@ -251,23 +276,42 @@ export function play(state: PetState, now = Date.now()): PetState {
   };
 }
 
-export function toggleSleep(state: PetState): PetState {
-  if (state.status !== 'alive') return state;
-  return { ...state, isSleeping: !state.isSleeping };
-}
-
-/** Practices a Bitcoiner-lifestyle habit — a free, cosmetic/mood action that never affects evolution stage. */
+/** Practices a Bitcoiner-lifestyle habit — a free action that never affects evolution stage, only stats and cosmetic badges. */
 export function practiceHabit(state: PetState, kind: HabitKind, now = Date.now()): PetState {
   if (state.status !== 'alive') return state;
   const last = state.lastHabitAt[kind];
   if (last && now - last < HABIT_COOLDOWN_MS) return state;
 
-  const effect = HABIT_EFFECTS[kind];
+  let { hunger, happiness, energy, physicalHealth, mentalHealth, intelligence } = state;
+
+  switch (kind) {
+    case 'carnivore':
+      hunger = clamp(hunger + 8);
+      physicalHealth = clamp(physicalHealth + 12);
+      energy = clamp(energy + 4);
+      break;
+    case 'austrianSchool':
+      intelligence = clamp(intelligence + 14);
+      mentalHealth = clamp(mentalHealth + 8);
+      happiness = clamp(happiness + 4);
+      energy = clamp(energy - 3);
+      break;
+    case 'gym':
+      physicalHealth = clamp(physicalHealth + 14);
+      mentalHealth = clamp(mentalHealth + 6);
+      happiness = clamp(happiness + 4);
+      energy = clamp(energy - 10);
+      break;
+  }
+
   return {
     ...state,
-    happiness: clamp(state.happiness + effect.happiness),
-    health: clamp(state.health + effect.health),
-    energy: clamp(state.energy + effect.energy),
+    hunger,
+    happiness,
+    energy,
+    physicalHealth,
+    mentalHealth,
+    intelligence,
     habits: { ...state.habits, [kind]: state.habits[kind] + 1 },
     lastHabitAt: { ...state.lastHabitAt, [kind]: now },
   };

@@ -29,7 +29,8 @@ baixa preferência temporal: estabilidade, família, saúde, liberdade.
      explícita — duas formas:
      - **Gerar fatura**: o app pede uma fatura de X sats à sua carteira via
        [LNURL-pay](https://github.com/lnurl/luds/blob/luds/06.md) e mostra o
-       QR code. Se a carteira suportar
+       QR code — com atalhos para valores comuns (1.000 / 5.000 / 21.000 /
+       100.000 sats) além do campo livre. Se a carteira suportar
        [verificação sem autenticação (LUD-21)](https://github.com/lnurl/luds/blob/luds/21.md),
        o app detecta o pagamento sozinho assim que ele é liquidado; senão, um
        botão "Já paguei" confirma manualmente.
@@ -37,15 +38,26 @@ baixa preferência temporal: estabilidade, família, saúde, liberdade.
        O app decodifica o valor localmente e, se detectar uma extensão WebLN
        no navegador (ex: [Alby](https://getalby.com)), oferece pagar
        diretamente; senão, também dá pra confirmar manualmente.
-3. **Cuide do avatar.** Fome, felicidade e energia diminuem com o tempo.
-   Alimentá-lo (recebendo sats) restaura os status; brincar e dormir ajudam
-   entre um aporte e outro — assim como as **ações temáticas bitcoiner**:
-   Dieta Carnívora 🥩, Escola Austríaca 📖 e Treinar 💪 (cada uma com seu
-   cooldown, e desbloqueia um selo cosmético no avatar após 5 usos — nunca
-   afetam a evolução, que só acontece com sats reais). Se ficar muito tempo
-   sem aportes, o avatar recai no curto prazo — e se isso durar mais de 7
-   dias, ele volta pro sistema fiduciário de vez (dá pra recomeçar quando
-   quiser).
+3. **Cuide do avatar.** Seis status acompanham a vida dele — Fome,
+   Felicidade, Energia, Saúde Física, Saúde Mental e Inteligência — e todos
+   diminuem aos poucos com o tempo (Saúde Física ou Mental chegando a zero
+   hiberna o avatar). Alimentá-lo (recebendo sats reais) restaura a maior
+   parte dos status; entre um aporte e outro, cada **ação temática
+   bitcoiner** ajuda de um jeito diferente e visível no corpo do avatar:
+   - **Treinar 💪** — Saúde Física (deixa o avatar mais musculoso) e um
+     pouco de Saúde Mental, mas custa Energia.
+   - **Escola Austríaca 📖** — Inteligência (a partir de um certo nível o
+     avatar ganha óculos) e Saúde Mental, também custando um pouco de
+     Energia.
+   - **Dieta Carnívora 🥩** — Fome e Saúde Física, com um bônus de Energia.
+
+   Cada ação tem seu próprio cooldown e desbloqueia um selo cosmético no
+   avatar após 5 usos — nenhuma delas afeta a evolução, que só acontece com
+   sats reais. O sono também é automático: o avatar dorme sozinho durante a
+   madrugada no horário de Brasília (regenerando Energia) e acorda de dia,
+   sem nenhum botão manual. Se ficar muito tempo sem aportes, o avatar recai
+   no curto prazo — e se isso durar mais de 7 dias, ele volta pro sistema
+   fiduciário de vez (dá pra recomeçar quando quiser).
 4. **Evolua.** A cada satoshi recebido, o total acumulado avança o avatar por
    estágios: Plebe Adormecido → Recém Orange-Pilled → Poupador Disciplinado →
    Provedor Estável (casa) → Pai de Família Próspero (família) → Maximalista

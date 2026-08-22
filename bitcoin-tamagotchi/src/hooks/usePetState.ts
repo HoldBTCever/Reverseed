@@ -3,10 +3,9 @@ import {
   applyFeed,
   applyTick,
   createPetState,
+  migratePetState,
   play as playAction,
   practiceHabit as practiceHabitAction,
-  toggleSleep as toggleSleepAction,
-  withHabitDefaults,
 } from '../lib/petEngine';
 import { loadJson, removeKey, saveJson } from '../lib/storage';
 import { useWalletSync } from './useWalletSync';
@@ -14,7 +13,7 @@ import type { HabitKind, LinkedWallet, PetState } from '../types';
 
 function loadPet(storageKey: string): PetState | null {
   const stored = loadJson<PetState>(petKey(storageKey));
-  return stored ? withHabitDefaults(stored) : null;
+  return stored ? migratePetState(stored) : null;
 }
 
 const LINK_KEY = 'satoshipet:link:v1';
@@ -125,11 +124,6 @@ export function usePetState() {
     persist(playAction(pet));
   }, [pet, persist]);
 
-  const toggleSleep = useCallback(() => {
-    if (!pet) return;
-    persist(toggleSleepAction(pet));
-  }, [pet, persist]);
-
   /** Feeds the pet from a confirmed Lightning payment discovered outside the polling loop (an invoice generated or paid in-app). */
   const feedManually = useCallback(
     (id: string, sats: number, at = Date.now()) => {
@@ -156,10 +150,9 @@ export function usePetState() {
       unlinkWallet,
       resetPet,
       play,
-      toggleSleep,
       feedManually,
       practiceHabit,
     }),
-    [pet, link, wallet, linkWallet, unlinkWallet, resetPet, play, toggleSleep, feedManually, practiceHabit],
+    [pet, link, wallet, linkWallet, unlinkWallet, resetPet, play, feedManually, practiceHabit],
   );
 }

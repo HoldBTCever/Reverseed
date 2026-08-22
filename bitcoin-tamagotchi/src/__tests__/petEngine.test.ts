@@ -7,6 +7,7 @@ import {
   HABIT_BADGE_THRESHOLD,
   HABIT_COOLDOWN_MS,
   hasHabitBadge,
+  isNightInBrazil,
   moodFor,
   practiceHabit,
   stageForTotalSats,
@@ -81,23 +82,37 @@ describe('applyTick', () => {
     expect(applyTick(state, now)).toEqual(state);
   });
 
-  it('regenerates energy while sleeping instead of draining it', () => {
-    const now = Date.now();
-    const state = { ...createPetState('onchain', ADDRESS, false, now), isSleeping: true, energy: 50 };
+  it('regenerates energy automatically during nighttime hours in Brazil instead of draining it', () => {
+    // 02:00 in America/Sao_Paulo (UTC-3, fixed year-round) = 05:00 UTC.
+    const now = new Date('2024-06-01T05:00:00Z').getTime();
+    const state = { ...createPetState('onchain', ADDRESS, false, now), energy: 50 };
     const ticked = applyTick(state, now + 2 * HOUR);
     expect(ticked.energy).toBeGreaterThan(state.energy);
   });
 
-  it('transitions to hibernating once health chases down to zero', () => {
+  it('drains energy during daytime hours in Brazil', () => {
+    // 14:00 in America/Sao_Paulo = 17:00 UTC.
+    const now = new Date('2024-06-01T17:00:00Z').getTime();
+    const state = { ...createPetState('onchain', ADDRESS, false, now), energy: 50 };
+    const ticked = applyTick(state, now + 2 * HOUR);
+    expect(ticked.energy).toBeLessThan(state.energy);
+  });
+
+  it('transitions to hibernating once physicalHealth hits zero', () => {
     const now = Date.now();
-    let state = createPetState('onchain', ADDRESS, false, now);
-    // Stats already bottomed out; give health-chase enough elapsed time
-    // (rate is 0.35/hour) to fully catch up to its zero target in one tick.
-    state = { ...state, hunger: 0, happiness: 0, energy: 0, health: 1 };
-    const ticked = applyTick(state, now + 5 * HOUR);
-    expect(ticked.health).toBe(0);
+    const state = { ...createPetState('onchain', ADDRESS, false, now), hunger: 100, physicalHealth: 1 };
+    const ticked = applyTick(state, now + 1 * HOUR);
+    expect(ticked.physicalHealth).toBe(0);
     expect(ticked.status).toBe('hibernating');
-    expect(ticked.hibernatingSince).toBe(now + 5 * HOUR);
+    expect(ticked.hibernatingSince).toBe(now + 1 * HOUR);
+  });
+
+  it('transitions to hibernating once mentalHealth hits zero', () => {
+    const now = Date.now();
+    const state = { ...createPetState('onchain', ADDRESS, false, now), happiness: 100, mentalHealth: 1 };
+    const ticked = applyTick(state, now + 1 * HOUR);
+    expect(ticked.mentalHealth).toBe(0);
+    expect(ticked.status).toBe('hibernating');
   });
 
   it('marks the pet as gone after the hibernation timeout with no feeding', () => {
@@ -123,13 +138,22 @@ describe('applyTick', () => {
 });
 
 describe('applyFeed', () => {
-  it('increases hunger, happiness, energy and lifetime total', () => {
+  it('increases hunger, happiness, energy, physicalHealth, mentalHealth and lifetime total', () => {
     const now = Date.now();
-    const state = { ...createPetState('onchain', ADDRESS, false, now), hunger: 40, happiness: 40, energy: 40 };
+    const state = {
+      ...createPetState('onchain', ADDRESS, false, now),
+      hunger: 40,
+      happiness: 40,
+      energy: 40,
+      physicalHealth: 40,
+      mentalHealth: 40,
+    };
     const fed = applyFeed(state, 'tx1', 10_000, now);
     expect(fed.hunger).toBeGreaterThan(state.hunger);
     expect(fed.happiness).toBeGreaterThan(state.happiness);
     expect(fed.energy).toBeGreaterThan(state.energy);
+    expect(fed.physicalHealth).toBeGreaterThan(state.physicalHealth);
+    expect(fed.mentalHealth).toBeGreaterThan(state.mentalHealth);
     expect(fed.totalSatsFed).toBe(10_000);
     expect(fed.feedLog[0]).toMatchObject({ txid: 'tx1', sats: 10_000 });
   });
@@ -148,12 +172,14 @@ describe('applyFeed', () => {
       ...createPetState('onchain', ADDRESS, false, now),
       status: 'hibernating' as const,
       hibernatingSince: now,
-      health: 0,
+      physicalHealth: 0,
+      mentalHealth: 0,
     };
     const fed = applyFeed(state, 'tx-revive', 20_000, now);
     expect(fed.status).toBe('alive');
     expect(fed.hibernatingSince).toBeNull();
-    expect(fed.health).toBeGreaterThan(0);
+    expect(fed.physicalHealth).toBeGreaterThan(0);
+    expect(fed.mentalHealth).toBeGreaterThan(0);
   });
 
   it('never feeds a pet that is gone', () => {
@@ -172,13 +198,25 @@ describe('moodFor', () => {
     expect(moodFor({ ...base, status: 'gone' })).toBe('gone');
   });
 
-  it('derives mood from the average of hunger/happiness/energy when alive', () => {
+  it('derives mood from the average of hunger/happiness/energy/mentalHealth when alive', () => {
     const now = Date.now();
     const base = createPetState('onchain', ADDRESS, false, now);
-    expect(moodFor({ ...base, hunger: 90, happiness: 90, energy: 90 })).toBe('happy');
-    expect(moodFor({ ...base, hunger: 50, happiness: 50, energy: 50 })).toBe('neutral');
-    expect(moodFor({ ...base, hunger: 20, happiness: 20, energy: 20 })).toBe('sad');
-    expect(moodFor({ ...base, hunger: 5, happiness: 5, energy: 5 })).toBe('critical');
+    expect(moodFor({ ...base, hunger: 90, happiness: 90, energy: 90, mentalHealth: 90 })).toBe('happy');
+    expect(moodFor({ ...base, hunger: 50, happiness: 50, energy: 50, mentalHealth: 50 })).toBe('neutral');
+    expect(moodFor({ ...base, hunger: 20, happiness: 20, energy: 20, mentalHealth: 20 })).toBe('sad');
+    expect(moodFor({ ...base, hunger: 5, happiness: 5, energy: 5, mentalHealth: 5 })).toBe('critical');
+  });
+});
+
+describe('isNightInBrazil', () => {
+  it('identifies nighttime hours (23:00–06:59 Brasília) as night', () => {
+    expect(isNightInBrazil(new Date('2024-06-01T05:00:00Z').getTime())).toBe(true); // 02:00 BRT
+    expect(isNightInBrazil(new Date('2024-06-02T02:00:00Z').getTime())).toBe(true); // 23:00 BRT (prev day)
+  });
+
+  it('identifies daytime hours as not night', () => {
+    expect(isNightInBrazil(new Date('2024-06-01T17:00:00Z').getTime())).toBe(false); // 14:00 BRT
+    expect(isNightInBrazil(new Date('2024-06-01T12:00:00Z').getTime())).toBe(false); // 09:00 BRT
   });
 });
 
@@ -191,6 +229,43 @@ describe('practiceHabit', () => {
     expect(after.habits.carnivore).toBe(0);
     expect(after.lastHabitAt.gym).toBe(now);
     expect(after.happiness).toBeGreaterThan(state.happiness);
+  });
+
+  it('gym mainly builds physicalHealth, not intelligence', () => {
+    const now = Date.now();
+    const state = { ...createPetState('onchain', ADDRESS, false, now), physicalHealth: 50, intelligence: 40 };
+    const after = practiceHabit(state, 'gym', now);
+    expect(after.physicalHealth).toBeGreaterThan(state.physicalHealth);
+    expect(after.intelligence).toBe(state.intelligence);
+    expect(after.energy).toBeLessThan(state.energy);
+  });
+
+  it('austrianSchool mainly builds intelligence, not physicalHealth', () => {
+    const now = Date.now();
+    const state = { ...createPetState('onchain', ADDRESS, false, now), physicalHealth: 50, intelligence: 40 };
+    const after = practiceHabit(state, 'austrianSchool', now);
+    expect(after.intelligence).toBeGreaterThan(state.intelligence);
+    expect(after.physicalHealth).toBe(state.physicalHealth);
+  });
+
+  it('carnivore mainly builds hunger and physicalHealth, not intelligence', () => {
+    const now = Date.now();
+    const state = { ...createPetState('onchain', ADDRESS, false, now), hunger: 50, physicalHealth: 50, intelligence: 40 };
+    const after = practiceHabit(state, 'carnivore', now);
+    expect(after.hunger).toBeGreaterThan(state.hunger);
+    expect(after.physicalHealth).toBeGreaterThan(state.physicalHealth);
+    expect(after.intelligence).toBe(state.intelligence);
+  });
+
+  it('each habit produces a different physicalHealth/intelligence signature', () => {
+    const now = Date.now();
+    const base = { ...createPetState('onchain', ADDRESS, false, now), physicalHealth: 50, intelligence: 40 };
+    const afterGym = practiceHabit(base, 'gym', now);
+    const afterSchool = practiceHabit(base, 'austrianSchool', now);
+    const afterCarnivore = practiceHabit(base, 'carnivore', now);
+    expect(afterGym.physicalHealth).not.toBe(afterSchool.physicalHealth);
+    expect(afterGym.intelligence).not.toBe(afterSchool.intelligence);
+    expect(afterCarnivore.physicalHealth).not.toBe(afterSchool.physicalHealth);
   });
 
   it('is a no-op within the cooldown window', () => {
