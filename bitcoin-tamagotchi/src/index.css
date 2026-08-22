@@ -64,6 +64,29 @@ body {
   font-size: 14px;
 }
 
+.onboarding__tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.onboarding__tab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.onboarding__tab--active {
+  background: var(--ink);
+  border-color: var(--shell);
+  color: var(--text);
+}
+
 .onboarding__form {
   display: flex;
   flex-direction: column;
@@ -149,6 +172,11 @@ body {
   color: var(--shell);
   font-size: 13px;
   font-weight: 600;
+}
+
+.top-header__badge {
+  color: var(--text-dim);
+  font-weight: 500;
 }
 
 .top-header__actions {
@@ -284,6 +312,66 @@ body {
   font-size: 13px;
   color: var(--shell);
   font-weight: 600;
+}
+
+.lightning-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lightning-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lightning-card__wallet {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.lightning-card__invoice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lightning-card__form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lightning-card__form label {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.lightning-card__amount-row {
+  display: flex;
+  gap: 8px;
+}
+
+.lightning-card__amount-row input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: monospace;
+}
+
+.lightning-card__amount-row .primary-btn {
+  flex-shrink: 0;
+  padding: 10px 16px;
 }
 
 .game-screen__synced {

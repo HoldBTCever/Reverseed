@@ -1,4 +1,4 @@
-import type { AddressInfo, AddressTx } from '../types';
+import type { AddressInfo, WalletTx } from '../types';
 
 // Both APIs are public, CORS-enabled, watch-only endpoints for Bitcoin
 // mainnet — no authentication and no private key material ever involved.
@@ -54,14 +54,14 @@ export async function getAddressInfo(address: string): Promise<AddressInfo> {
   };
 }
 
-export async function getAddressTxs(address: string): Promise<AddressTx[]> {
+export async function getAddressTxs(address: string): Promise<WalletTx[]> {
   const raw = await fetchFromAnyBase<RawTx[]>(`/address/${address}/txs`);
   return raw.map((tx) => {
     const receivedSats = tx.vout
       .filter((vout) => vout.scriptpubkey_address === address)
       .reduce((sum, vout) => sum + vout.value, 0);
     return {
-      txid: tx.txid,
+      id: tx.txid,
       receivedSats,
       confirmed: tx.status.confirmed,
       time: tx.status.block_time ? tx.status.block_time * 1000 : Date.now(),

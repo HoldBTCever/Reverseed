@@ -1,4 +1,4 @@
-import type { EvolutionStage, Mood, PetState, PetStatus } from '../types';
+import type { EvolutionStage, Mood, PetState, PetStatus, WalletKind } from '../types';
 
 export const STAGES: EvolutionStage[] = [
   { id: 0, name: 'Ovo de Satoshi', minTotalSats: 0 },
@@ -29,9 +29,15 @@ const HIBERNATION_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_FEED_LOG = 50;
 const MAX_SEEN_TXIDS = 300;
 
-export function createPetState(address: string, isDemo: boolean, now = Date.now()): PetState {
+export function createPetState(
+  walletKind: WalletKind,
+  walletLabel: string,
+  isDemo: boolean,
+  now = Date.now(),
+): PetState {
   return {
-    address,
+    walletKind,
+    walletLabel,
     isDemo,
     createdAt: now,
     lastTickAt: now,

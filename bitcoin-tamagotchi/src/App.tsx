@@ -3,13 +3,14 @@ import OnboardingScreen from './components/OnboardingScreen';
 import GameScreen from './components/GameScreen';
 
 export default function App() {
-  const { pet, linkWallet, unlinkWallet, resetPet, play, toggleSleep, wallet } = usePetState();
+  const { pet, linked, linkWallet, unlinkWallet, resetPet, play, toggleSleep, wallet } = usePetState();
 
   return (
     <div className="app-shell">
-      {pet ? (
+      {pet && linked ? (
         <GameScreen
           pet={pet}
+          linked={linked}
           balanceSats={wallet.balanceSats}
           walletLoading={wallet.loading}
           walletError={wallet.error}

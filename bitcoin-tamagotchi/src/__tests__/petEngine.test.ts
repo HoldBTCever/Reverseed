@@ -63,7 +63,7 @@ describe('feedPointsForSats', () => {
 describe('applyTick', () => {
   it('decays hunger, happiness and energy over elapsed time', () => {
     const now = Date.now();
-    const state = createPetState(ADDRESS, false, now);
+    const state = createPetState('onchain', ADDRESS, false, now);
     const ticked = applyTick(state, now + 3 * HOUR);
     expect(ticked.hunger).toBeLessThan(state.hunger);
     expect(ticked.happiness).toBeLessThan(state.happiness);
@@ -73,20 +73,20 @@ describe('applyTick', () => {
 
   it('is a no-op when no time has elapsed', () => {
     const now = Date.now();
-    const state = createPetState(ADDRESS, false, now);
+    const state = createPetState('onchain', ADDRESS, false, now);
     expect(applyTick(state, now)).toEqual(state);
   });
 
   it('regenerates energy while sleeping instead of draining it', () => {
     const now = Date.now();
-    const state = { ...createPetState(ADDRESS, false, now), isSleeping: true, energy: 50 };
+    const state = { ...createPetState('onchain', ADDRESS, false, now), isSleeping: true, energy: 50 };
     const ticked = applyTick(state, now + 2 * HOUR);
     expect(ticked.energy).toBeGreaterThan(state.energy);
   });
 
   it('transitions to hibernating once health chases down to zero', () => {
     const now = Date.now();
-    let state = createPetState(ADDRESS, false, now);
+    let state = createPetState('onchain', ADDRESS, false, now);
     // Stats already bottomed out; give health-chase enough elapsed time
     // (rate is 0.35/hour) to fully catch up to its zero target in one tick.
     state = { ...state, hunger: 0, happiness: 0, energy: 0, health: 1 };
@@ -100,7 +100,7 @@ describe('applyTick', () => {
     const now = Date.now();
     const hibernatingSince = now - 8 * 24 * HOUR;
     const state = {
-      ...createPetState(ADDRESS, false, now),
+      ...createPetState('onchain', ADDRESS, false, now),
       status: 'hibernating' as const,
       hibernatingSince,
       lastTickAt: hibernatingSince,
@@ -111,7 +111,7 @@ describe('applyTick', () => {
 
   it('never ticks a pet that is already gone', () => {
     const now = Date.now();
-    const state = { ...createPetState(ADDRESS, false, now), status: 'gone' as const, hunger: 0 };
+    const state = { ...createPetState('onchain', ADDRESS, false, now), status: 'gone' as const, hunger: 0 };
     const ticked = applyTick(state, now + 5 * HOUR);
     expect(ticked.hunger).toBe(0);
     expect(ticked.status).toBe('gone');
@@ -121,7 +121,7 @@ describe('applyTick', () => {
 describe('applyFeed', () => {
   it('increases hunger, happiness, energy and lifetime total', () => {
     const now = Date.now();
-    const state = { ...createPetState(ADDRESS, false, now), hunger: 40, happiness: 40, energy: 40 };
+    const state = { ...createPetState('onchain', ADDRESS, false, now), hunger: 40, happiness: 40, energy: 40 };
     const fed = applyFeed(state, 'tx1', 10_000, now);
     expect(fed.hunger).toBeGreaterThan(state.hunger);
     expect(fed.happiness).toBeGreaterThan(state.happiness);
@@ -132,7 +132,7 @@ describe('applyFeed', () => {
 
   it('is idempotent for a txid already seen', () => {
     const now = Date.now();
-    const state = createPetState(ADDRESS, false, now);
+    const state = createPetState('onchain', ADDRESS, false, now);
     const first = applyFeed(state, 'tx1', 5_000, now);
     const second = applyFeed(first, 'tx1', 5_000, now);
     expect(second).toEqual(first);
@@ -141,7 +141,7 @@ describe('applyFeed', () => {
   it('revives a hibernating pet', () => {
     const now = Date.now();
     const state = {
-      ...createPetState(ADDRESS, false, now),
+      ...createPetState('onchain', ADDRESS, false, now),
       status: 'hibernating' as const,
       hibernatingSince: now,
       health: 0,
@@ -154,7 +154,7 @@ describe('applyFeed', () => {
 
   it('never feeds a pet that is gone', () => {
     const now = Date.now();
-    const state = { ...createPetState(ADDRESS, false, now), status: 'gone' as const };
+    const state = { ...createPetState('onchain', ADDRESS, false, now), status: 'gone' as const };
     const fed = applyFeed(state, 'tx1', 10_000, now);
     expect(fed).toEqual(state);
   });
@@ -163,14 +163,14 @@ describe('applyFeed', () => {
 describe('moodFor', () => {
   it('reflects status overrides regardless of stats', () => {
     const now = Date.now();
-    const base = createPetState(ADDRESS, false, now);
+    const base = createPetState('onchain', ADDRESS, false, now);
     expect(moodFor({ ...base, status: 'hibernating', hunger: 100, happiness: 100, energy: 100 })).toBe('hibernating');
     expect(moodFor({ ...base, status: 'gone' })).toBe('gone');
   });
 
   it('derives mood from the average of hunger/happiness/energy when alive', () => {
     const now = Date.now();
-    const base = createPetState(ADDRESS, false, now);
+    const base = createPetState('onchain', ADDRESS, false, now);
     expect(moodFor({ ...base, hunger: 90, happiness: 90, energy: 90 })).toBe('happy');
     expect(moodFor({ ...base, hunger: 50, happiness: 50, energy: 50 })).toBe('neutral');
     expect(moodFor({ ...base, hunger: 20, happiness: 20, energy: 20 })).toBe('sad');

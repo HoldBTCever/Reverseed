@@ -19,7 +19,7 @@ export default function FeedLog({ events }: { events: FeedEvent[] }) {
   if (events.length === 0) {
     return (
       <p className="feed-log__empty">
-        Nenhuma refeição ainda. Envie sats para o endereço vinculado para alimentar seu pet.
+        Nenhuma refeição ainda. Envie sats para a carteira vinculada para alimentar seu pet.
       </p>
     );
   }

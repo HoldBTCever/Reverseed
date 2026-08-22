@@ -1,14 +1,16 @@
 import { moodFor, stageForTotalSats } from '../lib/petEngine';
-import type { PetState } from '../types';
+import type { LinkedWallet, PetState } from '../types';
 import PetSprite from './PetSprite';
 import StatBar from './StatBar';
 import AddressCard from './AddressCard';
+import LightningCard from './LightningCard';
 import FeedLog from './FeedLog';
 import ActionBar from './ActionBar';
 import TopHeader from './TopHeader';
 
 interface GameScreenProps {
   pet: PetState;
+  linked: LinkedWallet;
   balanceSats: number | null;
   walletLoading: boolean;
   walletError: string | null;
@@ -21,12 +23,13 @@ interface GameScreenProps {
 }
 
 const STATUS_MESSAGE: Record<string, string> = {
-  hibernating: '😴 Seu pet hibernou por falta de cuidado. Envie sats para o endereço vinculado e ele acorda.',
+  hibernating: '😴 Seu pet hibernou por falta de cuidado. Envie sats para a carteira vinculada e ele acorda.',
   gone: '💔 Seu pet partiu depois de dias sem receber sats. Você pode recomeçar com a mesma carteira.',
 };
 
 export default function GameScreen({
   pet,
+  linked,
   balanceSats,
   walletLoading,
   walletError,
@@ -43,7 +46,13 @@ export default function GameScreen({
 
   return (
     <div className="game-screen">
-      <TopHeader petName={pet.name} stageName={stage.name} onUnlink={onUnlink} onReset={onReset} />
+      <TopHeader
+        petName={pet.name}
+        stageName={stage.name}
+        walletKind={pet.walletKind}
+        onUnlink={onUnlink}
+        onReset={onReset}
+      />
 
       <div className="device-shell">
         <div className="device-screen">
@@ -69,7 +78,16 @@ export default function GameScreen({
         />
       </div>
 
-      <AddressCard address={pet.address} isDemo={pet.isDemo} balanceSats={balanceSats} />
+      {pet.walletKind === 'onchain' ? (
+        <AddressCard address={pet.walletLabel} isDemo={pet.isDemo} balanceSats={balanceSats} />
+      ) : (
+        <LightningCard
+          walletLabel={pet.walletLabel}
+          isDemo={pet.isDemo}
+          nwcUri={linked.kind === 'lightning' && !linked.isDemo ? linked.nwcUri : null}
+          balanceSats={balanceSats}
+        />
+      )}
 
       {walletError && <p className="onboarding__error">⚠️ {walletError}</p>}
       {lastCheckedAt && !walletError && (

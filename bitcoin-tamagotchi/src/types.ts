@@ -1,5 +1,11 @@
 export type PetStatus = 'alive' | 'hibernating' | 'gone';
 
+export type WalletKind = 'onchain' | 'lightning';
+
+export type LinkedWallet =
+  | { kind: 'onchain'; address: string; isDemo: boolean }
+  | { kind: 'lightning'; nwcUri: string; isDemo: boolean };
+
 export interface FeedEvent {
   txid: string;
   sats: number;
@@ -7,7 +13,9 @@ export interface FeedEvent {
 }
 
 export interface PetState {
-  address: string;
+  walletKind: WalletKind;
+  /** Public-safe label for the linked wallet (address, or a shortened Lightning wallet pubkey). Never a secret. */
+  walletLabel: string;
   isDemo: boolean;
   createdAt: number;
   lastTickAt: number;
@@ -40,8 +48,9 @@ export interface AddressInfo {
   txCount: number;
 }
 
-export interface AddressTx {
-  txid: string;
+/** A single incoming payment, normalized across on-chain txs and Lightning payments. */
+export interface WalletTx {
+  id: string;
   receivedSats: number;
   confirmed: boolean;
   time: number;

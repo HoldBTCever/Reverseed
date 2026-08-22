@@ -1,40 +1,55 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAddressInfo, getAddressTxs } from '../lib/mempoolApi';
-import { getDemoAddressInfo, getDemoAddressTxs, isDemoAddress } from '../lib/demoWallet';
-import type { AddressTx } from '../types';
+import { getDemoAddressInfo, getDemoAddressTxs } from '../lib/demoWallet';
+import { getDemoLightningInfo, getDemoLightningTxs } from '../lib/demoLightning';
+import { getLightningWalletData } from '../lib/nwc';
+import type { LinkedWallet, WalletTx } from '../types';
 
 const POLL_INTERVAL_MS = 45_000;
 
 interface WalletSyncResult {
   balanceSats: number | null;
-  txs: AddressTx[];
+  txs: WalletTx[];
   loading: boolean;
   error: string | null;
   lastCheckedAt: number | null;
   refresh: () => void;
 }
 
-export function useWalletSync(address: string | null): WalletSyncResult {
+async function fetchWalletData(link: LinkedWallet): Promise<{ balanceSats: number; txs: WalletTx[] }> {
+  if (link.kind === 'onchain') {
+    if (link.isDemo) {
+      const [info, txs] = await Promise.all([getDemoAddressInfo(), getDemoAddressTxs()]);
+      return { balanceSats: info.balanceSats, txs };
+    }
+    const [info, txs] = await Promise.all([getAddressInfo(link.address), getAddressTxs(link.address)]);
+    return { balanceSats: info.balanceSats, txs };
+  }
+
+  if (link.isDemo) {
+    const [info, txs] = await Promise.all([getDemoLightningInfo(), getDemoLightningTxs()]);
+    return { balanceSats: info.balanceSats, txs };
+  }
+  return getLightningWalletData(link.nwcUri);
+}
+
+export function useWalletSync(link: LinkedWallet | null): WalletSyncResult {
   const [balanceSats, setBalanceSats] = useState<number | null>(null);
-  const [txs, setTxs] = useState<AddressTx[]>([]);
+  const [txs, setTxs] = useState<WalletTx[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
   const requestSeq = useRef(0);
 
   const load = useCallback(async () => {
-    if (!address) return;
+    if (!link) return;
     const seq = ++requestSeq.current;
     setLoading(true);
     try {
-      const demo = isDemoAddress(address);
-      const [info, addressTxs] = demo
-        ? await Promise.all([getDemoAddressInfo(), getDemoAddressTxs()])
-        : await Promise.all([getAddressInfo(address), getAddressTxs(address)]);
-
+      const data = await fetchWalletData(link);
       if (seq !== requestSeq.current) return; // a newer request superseded this one
-      setBalanceSats(info.balanceSats);
-      setTxs(addressTxs);
+      setBalanceSats(data.balanceSats);
+      setTxs(data.txs);
       setError(null);
       setLastCheckedAt(Date.now());
     } catch (err) {
@@ -43,10 +58,10 @@ export function useWalletSync(address: string | null): WalletSyncResult {
     } finally {
       if (seq === requestSeq.current) setLoading(false);
     }
-  }, [address]);
+  }, [link]);
 
   useEffect(() => {
-    if (!address) return;
+    if (!link) return;
     load();
     const interval = setInterval(load, POLL_INTERVAL_MS);
     const onFocus = () => load();
@@ -57,7 +72,7 @@ export function useWalletSync(address: string | null): WalletSyncResult {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
     };
-  }, [address, load]);
+  }, [link, load]);
 
   return { balanceSats, txs, loading, error, lastCheckedAt, refresh: load };
 }

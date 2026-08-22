@@ -1,19 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { applyFeed, applyTick, createPetState, play as playAction, toggleSleep as toggleSleepAction } from '../lib/petEngine';
 import { loadJson, removeKey, saveJson } from '../lib/storage';
+import { disconnectLightningWallet, walletPubkeyFromUri } from '../lib/nwc';
 import { useWalletSync } from './useWalletSync';
-import type { PetState } from '../types';
-
-interface LinkedWallet {
-  address: string;
-  isDemo: boolean;
-}
+import type { LinkedWallet, PetState } from '../types';
 
 const LINK_KEY = 'satoshipet:link:v1';
 const TICK_INTERVAL_MS = 15_000;
 
-function petKey(address: string): string {
-  return `satoshipet:pet:v1:${address}`;
+/** A storage key and display label that are safe to derive from a linked wallet — never the NWC secret itself. */
+function walletIdentity(link: LinkedWallet): { storageKey: string; label: string } {
+  if (link.kind === 'onchain') {
+    return link.isDemo
+      ? { storageKey: 'demo-onchain', label: 'Modo demonstração' }
+      : { storageKey: `onchain:${link.address}`, label: link.address };
+  }
+  if (link.isDemo) {
+    return { storageKey: 'demo-lightning', label: 'Modo demonstração' };
+  }
+  const pubkey = walletPubkeyFromUri(link.nwcUri) ?? 'desconhecida';
+  const short = pubkey.length > 16 ? `${pubkey.slice(0, 8)}…${pubkey.slice(-6)}` : pubkey;
+  return { storageKey: `lightning:${pubkey}`, label: `Lightning ${short}` };
+}
+
+function petKey(storageKey: string): string {
+  return `satoshipet:pet:v1:${storageKey}`;
 }
 
 export function usePetState() {
@@ -21,77 +32,84 @@ export function usePetState() {
   const [pet, setPet] = useState<PetState | null>(() => {
     const linked = loadJson<LinkedWallet>(LINK_KEY);
     if (!linked) return null;
-    return loadJson<PetState>(petKey(linked.address)) ?? createPetState(linked.address, linked.isDemo);
+    const identity = walletIdentity(linked);
+    return loadJson<PetState>(petKey(identity.storageKey)) ?? createPetState(linked.kind, identity.label, linked.isDemo);
   });
 
-  const wallet = useWalletSync(link?.address ?? null);
+  const wallet = useWalletSync(link);
 
-  const persist = useCallback((next: PetState) => {
-    setPet(next);
-    saveJson(petKey(next.address), next);
-  }, []);
+  const persist = useCallback(
+    (next: PetState) => {
+      if (!link) return;
+      setPet(next);
+      saveJson(petKey(walletIdentity(link).storageKey), next);
+    },
+    [link],
+  );
 
   // Periodic decay tick, independent of network activity.
   useEffect(() => {
-    if (!pet) return;
+    if (!pet || !link) return;
+    const storageKey = walletIdentity(link).storageKey;
     const interval = setInterval(() => {
       setPet((current) => {
         if (!current) return current;
         const ticked = applyTick(current);
-        saveJson(petKey(ticked.address), ticked);
+        saveJson(petKey(storageKey), ticked);
         return ticked;
       });
     }, TICK_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [pet?.address]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pet?.walletLabel, link]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Apply a tick immediately whenever the pet is (re)loaded, to account for
   // time elapsed while the app was closed.
   useEffect(() => {
     if (!pet) return;
     persist(applyTick(pet));
-    // Only run once per loaded pet identity (address), not on every stat change.
+    // Only run once per loaded pet identity, not on every stat change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pet?.address]);
+  }, [pet?.walletLabel]);
 
   // Feed the pet from any new incoming transactions detected by wallet sync.
   useEffect(() => {
     if (!pet || wallet.txs.length === 0) return;
     setPet((current) => {
-      if (!current) return current;
+      if (!current || !link) return current;
       let next = current;
       // Oldest-first so the feed log ends up newest-first after each unshift.
       const chronological = [...wallet.txs].sort((a, b) => a.time - b.time);
       for (const tx of chronological) {
-        if (tx.receivedSats > 0 && !next.seenTxids.includes(tx.txid)) {
-          next = applyFeed(next, tx.txid, tx.receivedSats, tx.time);
+        if (tx.receivedSats > 0 && !next.seenTxids.includes(tx.id)) {
+          next = applyFeed(next, tx.id, tx.receivedSats, tx.time);
         }
       }
-      if (next !== current) saveJson(petKey(next.address), next);
+      if (next !== current) saveJson(petKey(walletIdentity(link).storageKey), next);
       return next;
     });
-  }, [wallet.txs, pet?.address]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [wallet.txs, pet?.walletLabel, link]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const linkWallet = useCallback((address: string, isDemo: boolean) => {
-    const linkedWallet: LinkedWallet = { address, isDemo };
-    saveJson(LINK_KEY, linkedWallet);
-    setLink(linkedWallet);
-    const existing = loadJson<PetState>(petKey(address));
-    const initial = existing ?? createPetState(address, isDemo);
-    saveJson(petKey(address), initial);
+  const linkWallet = useCallback((next: LinkedWallet) => {
+    saveJson(LINK_KEY, next);
+    setLink(next);
+    const identity = walletIdentity(next);
+    const existing = loadJson<PetState>(petKey(identity.storageKey));
+    const initial = existing ?? createPetState(next.kind, identity.label, next.isDemo);
+    saveJson(petKey(identity.storageKey), initial);
     setPet(initial);
   }, []);
 
   const unlinkWallet = useCallback(() => {
+    if (link?.kind === 'lightning' && !link.isDemo) disconnectLightningWallet();
     removeKey(LINK_KEY);
     setLink(null);
     setPet(null);
-  }, []);
+  }, [link]);
 
   const resetPet = useCallback(() => {
     if (!link) return;
-    const fresh = createPetState(link.address, link.isDemo);
-    persist(fresh);
+    const identity = walletIdentity(link);
+    persist(createPetState(link.kind, identity.label, link.isDemo));
   }, [link, persist]);
 
   const play = useCallback(() => {
