@@ -3,13 +3,33 @@ import type { HabitKind } from '../types';
 
 interface ActionBarProps {
   disabled: boolean;
+  habitsDisabled: boolean;
   onPlay: () => void;
   onRefresh: () => void;
-  onHabit: (kind: HabitKind) => void;
+  onRequestHabit: (kind: HabitKind) => void;
   refreshing: boolean;
 }
 
-export default function ActionBar({ disabled, onPlay, onRefresh, onHabit, refreshing }: ActionBarProps) {
+function HabitButton({
+  kind,
+  disabled,
+  onRequestHabit,
+}: {
+  kind: HabitKind;
+  disabled: boolean;
+  onRequestHabit: (kind: HabitKind) => void;
+}) {
+  const info = HABIT_INFO[kind];
+  return (
+    <button className="device-btn" disabled={disabled} onClick={() => onRequestHabit(kind)} title={info.flavor}>
+      {info.icon}
+      <span>{info.label}</span>
+      <small>{info.costSats.toLocaleString('pt-BR')} sats</small>
+    </button>
+  );
+}
+
+export default function ActionBar({ disabled, habitsDisabled, onPlay, onRefresh, onRequestHabit, refreshing }: ActionBarProps) {
   return (
     <div className="action-bar">
       <button className="device-btn" disabled={disabled} onClick={onPlay} title="Brincar">
@@ -18,25 +38,9 @@ export default function ActionBar({ disabled, onPlay, onRefresh, onHabit, refres
       <button className="device-btn" disabled={refreshing} onClick={onRefresh} title="Checar sats recebidos">
         🔄<span>{refreshing ? 'Checando…' : 'Checar sats'}</span>
       </button>
-      <button
-        className="device-btn"
-        disabled={disabled}
-        onClick={() => onHabit('carnivore')}
-        title={HABIT_INFO.carnivore.flavor}
-      >
-        {HABIT_INFO.carnivore.icon}<span>{HABIT_INFO.carnivore.label}</span>
-      </button>
-      <button
-        className="device-btn"
-        disabled={disabled}
-        onClick={() => onHabit('austrianSchool')}
-        title={HABIT_INFO.austrianSchool.flavor}
-      >
-        {HABIT_INFO.austrianSchool.icon}<span>{HABIT_INFO.austrianSchool.label}</span>
-      </button>
-      <button className="device-btn" disabled={disabled} onClick={() => onHabit('gym')} title={HABIT_INFO.gym.flavor}>
-        {HABIT_INFO.gym.icon}<span>{HABIT_INFO.gym.label}</span>
-      </button>
+      <HabitButton kind="carnivore" disabled={disabled || habitsDisabled} onRequestHabit={onRequestHabit} />
+      <HabitButton kind="austrianSchool" disabled={disabled || habitsDisabled} onRequestHabit={onRequestHabit} />
+      <HabitButton kind="gym" disabled={disabled || habitsDisabled} onRequestHabit={onRequestHabit} />
     </div>
   );
 }

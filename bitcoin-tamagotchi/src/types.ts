@@ -12,11 +12,18 @@ export interface FeedEvent {
   at: number;
 }
 
-/** Bitcoiner-lifestyle actions the avatar can practice between real sat deposits. Purely cosmetic/mood — never affects evolution stage. */
+/** Bitcoiner-lifestyle actions the avatar can practice. Each only completes once its cost in sats is actually received — never affects evolution stage directly, but the sats received to complete one still count toward it. */
 export type HabitKind = 'carnivore' | 'austrianSchool' | 'gym';
 
 export type HabitCounts = Record<HabitKind, number>;
 export type HabitTimestamps = Record<HabitKind, number | null>;
+
+/** A habit awaiting its required payment before it completes. Only one can be pending at a time. */
+export interface PendingHabit {
+  kind: HabitKind;
+  costSats: number;
+  requestedAt: number;
+}
 
 export interface PetState {
   walletKind: WalletKind;
@@ -43,6 +50,7 @@ export interface PetState {
   name: string;
   habits: HabitCounts;
   lastHabitAt: HabitTimestamps;
+  pendingHabit: PendingHabit | null;
 }
 
 export type Mood = 'happy' | 'neutral' | 'sad' | 'critical' | 'hibernating' | 'gone';

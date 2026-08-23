@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   applyFeed,
   applyTick,
+  cancelPendingHabit as cancelPendingHabitAction,
   createPetState,
   migratePetState,
   play as playAction,
-  practiceHabit as practiceHabitAction,
+  requestHabit as requestHabitAction,
 } from '../lib/petEngine';
 import { loadJson, removeKey, saveJson } from '../lib/storage';
 import { useWalletSync } from './useWalletSync';
@@ -133,13 +134,18 @@ export function usePetState() {
     [pet, persist],
   );
 
-  const practiceHabit = useCallback(
+  const requestHabit = useCallback(
     (kind: HabitKind) => {
       if (!pet) return;
-      persist(practiceHabitAction(pet, kind));
+      persist(requestHabitAction(pet, kind));
     },
     [pet, persist],
   );
+
+  const cancelHabitRequest = useCallback(() => {
+    if (!pet) return;
+    persist(cancelPendingHabitAction(pet));
+  }, [pet, persist]);
 
   return useMemo(
     () => ({
@@ -151,8 +157,9 @@ export function usePetState() {
       resetPet,
       play,
       feedManually,
-      practiceHabit,
+      requestHabit,
+      cancelHabitRequest,
     }),
-    [pet, link, wallet, linkWallet, unlinkWallet, resetPet, play, feedManually, practiceHabit],
+    [pet, link, wallet, linkWallet, unlinkWallet, resetPet, play, feedManually, requestHabit, cancelHabitRequest],
   );
 }

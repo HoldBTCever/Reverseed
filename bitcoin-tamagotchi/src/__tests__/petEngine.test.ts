@@ -2,17 +2,18 @@ import { describe, expect, it } from 'vitest';
 import {
   applyFeed,
   applyTick,
+  cancelPendingHabit,
   createPetState,
   describeEffects,
   feedEffectDeltas,
   feedPointsForSats,
   HABIT_BADGE_THRESHOLD,
-  HABIT_COOLDOWN_MS,
+  HABIT_INFO,
   HABIT_STAT_EFFECTS,
   hasHabitBadge,
   isNightInBrazil,
   moodFor,
-  practiceHabit,
+  requestHabit,
   stageForTotalSats,
 } from '../lib/petEngine';
 
@@ -223,80 +224,87 @@ describe('isNightInBrazil', () => {
   });
 });
 
-describe('practiceHabit', () => {
-  it('boosts stats and increments the habit counter', () => {
+describe('requestHabit', () => {
+  it('sets a pendingHabit with the habit\'s cost, with no stat effect yet', () => {
     const now = Date.now();
     const state = createPetState('onchain', ADDRESS, false, now);
-    const after = practiceHabit(state, 'gym', now);
-    expect(after.habits.gym).toBe(1);
-    expect(after.habits.carnivore).toBe(0);
-    expect(after.lastHabitAt.gym).toBe(now);
-    expect(after.happiness).toBeGreaterThan(state.happiness);
-  });
-
-  it('gym mainly builds physicalHealth, not intelligence', () => {
-    const now = Date.now();
-    const state = { ...createPetState('onchain', ADDRESS, false, now), physicalHealth: 50, intelligence: 40 };
-    const after = practiceHabit(state, 'gym', now);
-    expect(after.physicalHealth).toBeGreaterThan(state.physicalHealth);
-    expect(after.intelligence).toBe(state.intelligence);
-    expect(after.energy).toBeLessThan(state.energy);
-  });
-
-  it('austrianSchool mainly builds intelligence, not physicalHealth', () => {
-    const now = Date.now();
-    const state = { ...createPetState('onchain', ADDRESS, false, now), physicalHealth: 50, intelligence: 40 };
-    const after = practiceHabit(state, 'austrianSchool', now);
-    expect(after.intelligence).toBeGreaterThan(state.intelligence);
+    const after = requestHabit(state, 'gym', now);
+    expect(after.pendingHabit).toEqual({ kind: 'gym', costSats: HABIT_INFO.gym.costSats, requestedAt: now });
     expect(after.physicalHealth).toBe(state.physicalHealth);
+    expect(after.habits.gym).toBe(0);
   });
 
-  it('carnivore mainly builds hunger and physicalHealth, not intelligence', () => {
+  it('replaces whatever habit was previously pending', () => {
     const now = Date.now();
-    const state = { ...createPetState('onchain', ADDRESS, false, now), hunger: 50, physicalHealth: 50, intelligence: 40 };
-    const after = practiceHabit(state, 'carnivore', now);
-    expect(after.hunger).toBeGreaterThan(state.hunger);
-    expect(after.physicalHealth).toBeGreaterThan(state.physicalHealth);
-    expect(after.intelligence).toBe(state.intelligence);
-  });
-
-  it('each habit produces a different physicalHealth/intelligence signature', () => {
-    const now = Date.now();
-    const base = { ...createPetState('onchain', ADDRESS, false, now), physicalHealth: 50, intelligence: 40 };
-    const afterGym = practiceHabit(base, 'gym', now);
-    const afterSchool = practiceHabit(base, 'austrianSchool', now);
-    const afterCarnivore = practiceHabit(base, 'carnivore', now);
-    expect(afterGym.physicalHealth).not.toBe(afterSchool.physicalHealth);
-    expect(afterGym.intelligence).not.toBe(afterSchool.intelligence);
-    expect(afterCarnivore.physicalHealth).not.toBe(afterSchool.physicalHealth);
-  });
-
-  it('is a no-op within the cooldown window', () => {
-    const now = Date.now();
-    const state = practiceHabit(createPetState('onchain', ADDRESS, false, now), 'carnivore', now);
-    const tooSoon = practiceHabit(state, 'carnivore', now + HABIT_COOLDOWN_MS - 1);
-    expect(tooSoon).toEqual(state);
-  });
-
-  it('works again once the cooldown has elapsed', () => {
-    const now = Date.now();
-    const state = practiceHabit(createPetState('onchain', ADDRESS, false, now), 'carnivore', now);
-    const later = practiceHabit(state, 'carnivore', now + HABIT_COOLDOWN_MS + 1);
-    expect(later.habits.carnivore).toBe(2);
+    const state = requestHabit(createPetState('onchain', ADDRESS, false, now), 'gym', now);
+    const after = requestHabit(state, 'carnivore', now + 1);
+    expect(after.pendingHabit?.kind).toBe('carnivore');
   });
 
   it('never affects a dead avatar', () => {
     const now = Date.now();
     const state = { ...createPetState('onchain', ADDRESS, false, now), status: 'gone' as const };
-    expect(practiceHabit(state, 'gym', now)).toEqual(state);
+    expect(requestHabit(state, 'gym', now)).toEqual(state);
+  });
+});
+
+describe('cancelPendingHabit', () => {
+  it('clears a pending habit', () => {
+    const now = Date.now();
+    const state = requestHabit(createPetState('onchain', ADDRESS, false, now), 'gym', now);
+    expect(cancelPendingHabit(state).pendingHabit).toBeNull();
   });
 
-  it('tracks each habit kind independently', () => {
+  it('is a no-op when nothing is pending', () => {
     const now = Date.now();
-    let state = createPetState('onchain', ADDRESS, false, now);
-    state = practiceHabit(state, 'gym', now);
-    state = practiceHabit(state, 'austrianSchool', now);
-    expect(state.habits).toEqual({ gym: 1, austrianSchool: 1, carnivore: 0 });
+    const state = createPetState('onchain', ADDRESS, false, now);
+    expect(cancelPendingHabit(state)).toEqual(state);
+  });
+});
+
+describe('applyFeed — habit completion', () => {
+  it('leaves the habit pending when the payment is smaller than its cost', () => {
+    const now = Date.now();
+    const state = requestHabit(createPetState('onchain', ADDRESS, false, now), 'gym', now);
+    const fed = applyFeed(state, 'tx1', HABIT_INFO.gym.costSats - 1, now);
+    expect(fed.pendingHabit).not.toBeNull();
+    expect(fed.habits.gym).toBe(0);
+    // The payment still counts as an ordinary feed.
+    expect(fed.totalSatsFed).toBe(HABIT_INFO.gym.costSats - 1);
+  });
+
+  it('completes the habit once a payment meets or exceeds its cost, on top of the ordinary feed effects', () => {
+    const now = Date.now();
+    const state = { ...requestHabit(createPetState('onchain', ADDRESS, false, now), 'gym', now), physicalHealth: 50 };
+    const fed = applyFeed(state, 'tx1', HABIT_INFO.gym.costSats, now);
+    expect(fed.pendingHabit).toBeNull();
+    expect(fed.habits.gym).toBe(1);
+    expect(fed.lastHabitAt.gym).toBe(now);
+    // Feed's own physicalHealth bump plus the habit's own +14 physicalHealth.
+    expect(fed.physicalHealth).toBeGreaterThan(state.physicalHealth + 14);
+    expect(fed.totalSatsFed).toBe(HABIT_INFO.gym.costSats);
+  });
+
+  it('produces a different signature per habit, beyond the ordinary feed effect every payment gives', () => {
+    const now = Date.now();
+    const base = { ...createPetState('onchain', ADDRESS, false, now), physicalHealth: 50, intelligence: 40 };
+
+    const gymFed = applyFeed(requestHabit(base, 'gym', now), 'tx-gym', HABIT_INFO.gym.costSats, now);
+    const gymBaselineFeed = applyFeed(base, 'tx-gym-baseline', HABIT_INFO.gym.costSats, now);
+    expect(gymFed.physicalHealth).toBeGreaterThan(gymBaselineFeed.physicalHealth); // gym's own +14 on top
+    expect(gymFed.intelligence).toBe(base.intelligence); // gym never touches intelligence
+
+    const schoolFed = applyFeed(requestHabit(base, 'austrianSchool', now), 'tx-school', HABIT_INFO.austrianSchool.costSats, now);
+    const schoolBaselineFeed = applyFeed(base, 'tx-school-baseline', HABIT_INFO.austrianSchool.costSats, now);
+    expect(schoolFed.intelligence).toBeGreaterThan(base.intelligence);
+    expect(schoolFed.physicalHealth).toBe(schoolBaselineFeed.physicalHealth); // no habit-specific physicalHealth bump
+  });
+
+  it('a payment with no pending habit never completes one', () => {
+    const now = Date.now();
+    const state = createPetState('onchain', ADDRESS, false, now);
+    const fed = applyFeed(state, 'tx1', 100_000, now);
+    expect(fed.habits).toEqual({ carnivore: 0, austrianSchool: 0, gym: 0 });
   });
 });
 
@@ -305,10 +313,12 @@ describe('hasHabitBadge', () => {
     const now = Date.now();
     let state = createPetState('onchain', ADDRESS, false, now);
     for (let i = 0; i < HABIT_BADGE_THRESHOLD - 1; i++) {
-      state = practiceHabit(state, 'gym', now + i * HABIT_COOLDOWN_MS);
+      state = requestHabit(state, 'gym', now + i);
+      state = applyFeed(state, `tx${i}`, HABIT_INFO.gym.costSats, now + i);
     }
     expect(hasHabitBadge(state, 'gym')).toBe(false);
-    state = practiceHabit(state, 'gym', now + HABIT_BADGE_THRESHOLD * HABIT_COOLDOWN_MS);
+    state = requestHabit(state, 'gym', now + HABIT_BADGE_THRESHOLD);
+    state = applyFeed(state, `tx-final`, HABIT_INFO.gym.costSats, now + HABIT_BADGE_THRESHOLD);
     expect(hasHabitBadge(state, 'gym')).toBe(true);
   });
 });

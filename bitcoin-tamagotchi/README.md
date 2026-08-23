@@ -42,8 +42,8 @@ baixa preferência temporal: estabilidade, família, saúde, liberdade.
    Felicidade, Energia, Saúde Física, Saúde Mental e Inteligência — e todos
    diminuem aos poucos com o tempo (Saúde Física ou Mental chegando a zero
    hiberna o avatar). Alimentá-lo (recebendo sats reais) restaura a maior
-   parte dos status; entre um aporte e outro, cada **ação temática
-   bitcoiner** ajuda de um jeito diferente e visível no corpo do avatar:
+   parte dos status; além disso, cada **ação temática bitcoiner** melhora
+   um jeito diferente e visível do avatar:
    - **Treinar 💪** — Saúde Física (deixa o avatar mais musculoso) e um
      pouco de Saúde Mental, mas custa Energia.
    - **Escola Austríaca 📖** — Inteligência (a partir de um certo nível o
@@ -51,13 +51,29 @@ baixa preferência temporal: estabilidade, família, saúde, liberdade.
      Energia.
    - **Dieta Carnívora 🥩** — Fome e Saúde Física, com um bônus de Energia.
 
-   Cada ação tem seu próprio cooldown e desbloqueia um selo cosmético no
-   avatar após 5 usos — nenhuma delas afeta a evolução, que só acontece com
-   sats reais. O sono também é automático: o avatar dorme sozinho durante a
-   madrugada no horário de Brasília (regenerando Energia) e acorda de dia,
-   sem nenhum botão manual. Se ficar muito tempo sem aportes, o avatar recai
-   no curto prazo — e se isso durar mais de 7 dias, ele volta pro sistema
-   fiduciário de vez (dá pra recomeçar quando quiser).
+   **Cada ação só é considerada concluída depois que o app recebe uma
+   quantidade de sats equivalente a ela** (1.000 / 1.500 / 2.000 sats,
+   respectivamente) — não é um clique grátis. Ao escolher uma ação, o app
+   mostra quanto falta receber:
+   - **Lightning**: gera uma fatura de valor fixo para aquela ação
+     específica (mesmo fluxo de verificação da alimentação: LUD-21, WebLN,
+     ou confirmação manual).
+   - **On-chain**: mostra o endereço/QR vinculado e aguarda uma transação
+     única de pelo menos aquele valor — detectada automaticamente pelo
+     mesmo polling que já alimenta o avatar.
+   - **Modo demonstração**: um aporte simulado subsequente cobre o valor
+     sozinho, sem ação manual.
+
+   O pagamento que completa a ação conta normalmente como alimentação
+   (soma ao total acumulado e restaura os status básicos) e, além disso,
+   aplica o efeito específico daquela ação. Cada uma desbloqueia um selo
+   cosmético no avatar após 5 conclusões — nenhuma afeta a evolução
+   diretamente, que segue dependendo do total de sats recebidos. O sono
+   também é automático: o avatar dorme sozinho durante a madrugada no
+   horário de Brasília (regenerando Energia) e acorda de dia, sem nenhum
+   botão manual. Se ficar muito tempo sem aportes, o avatar recai no curto
+   prazo — e se isso durar mais de 7 dias, ele volta pro sistema fiduciário
+   de vez (dá pra recomeçar quando quiser).
 4. **Evolua.** A cada satoshi recebido, o total acumulado avança o avatar por
    estágios: Plebe Adormecido → Recém Orange-Pilled → Poupador Disciplinado →
    Provedor Estável (casa) → Pai de Família Próspero (família) → Maximalista
@@ -118,6 +134,7 @@ src/
     ├── PetSprite.tsx         # Avatar SVG (bust humano; varia por estágio/humor + selos de casa/família/hábitos)
     ├── AddressCard.tsx       # Card de saldo + QR para carteiras on-chain
     ├── LightningCard.tsx     # Card de saldo + geração/colagem de fatura para carteiras Lightning
+    ├── HabitPaymentCard.tsx  # Fluxo de pagamento (fatura Lightning de valor fixo, alvo on-chain, ou espera em demo) para concluir uma ação
     ├── StatBar.tsx, FeedLog.tsx, ActionBar.tsx, TopHeader.tsx
 ```
 

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   describeEffects,
   feedEffectDeltas,
-  HABIT_COOLDOWN_MS,
   HABIT_INFO,
   HABIT_STAT_EFFECTS,
   hasHabitBadge,
@@ -15,6 +14,7 @@ import PetSprite from './PetSprite';
 import StatBar from './StatBar';
 import AddressCard from './AddressCard';
 import LightningCard from './LightningCard';
+import HabitPaymentCard from './HabitPaymentCard';
 import FeedLog from './FeedLog';
 import ActionBar from './ActionBar';
 import TopHeader from './TopHeader';
@@ -31,7 +31,8 @@ interface GameScreenProps {
   onUnlink: () => void;
   onReset: () => void;
   onFeed: (id: string, sats: number) => void;
-  onHabit: (kind: HabitKind) => void;
+  onRequestHabit: (kind: HabitKind) => void;
+  onCancelHabit: () => void;
 }
 
 const STATUS_MESSAGE: Record<string, string> = {
@@ -51,7 +52,8 @@ export default function GameScreen({
   onUnlink,
   onReset,
   onFeed,
-  onHabit,
+  onRequestHabit,
+  onCancelHabit,
 }: GameScreenProps) {
   const stage = stageForTotalSats(pet.totalSatsFed);
   const mood = moodFor(pet);
@@ -82,21 +84,32 @@ export default function GameScreen({
     toastTimer.current = setTimeout(() => setToast(null), 2600);
   };
 
-  const handleFeed = (id: string, sats: number) => {
-    const deltas = feedEffectDeltas(sats, pet.status === 'hibernating');
-    showToast(`+${sats.toLocaleString('pt-BR')} sats · ${describeEffects(deltas)}`);
-    onFeed(id, sats);
-  };
+  // A habit only completes once its cost is actually received — that can happen
+  // synchronously (confirming a Lightning invoice, below) or asynchronously (an
+  // on-chain/demo payment detected by the wallet-sync poll). Detect the latter
+  // here so both paths get the same completion feedback.
+  const prevPendingRef = useRef(pet.pendingHabit);
+  const prevHabitsRef = useRef(pet.habits);
+  useEffect(() => {
+    const prevPending = prevPendingRef.current;
+    if (prevPending && !pet.pendingHabit && pet.habits[prevPending.kind] > prevHabitsRef.current[prevPending.kind]) {
+      const info = HABIT_INFO[prevPending.kind];
+      const sats = pet.feedLog[0]?.sats;
+      const satsText = sats ? `+${sats.toLocaleString('pt-BR')} sats · ` : '';
+      showToast(`${info.icon} ${info.label} concluído! ${satsText}${describeEffects(HABIT_STAT_EFFECTS[prevPending.kind])}`);
+    }
+    prevPendingRef.current = pet.pendingHabit;
+    prevHabitsRef.current = pet.habits;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pet.pendingHabit, pet.habits, pet.feedLog]);
 
-  const handleHabit = (kind: HabitKind) => {
-    const last = pet.lastHabitAt[kind];
-    const onCooldown = last !== null && Date.now() - last < HABIT_COOLDOWN_MS;
-    showToast(
-      onCooldown
-        ? `⏳ ${HABIT_INFO[kind].label}: espere um pouco antes de repetir.`
-        : describeEffects(HABIT_STAT_EFFECTS[kind]),
-    );
-    onHabit(kind);
+  const handleFeed = (id: string, sats: number) => {
+    const willCompleteHabit = pet.pendingHabit !== null && sats >= pet.pendingHabit.costSats;
+    if (!willCompleteHabit) {
+      const deltas = feedEffectDeltas(sats, pet.status === 'hibernating');
+      showToast(`+${sats.toLocaleString('pt-BR')} sats · ${describeEffects(deltas)}`);
+    }
+    onFeed(id, sats);
   };
 
   return (
@@ -138,10 +151,27 @@ export default function GameScreen({
           <StatBar label="Inteligência" icon="🧠" value={pet.intelligence} />
         </div>
 
-        <ActionBar disabled={!isInteractive} onPlay={onPlay} onRefresh={onRefresh} onHabit={handleHabit} refreshing={walletLoading} />
+        <ActionBar
+          disabled={!isInteractive}
+          habitsDisabled={pet.pendingHabit !== null}
+          onPlay={onPlay}
+          onRefresh={onRefresh}
+          onRequestHabit={onRequestHabit}
+          refreshing={walletLoading}
+        />
       </div>
 
-      {pet.walletKind === 'onchain' ? (
+      {pet.pendingHabit ? (
+        <HabitPaymentCard
+          pendingHabit={pet.pendingHabit}
+          walletKind={pet.walletKind}
+          isDemo={pet.isDemo}
+          lightningAddress={linked.kind === 'lightning' && !linked.isDemo ? linked.lightningAddress : null}
+          address={pet.walletKind === 'onchain' && !pet.isDemo ? pet.walletLabel : null}
+          onFeed={handleFeed}
+          onCancel={onCancelHabit}
+        />
+      ) : pet.walletKind === 'onchain' ? (
         <AddressCard address={pet.walletLabel} isDemo={pet.isDemo} balanceSats={balanceSats} />
       ) : (
         <LightningCard

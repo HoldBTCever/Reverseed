@@ -1,4 +1,14 @@
-import type { EvolutionStage, HabitCounts, HabitKind, HabitTimestamps, Mood, PetState, PetStatus, WalletKind } from '../types';
+import type {
+  EvolutionStage,
+  HabitCounts,
+  HabitKind,
+  HabitTimestamps,
+  Mood,
+  PendingHabit,
+  PetState,
+  PetStatus,
+  WalletKind,
+} from '../types';
 
 export const STAGES: EvolutionStage[] = [
   {
@@ -40,14 +50,19 @@ export const STAGES: EvolutionStage[] = [
 ];
 
 export const HABIT_KINDS: HabitKind[] = ['carnivore', 'austrianSchool', 'gym'];
-export const HABIT_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 export const HABIT_BADGE_THRESHOLD = 5;
 export const INTELLIGENCE_GLASSES_THRESHOLD = 70;
 
-export const HABIT_INFO: Record<HabitKind, { label: string; flavor: string; icon: string }> = {
-  carnivore: { label: 'Dieta Carnívora', flavor: 'Só carne, sal e água — fortalece o corpo.', icon: '🥩' },
-  austrianSchool: { label: 'Escola Austríaca', flavor: 'Mises, Hayek, Rothbard — fortalece a mente e a inteligência.', icon: '📖' },
-  gym: { label: 'Treinar', flavor: 'Ficar difícil de matar — fortalece o corpo e desestressa.', icon: '💪' },
+/** Each habit's cost in sats — it only completes once a payment of at least this size is received. */
+export const HABIT_INFO: Record<HabitKind, { label: string; flavor: string; icon: string; costSats: number }> = {
+  carnivore: { label: 'Dieta Carnívora', flavor: 'Só carne, sal e água — fortalece o corpo.', icon: '🥩', costSats: 1_000 },
+  gym: { label: 'Treinar', flavor: 'Ficar difícil de matar — fortalece o corpo e desestressa.', icon: '💪', costSats: 1_500 },
+  austrianSchool: {
+    label: 'Escola Austríaca',
+    flavor: 'Mises, Hayek, Rothbard — fortalece a mente e a inteligência.',
+    icon: '📖',
+    costSats: 2_000,
+  },
 };
 
 export type StatKey = 'hunger' | 'happiness' | 'energy' | 'physicalHealth' | 'mentalHealth' | 'intelligence';
@@ -84,7 +99,7 @@ function emptyHabitTimestamps(): HabitTimestamps {
   return { carnivore: null, austrianSchool: null, gym: null };
 }
 
-/** Backfills fields on a PetState persisted before they existed (habits, and the physicalHealth/mentalHealth/intelligence split of the old single `health`). */
+/** Backfills fields on a PetState persisted before they existed (habits, the physicalHealth/mentalHealth/intelligence split of the old single `health`, and pendingHabit). */
 export function migratePetState(state: PetState): PetState {
   const legacy = state as PetState & { health?: number; isSleeping?: boolean };
   const legacyHealth = legacy.health;
@@ -95,6 +110,7 @@ export function migratePetState(state: PetState): PetState {
     physicalHealth: state.physicalHealth ?? legacyHealth ?? 100,
     mentalHealth: state.mentalHealth ?? legacyHealth ?? 100,
     intelligence: state.intelligence ?? 40,
+    pendingHabit: state.pendingHabit ?? null,
   };
 }
 
@@ -156,6 +172,7 @@ export function createPetState(
     name: 'Satoshi',
     habits: emptyHabitCounts(),
     lastHabitAt: emptyHabitTimestamps(),
+    pendingHabit: null,
   };
 }
 
@@ -277,6 +294,12 @@ export function feedEffectDeltas(sats: number, wasHibernating: boolean) {
 /**
  * Applies a real (or demo) incoming payment as a "meal". Idempotent per
  * txid so re-polling the same transaction never double-feeds the pet.
+ *
+ * If a habit is pending and this payment meets its cost, the habit's own
+ * stat effects are applied on top and it's marked complete — a habit is
+ * "concluded" only once its equivalent sats are actually received, whether
+ * that arrives as an explicit invoice payment or an ordinary detected
+ * deposit that happens to be large enough.
  */
 export function applyFeed(state: PetState, txid: string, sats: number, at: number): PetState {
   if (state.status === 'gone') return state;
@@ -288,11 +311,30 @@ export function applyFeed(state: PetState, txid: string, sats: number, at: numbe
   const wasHibernating = state.status === 'hibernating';
   const deltas = feedEffectDeltas(sats, wasHibernating);
 
-  const hunger = clamp(state.hunger + deltas.hunger);
-  const happiness = clamp(state.happiness + deltas.happiness);
-  const energy = clamp(state.energy + deltas.energy);
-  const physicalHealth = clamp(state.physicalHealth + deltas.physicalHealth);
-  const mentalHealth = clamp(state.mentalHealth + deltas.mentalHealth);
+  let hunger = clamp(state.hunger + deltas.hunger);
+  let happiness = clamp(state.happiness + deltas.happiness);
+  let energy = clamp(state.energy + deltas.energy);
+  let physicalHealth = clamp(state.physicalHealth + deltas.physicalHealth);
+  let mentalHealth = clamp(state.mentalHealth + deltas.mentalHealth);
+  let intelligence = state.intelligence;
+  let habits = state.habits;
+  let lastHabitAt = state.lastHabitAt;
+  let pendingHabit = state.pendingHabit;
+
+  if (pendingHabit && sats >= pendingHabit.costSats) {
+    const kind = pendingHabit.kind;
+    const effects = HABIT_STAT_EFFECTS[kind];
+    if (effects.hunger) hunger = clamp(hunger + effects.hunger);
+    if (effects.happiness) happiness = clamp(happiness + effects.happiness);
+    if (effects.energy) energy = clamp(energy + effects.energy);
+    if (effects.physicalHealth) physicalHealth = clamp(physicalHealth + effects.physicalHealth);
+    if (effects.mentalHealth) mentalHealth = clamp(mentalHealth + effects.mentalHealth);
+    if (effects.intelligence) intelligence = clamp(intelligence + effects.intelligence);
+    habits = { ...state.habits, [kind]: state.habits[kind] + 1 };
+    lastHabitAt = { ...state.lastHabitAt, [kind]: at };
+    pendingHabit = null;
+  }
+
   const totalSatsFed = state.totalSatsFed + sats;
 
   return {
@@ -302,6 +344,10 @@ export function applyFeed(state: PetState, txid: string, sats: number, at: numbe
     energy,
     physicalHealth,
     mentalHealth,
+    intelligence,
+    habits,
+    lastHabitAt,
+    pendingHabit,
     totalSatsFed,
     status: 'alive',
     hibernatingSince: null,
@@ -329,23 +375,20 @@ export const HABIT_STAT_EFFECTS: Record<HabitKind, Partial<Record<StatKey, numbe
   gym: { physicalHealth: 14, mentalHealth: 6, happiness: 4, energy: -10 },
 };
 
-/** Practices a Bitcoiner-lifestyle habit — a free action that never affects evolution stage, only stats and cosmetic badges. */
-export function practiceHabit(state: PetState, kind: HabitKind, now = Date.now()): PetState {
+/**
+ * Starts a habit — it stays pending, with no stat effect yet, until a
+ * payment of at least its cost is received (see applyFeed). Replaces
+ * whatever habit was previously pending, if any.
+ */
+export function requestHabit(state: PetState, kind: HabitKind, now = Date.now()): PetState {
   if (state.status !== 'alive') return state;
-  const last = state.lastHabitAt[kind];
-  if (last && now - last < HABIT_COOLDOWN_MS) return state;
+  const pendingHabit: PendingHabit = { kind, costSats: HABIT_INFO[kind].costSats, requestedAt: now };
+  return { ...state, pendingHabit };
+}
 
-  const effects = HABIT_STAT_EFFECTS[kind];
-  const next: PetState = { ...state };
-  for (const [stat, delta] of Object.entries(effects) as [StatKey, number][]) {
-    next[stat] = clamp(state[stat] + delta);
-  }
-
-  return {
-    ...next,
-    habits: { ...state.habits, [kind]: state.habits[kind] + 1 },
-    lastHabitAt: { ...state.lastHabitAt, [kind]: now },
-  };
+export function cancelPendingHabit(state: PetState): PetState {
+  if (!state.pendingHabit) return state;
+  return { ...state, pendingHabit: null };
 }
 
 export function hasHabitBadge(state: PetState, kind: HabitKind): boolean {
