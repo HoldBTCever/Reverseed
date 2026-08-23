@@ -145,6 +145,17 @@ export function isNightInBrazil(now: number): boolean {
   return hour >= 23 || hour < 7;
 }
 
+/** Calendar date (YYYY-MM-DD) in America/Sao_Paulo for the given instant — the day boundary each habit resets on. */
+function brazilDateKey(now: number): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(now);
+}
+
+/** Whether this habit was already completed today (Brasília calendar day) — each habit is limited to once a day. */
+export function hasCompletedHabitToday(state: PetState, kind: HabitKind, now = Date.now()): boolean {
+  const last = state.lastHabitAt[kind];
+  return last !== null && brazilDateKey(last) === brazilDateKey(now);
+}
+
 export function createPetState(
   walletKind: WalletKind,
   walletLabel: string,
@@ -378,10 +389,12 @@ export const HABIT_STAT_EFFECTS: Record<HabitKind, Partial<Record<StatKey, numbe
 /**
  * Starts a habit — it stays pending, with no stat effect yet, until a
  * payment of at least its cost is received (see applyFeed). Replaces
- * whatever habit was previously pending, if any.
+ * whatever habit was previously pending, if any. No-ops if this habit was
+ * already completed today (Brasília calendar day) — each is once-a-day.
  */
 export function requestHabit(state: PetState, kind: HabitKind, now = Date.now()): PetState {
   if (state.status !== 'alive') return state;
+  if (hasCompletedHabitToday(state, kind, now)) return state;
   const pendingHabit: PendingHabit = { kind, costSats: HABIT_INFO[kind].costSats, requestedAt: now };
   return { ...state, pendingHabit };
 }

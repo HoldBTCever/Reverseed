@@ -53,8 +53,10 @@ baixa preferência temporal: estabilidade, família, saúde, liberdade.
 
    **Cada ação só é considerada concluída depois que o app recebe uma
    quantidade de sats equivalente a ela** (1.000 / 1.500 / 2.000 sats,
-   respectivamente) — não é um clique grátis. Ao escolher uma ação, o app
-   mostra quanto falta receber:
+   respectivamente) — não é um clique grátis. Cada uma também só pode ser
+   completada **uma vez por dia** (fuso de Brasília) — ao concluir, o botão
+   fica marcado "Feito hoje" e libera de novo no dia seguinte. Ao escolher
+   uma ação, o app mostra quanto falta receber:
    - **Lightning**: gera uma fatura de valor fixo para aquela ação
      específica (mesmo fluxo de verificação da alimentação: LUD-21, WebLN,
      ou confirmação manual).

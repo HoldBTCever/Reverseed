@@ -19,6 +19,7 @@ import {
 
 const ADDRESS = 'bc1qtestaddress0000000000000000000000000';
 const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 
 describe('stageForTotalSats', () => {
   it('starts still asleep in the fiat system', () => {
@@ -309,17 +310,53 @@ describe('applyFeed — habit completion', () => {
 });
 
 describe('hasHabitBadge', () => {
-  it('is false below the threshold and true once reached', () => {
-    const now = Date.now();
+  it('is false below the threshold and true once reached, one completion per day', () => {
+    // Anchor at noon UTC so +N days never drifts across the Brasília date boundary unexpectedly.
+    const now = new Date('2024-06-01T12:00:00Z').getTime();
     let state = createPetState('onchain', ADDRESS, false, now);
     for (let i = 0; i < HABIT_BADGE_THRESHOLD - 1; i++) {
-      state = requestHabit(state, 'gym', now + i);
-      state = applyFeed(state, `tx${i}`, HABIT_INFO.gym.costSats, now + i);
+      const at = now + i * DAY;
+      state = requestHabit(state, 'gym', at);
+      state = applyFeed(state, `tx${i}`, HABIT_INFO.gym.costSats, at);
     }
     expect(hasHabitBadge(state, 'gym')).toBe(false);
-    state = requestHabit(state, 'gym', now + HABIT_BADGE_THRESHOLD);
-    state = applyFeed(state, `tx-final`, HABIT_INFO.gym.costSats, now + HABIT_BADGE_THRESHOLD);
+    const finalAt = now + (HABIT_BADGE_THRESHOLD - 1) * DAY;
+    state = requestHabit(state, 'gym', finalAt);
+    state = applyFeed(state, `tx-final`, HABIT_INFO.gym.costSats, finalAt);
     expect(hasHabitBadge(state, 'gym')).toBe(true);
+  });
+});
+
+describe('daily habit limit', () => {
+  it('blocks requesting the same habit again on the same Brasília day', () => {
+    const now = new Date('2024-06-01T12:00:00Z').getTime(); // 09:00 BRT
+    let state = createPetState('onchain', ADDRESS, false, now);
+    state = requestHabit(state, 'gym', now);
+    state = applyFeed(state, 'tx1', HABIT_INFO.gym.costSats, now);
+    expect(state.pendingHabit).toBeNull();
+
+    const laterSameDay = requestHabit(state, 'gym', now + 6 * HOUR);
+    expect(laterSameDay.pendingHabit).toBeNull(); // still blocked, no-op
+  });
+
+  it('allows the same habit again the next Brasília day', () => {
+    const now = new Date('2024-06-01T12:00:00Z').getTime();
+    let state = createPetState('onchain', ADDRESS, false, now);
+    state = requestHabit(state, 'gym', now);
+    state = applyFeed(state, 'tx1', HABIT_INFO.gym.costSats, now);
+
+    const nextDay = requestHabit(state, 'gym', now + DAY);
+    expect(nextDay.pendingHabit).toEqual({ kind: 'gym', costSats: HABIT_INFO.gym.costSats, requestedAt: now + DAY });
+  });
+
+  it('does not block a different habit on the same day', () => {
+    const now = new Date('2024-06-01T12:00:00Z').getTime();
+    let state = createPetState('onchain', ADDRESS, false, now);
+    state = requestHabit(state, 'gym', now);
+    state = applyFeed(state, 'tx1', HABIT_INFO.gym.costSats, now);
+
+    const carnivoreSameDay = requestHabit(state, 'carnivore', now + HOUR);
+    expect(carnivoreSameDay.pendingHabit?.kind).toBe('carnivore');
   });
 });
 

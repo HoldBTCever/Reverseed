@@ -3,7 +3,9 @@ import {
   describeEffects,
   feedEffectDeltas,
   HABIT_INFO,
+  HABIT_KINDS,
   HABIT_STAT_EFFECTS,
+  hasCompletedHabitToday,
   hasHabitBadge,
   isNightInBrazil,
   moodFor,
@@ -64,6 +66,9 @@ export default function GameScreen({
     gym: hasHabitBadge(pet, 'gym'),
   };
   const now = Date.now();
+  const doneToday = Object.fromEntries(
+    HABIT_KINDS.map((kind) => [kind, hasCompletedHabitToday(pet, kind, now)]),
+  ) as Record<HabitKind, boolean>;
   const isNight = isNightInBrazil(now);
   const brasiliaTime = new Intl.DateTimeFormat('pt-BR', {
     hour: '2-digit',
@@ -154,6 +159,7 @@ export default function GameScreen({
         <ActionBar
           disabled={!isInteractive}
           habitsDisabled={pet.pendingHabit !== null}
+          doneToday={doneToday}
           onPlay={onPlay}
           onRefresh={onRefresh}
           onRequestHabit={onRequestHabit}
