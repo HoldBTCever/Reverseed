@@ -3,9 +3,12 @@ import {
   applyFeed,
   applyTick,
   createPetState,
+  describeEffects,
+  feedEffectDeltas,
   feedPointsForSats,
   HABIT_BADGE_THRESHOLD,
   HABIT_COOLDOWN_MS,
+  HABIT_STAT_EFFECTS,
   hasHabitBadge,
   isNightInBrazil,
   moodFor,
@@ -307,5 +310,34 @@ describe('hasHabitBadge', () => {
     expect(hasHabitBadge(state, 'gym')).toBe(false);
     state = practiceHabit(state, 'gym', now + HABIT_BADGE_THRESHOLD * HABIT_COOLDOWN_MS);
     expect(hasHabitBadge(state, 'gym')).toBe(true);
+  });
+});
+
+describe('feedEffectDeltas', () => {
+  it('gives a bigger boost the larger the payment', () => {
+    const small = feedEffectDeltas(1_000, false);
+    const large = feedEffectDeltas(100_000, false);
+    expect(large.physicalHealth).toBeGreaterThan(small.physicalHealth);
+    expect(large.mentalHealth).toBeGreaterThan(small.mentalHealth);
+  });
+
+  it('gives a flat revival boost to health when the pet was hibernating', () => {
+    const deltas = feedEffectDeltas(1_000, true);
+    expect(deltas.physicalHealth).toBe(25);
+    expect(deltas.mentalHealth).toBe(25);
+  });
+});
+
+describe('describeEffects', () => {
+  it('formats each nonzero delta with its sign, icon and label', () => {
+    const text = describeEffects(HABIT_STAT_EFFECTS.gym);
+    expect(text).toContain('+14 💪 Saúde Física');
+    expect(text).toContain('-10 ⚡ Energia');
+  });
+
+  it('omits stats with a zero or negligible delta', () => {
+    const text = describeEffects({ hunger: 0.2, physicalHealth: 5 });
+    expect(text).not.toContain('Fome');
+    expect(text).toContain('+5 💪 Saúde Física');
   });
 });

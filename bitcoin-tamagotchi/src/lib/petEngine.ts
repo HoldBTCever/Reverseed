@@ -50,6 +50,32 @@ export const HABIT_INFO: Record<HabitKind, { label: string; flavor: string; icon
   gym: { label: 'Treinar', flavor: 'Ficar difícil de matar — fortalece o corpo e desestressa.', icon: '💪' },
 };
 
+export type StatKey = 'hunger' | 'happiness' | 'energy' | 'physicalHealth' | 'mentalHealth' | 'intelligence';
+
+/** Icon + display label for each stat — the single source used by both the stat bars and the on-action feedback toast. */
+export const STAT_META: Record<StatKey, { icon: string; label: string }> = {
+  hunger: { icon: '🍗', label: 'Fome' },
+  happiness: { icon: '💛', label: 'Felicidade' },
+  energy: { icon: '⚡', label: 'Energia' },
+  physicalHealth: { icon: '💪', label: 'Saúde Física' },
+  mentalHealth: { icon: '🧘', label: 'Saúde Mental' },
+  intelligence: { icon: '🧠', label: 'Inteligência' },
+};
+
+/** Renders the most significant stat deltas as a short human-readable summary, e.g. "+14 💪 Saúde Física · -10 ⚡ Energia". */
+export function describeEffects(deltas: Partial<Record<StatKey, number>>, limit = 2): string {
+  return (Object.entries(deltas) as [StatKey, number][])
+    .filter(([, delta]) => Math.round(delta) !== 0)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+    .slice(0, limit)
+    .map(([stat, delta]) => {
+      const rounded = Math.round(delta);
+      const sign = rounded > 0 ? '+' : '';
+      return `${sign}${rounded} ${STAT_META[stat].icon} ${STAT_META[stat].label}`;
+    })
+    .join(' · ');
+}
+
 function emptyHabitCounts(): HabitCounts {
   return { carnivore: 0, austrianSchool: 0, gym: 0 };
 }
@@ -227,6 +253,27 @@ export function feedPointsForSats(sats: number): number {
   return clamp(raw, 3, 45);
 }
 
+// Multipliers converting feed "points" (see feedPointsForSats) into each stat's gain.
+const FEED_HUNGER_MULT = 1;
+const FEED_HAPPINESS_MULT = 0.6;
+const FEED_ENERGY_MULT = 0.3;
+// Real sats mean financial security — mostly relieves mental stress, with a smaller physical benefit (better food, care).
+const FEED_PHYSICAL_HEALTH_MULT = 0.25;
+const FEED_MENTAL_HEALTH_MULT = 0.4;
+const FEED_REVIVE_HEALTH_BOOST = 25;
+
+/** Unclamped stat deltas a payment of this size would apply — used to show the player what a feed actually did. */
+export function feedEffectDeltas(sats: number, wasHibernating: boolean) {
+  const points = feedPointsForSats(sats);
+  return {
+    hunger: points * FEED_HUNGER_MULT,
+    happiness: points * FEED_HAPPINESS_MULT,
+    energy: points * FEED_ENERGY_MULT,
+    physicalHealth: wasHibernating ? FEED_REVIVE_HEALTH_BOOST : points * FEED_PHYSICAL_HEALTH_MULT,
+    mentalHealth: wasHibernating ? FEED_REVIVE_HEALTH_BOOST : points * FEED_MENTAL_HEALTH_MULT,
+  };
+}
+
 /**
  * Applies a real (or demo) incoming payment as a "meal". Idempotent per
  * txid so re-polling the same transaction never double-feeds the pet.
@@ -238,15 +285,14 @@ export function applyFeed(state: PetState, txid: string, sats: number, at: numbe
     return { ...state, seenTxids: pushCapped(state.seenTxids, txid, MAX_SEEN_TXIDS) };
   }
 
-  const points = feedPointsForSats(sats);
   const wasHibernating = state.status === 'hibernating';
+  const deltas = feedEffectDeltas(sats, wasHibernating);
 
-  const hunger = clamp(state.hunger + points);
-  const happiness = clamp(state.happiness + points * 0.6);
-  const energy = clamp(state.energy + points * 0.3);
-  // Real sats mean financial security — mostly relieves mental stress, with a smaller physical benefit (better food, care).
-  const physicalHealth = clamp(state.physicalHealth + (wasHibernating ? 25 : points * 0.1));
-  const mentalHealth = clamp(state.mentalHealth + (wasHibernating ? 25 : points * 0.3));
+  const hunger = clamp(state.hunger + deltas.hunger);
+  const happiness = clamp(state.happiness + deltas.happiness);
+  const energy = clamp(state.energy + deltas.energy);
+  const physicalHealth = clamp(state.physicalHealth + deltas.physicalHealth);
+  const mentalHealth = clamp(state.mentalHealth + deltas.mentalHealth);
   const totalSatsFed = state.totalSatsFed + sats;
 
   return {
@@ -276,42 +322,27 @@ export function play(state: PetState, now = Date.now()): PetState {
   };
 }
 
+/** Each habit's stat deltas — the single source of truth for both applying the habit and telling the player what it did. */
+export const HABIT_STAT_EFFECTS: Record<HabitKind, Partial<Record<StatKey, number>>> = {
+  carnivore: { hunger: 8, physicalHealth: 12, energy: 4 },
+  austrianSchool: { intelligence: 14, mentalHealth: 8, happiness: 4, energy: -3 },
+  gym: { physicalHealth: 14, mentalHealth: 6, happiness: 4, energy: -10 },
+};
+
 /** Practices a Bitcoiner-lifestyle habit — a free action that never affects evolution stage, only stats and cosmetic badges. */
 export function practiceHabit(state: PetState, kind: HabitKind, now = Date.now()): PetState {
   if (state.status !== 'alive') return state;
   const last = state.lastHabitAt[kind];
   if (last && now - last < HABIT_COOLDOWN_MS) return state;
 
-  let { hunger, happiness, energy, physicalHealth, mentalHealth, intelligence } = state;
-
-  switch (kind) {
-    case 'carnivore':
-      hunger = clamp(hunger + 8);
-      physicalHealth = clamp(physicalHealth + 12);
-      energy = clamp(energy + 4);
-      break;
-    case 'austrianSchool':
-      intelligence = clamp(intelligence + 14);
-      mentalHealth = clamp(mentalHealth + 8);
-      happiness = clamp(happiness + 4);
-      energy = clamp(energy - 3);
-      break;
-    case 'gym':
-      physicalHealth = clamp(physicalHealth + 14);
-      mentalHealth = clamp(mentalHealth + 6);
-      happiness = clamp(happiness + 4);
-      energy = clamp(energy - 10);
-      break;
+  const effects = HABIT_STAT_EFFECTS[kind];
+  const next: PetState = { ...state };
+  for (const [stat, delta] of Object.entries(effects) as [StatKey, number][]) {
+    next[stat] = clamp(state[stat] + delta);
   }
 
   return {
-    ...state,
-    hunger,
-    happiness,
-    energy,
-    physicalHealth,
-    mentalHealth,
-    intelligence,
+    ...next,
     habits: { ...state.habits, [kind]: state.habits[kind] + 1 },
     lastHabitAt: { ...state.lastHabitAt, [kind]: now },
   };

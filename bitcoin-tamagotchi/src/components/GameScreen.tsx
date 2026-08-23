@@ -1,4 +1,15 @@
-import { hasHabitBadge, isNightInBrazil, moodFor, stageForTotalSats } from '../lib/petEngine';
+import { useEffect, useRef, useState } from 'react';
+import {
+  describeEffects,
+  feedEffectDeltas,
+  HABIT_COOLDOWN_MS,
+  HABIT_INFO,
+  HABIT_STAT_EFFECTS,
+  hasHabitBadge,
+  isNightInBrazil,
+  moodFor,
+  stageForTotalSats,
+} from '../lib/petEngine';
 import type { HabitKind, LinkedWallet, PetState } from '../types';
 import PetSprite from './PetSprite';
 import StatBar from './StatBar';
@@ -58,6 +69,36 @@ export default function GameScreen({
     timeZone: 'America/Sao_Paulo',
   }).format(now);
 
+  const [toast, setToast] = useState<{ text: string; key: number } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+  }, []);
+
+  const showToast = (text: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ text, key: Date.now() });
+    toastTimer.current = setTimeout(() => setToast(null), 2600);
+  };
+
+  const handleFeed = (id: string, sats: number) => {
+    const deltas = feedEffectDeltas(sats, pet.status === 'hibernating');
+    showToast(`+${sats.toLocaleString('pt-BR')} sats · ${describeEffects(deltas)}`);
+    onFeed(id, sats);
+  };
+
+  const handleHabit = (kind: HabitKind) => {
+    const last = pet.lastHabitAt[kind];
+    const onCooldown = last !== null && Date.now() - last < HABIT_COOLDOWN_MS;
+    showToast(
+      onCooldown
+        ? `⏳ ${HABIT_INFO[kind].label}: espere um pouco antes de repetir.`
+        : describeEffects(HABIT_STAT_EFFECTS[kind]),
+    );
+    onHabit(kind);
+  };
+
   return (
     <div className="game-screen">
       <TopHeader
@@ -71,14 +112,17 @@ export default function GameScreen({
 
       <div className="device-shell">
         <div className="device-screen">
-          <PetSprite
-            stageId={stage.id}
-            mood={mood}
-            habitBadges={habitBadges}
-            physicalHealth={pet.physicalHealth}
-            intelligence={pet.intelligence}
-            isSleeping={isNight && isInteractive}
-          />
+          <div key={toast?.key ?? 'idle'} className={`avatar-frame ${toast ? 'avatar-frame--pulse' : ''}`}>
+            <PetSprite
+              stageId={stage.id}
+              mood={mood}
+              habitBadges={habitBadges}
+              physicalHealth={pet.physicalHealth}
+              intelligence={pet.intelligence}
+              isSleeping={isNight && isInteractive}
+            />
+            {toast && <p className="feedback-toast">{toast.text}</p>}
+          </div>
           <p className="device-screen__clock">
             {isNight ? '🌙' : '☀️'} {brasiliaTime} (Brasília) {isNight && isInteractive ? '· dormindo' : ''}
           </p>
@@ -94,7 +138,7 @@ export default function GameScreen({
           <StatBar label="Inteligência" icon="🧠" value={pet.intelligence} />
         </div>
 
-        <ActionBar disabled={!isInteractive} onPlay={onPlay} onRefresh={onRefresh} onHabit={onHabit} refreshing={walletLoading} />
+        <ActionBar disabled={!isInteractive} onPlay={onPlay} onRefresh={onRefresh} onHabit={handleHabit} refreshing={walletLoading} />
       </div>
 
       {pet.walletKind === 'onchain' ? (
@@ -105,7 +149,7 @@ export default function GameScreen({
           isDemo={pet.isDemo}
           lightningAddress={linked.kind === 'lightning' && !linked.isDemo ? linked.lightningAddress : null}
           balanceSats={balanceSats}
-          onFeed={onFeed}
+          onFeed={handleFeed}
         />
       )}
 

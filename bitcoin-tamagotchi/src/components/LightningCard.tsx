@@ -172,6 +172,11 @@ function GenerateInvoiceSection({ lightningAddress, onFeed }: { lightningAddress
           {generating ? 'Gerando…' : 'Gerar fatura'}
         </button>
       </div>
+      {Number(amount) > 0 && (
+        <p className="lightning-card__selected">
+          Fatura de <strong>{Number(amount).toLocaleString('pt-BR')} sats</strong>
+        </p>
+      )}
       {error && <p className="onboarding__error">{error}</p>}
     </div>
   );
