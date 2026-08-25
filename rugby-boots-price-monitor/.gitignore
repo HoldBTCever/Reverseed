@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+data/fx_cache.json
+data/last_run.json

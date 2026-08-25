@@ -1,0 +1,33 @@
+{
+  "brands": [
+    "Canterbury",
+    "Gilbert",
+    "Mizuno",
+    "ASICS",
+    "adidas",
+    "Under Armour",
+    "Kooga",
+    "X Blades",
+    "Ridgeline",
+    "Barbarian",
+    "Kukri",
+    "Puma",
+    "Nike",
+    "Rhino"
+  ],
+  "noise_words": [
+    "rugby", "boot", "boots", "cleat", "cleats", "shoe", "shoes",
+    "men's", "mens", "women's", "womens", "kids", "junior", "youth",
+    "footwear", "spike", "spikes", "ラグビー", "スパイク",
+    "botines", "botin", "de", "para", "hombre", "mujer", "niño",
+    "black", "white", "red", "blue", "gold", "silver", "navy", "green",
+    "yellow", "orange", "purple", "grey", "gray", "pink", "multi",
+    "preto", "branco", "vermelho", "azul", "dourado", "prata", "verde",
+    "amarelo", "laranja", "roxo", "cinza", "rosa",
+    "negro", "blanco", "rojo", "amarillo", "gris", "morado"
+  ],
+  "version_tokens": [
+    "elite", "pro", "team", "club", "low", "mid", "high", "SG", "FG", "AG",
+    "v1", "v2", "v3", "x9", "photon", "lite"
+  ]
+}

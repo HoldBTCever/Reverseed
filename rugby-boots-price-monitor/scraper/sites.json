@@ -1,0 +1,93 @@
+[
+  {
+    "id": "worldrugbyshop",
+    "name": "World Rugby Shop",
+    "region": "USA",
+    "country": "US",
+    "currency": "USD",
+    "base_url": "https://www.worldrugbyshop.com",
+    "listing_urls": [
+      "https://www.worldrugbyshop.com/collections/rugby-boots"
+    ],
+    "adapter": "shopify_jsonld",
+    "product_link_pattern": "/products/"
+  },
+  {
+    "id": "rugbyimports",
+    "name": "Rugby Imports",
+    "region": "USA",
+    "country": "US",
+    "currency": "USD",
+    "base_url": "https://www.rugbyimports.com",
+    "listing_urls": [
+      "https://www.rugbyimports.com/collections/rugby-boots-cleats"
+    ],
+    "adapter": "shopify_jsonld",
+    "product_link_pattern": "/products/"
+  },
+  {
+    "id": "lovellrugby",
+    "name": "Lovell Rugby",
+    "region": "Europe (UK)",
+    "country": "GB",
+    "currency": "GBP",
+    "base_url": "https://www.lovellrugby.co.uk",
+    "listing_urls": [
+      "https://www.lovellrugby.co.uk/boots/"
+    ],
+    "adapter": "generic_jsonld",
+    "product_link_pattern": "/p/"
+  },
+  {
+    "id": "decathlon_fr",
+    "name": "Decathlon",
+    "region": "Europe (FR)",
+    "country": "FR",
+    "currency": "EUR",
+    "base_url": "https://www.decathlon.fr",
+    "listing_urls": [
+      "https://www.decathlon.fr/browse/c0-sports/c1-rugby/c2-chaussures-de-rugby"
+    ],
+    "adapter": "generic_jsonld",
+    "product_link_pattern": "/p/"
+  },
+  {
+    "id": "rakuten_jp",
+    "name": "Rakuten Ichiba",
+    "region": "Japan",
+    "country": "JP",
+    "currency": "JPY",
+    "base_url": "https://search.rakuten.co.jp",
+    "listing_urls": [
+      "https://search.rakuten.co.jp/search/mall/%E3%83%A9%E3%82%B0%E3%83%93%E3%83%BC+%E3%82%B9%E3%83%91%E3%82%A4%E3%82%AF/"
+    ],
+    "adapter": "rakuten_search",
+    "product_link_pattern": "item.rakuten.co.jp"
+  },
+  {
+    "id": "mercadolibre_ar",
+    "name": "MercadoLibre Argentina",
+    "region": "Argentina",
+    "country": "AR",
+    "currency": "ARS",
+    "base_url": "https://listado.mercadolibre.com.ar",
+    "listing_urls": [
+      "https://listado.mercadolibre.com.ar/botines-de-rugby"
+    ],
+    "adapter": "mercadolibre_search",
+    "product_link_pattern": "articulo.mercadolibre.com.ar"
+  },
+  {
+    "id": "mercadolibre_py",
+    "name": "MercadoLibre Paraguay",
+    "region": "Paraguay",
+    "country": "PY",
+    "currency": "PYG",
+    "base_url": "https://listado.mercadolibre.com.py",
+    "listing_urls": [
+      "https://listado.mercadolibre.com.py/botines-de-rugby"
+    ],
+    "adapter": "mercadolibre_search",
+    "product_link_pattern": "articulo.mercadolibre.com.py"
+  }
+]
